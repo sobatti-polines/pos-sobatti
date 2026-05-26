@@ -1,0 +1,1 @@
+ALTER TABLE barang_masuk ADD COLUMN IF NOT EXISTS keterangan TEXT;
