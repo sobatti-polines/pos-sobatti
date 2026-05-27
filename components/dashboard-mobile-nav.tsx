@@ -17,8 +17,14 @@ import {
   Users,
   Truck,
   Menu,
-  X
+  X,
+  Camera,
+  UserCheck,
+  QrCode,
+  LogOut
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 const bottomLinks = [
@@ -28,7 +34,15 @@ const bottomLinks = [
 
 export function DashboardMobileNav({ role }: { role?: string }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
   const [isOpen, setIsOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  };
 
   // Close the menu when pathname changes
   useEffect(() => {
@@ -65,6 +79,8 @@ export function DashboardMobileNav({ role }: { role?: string }) {
       : "flex items-center gap-3 px-3 py-2.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-sm";
   };
 
+  const isOwner = role === "OWNER";
+  const isStaff = role === "ADMIN" || role === "KASIR";
   const isOwnerOrAdmin = role === "OWNER" || role === "ADMIN";
 
   return (
@@ -180,6 +196,44 @@ export function DashboardMobileNav({ role }: { role?: string }) {
                   <BarChart3 className="w-5 h-5" />
                   <span>Laporan</span>
                 </Link>
+
+                {/* Attendance section for Staff (ADMIN/KASIR) */}
+                {isStaff && (
+                  <div className="mt-4 pt-4 border-t border-border/50">
+                    <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Absensi Saya
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Link href="/dashboard/attendance/scan" className={linkClass("/dashboard/attendance/scan")}>
+                        <Camera className="w-5 h-5" />
+                        <span>Scan QR Absensi</span>
+                      </Link>
+                      <Link href="/dashboard/attendance/history" className={linkClass("/dashboard/attendance/history")}>
+                        <UserCheck className="w-5 h-5" />
+                        <span>Riwayat Absen</span>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* Admin/Owner section for OWNER */}
+                {isOwner && (
+                  <div className="mt-4 pt-4 border-t border-border/50">
+                    <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Manajemen Absensi
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Link href="/dashboard/attendance/generate-qr" className={linkClass("/dashboard/attendance/generate-qr")}>
+                        <QrCode className="w-5 h-5" />
+                        <span>Generate QR</span>
+                      </Link>
+                      <Link href="/dashboard/attendance/report" className={linkClass("/dashboard/attendance/report")}>
+                        <UserCheck className="w-5 h-5" />
+                        <span>Laporan Pegawai</span>
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </nav>
 
               <div className="flex flex-col gap-2 mt-8 pt-6 border-t border-border">
@@ -189,6 +243,14 @@ export function DashboardMobileNav({ role }: { role?: string }) {
                     <span>{label}</span>
                   </Link>
                 ))}
+                
+                <button 
+                  onClick={handleLogout} 
+                  className="flex items-center gap-3 px-3 py-3 rounded-md text-destructive hover:bg-destructive/10 transition-colors w-full text-left mt-2"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="font-medium">Keluar</span>
+                </button>
               </div>
             </div>
           </div>

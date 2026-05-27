@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/logout-button";
+import { AttendanceWidget } from "@/components/attendance-widget";
 import {
   Table,
   TableBody,
@@ -59,6 +60,8 @@ export default async function DashboardPage() {
           <LogoutButton />
         </div>
       </header>
+
+      <AttendanceWidget />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
         <section className="flex flex-col">

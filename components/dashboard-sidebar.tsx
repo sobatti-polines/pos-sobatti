@@ -16,7 +16,13 @@ import {
   ClipboardList,
   Users,
   Truck,
+  QrCode,
+  UserCheck,
+  Camera,
+  LogOut,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 const bottomLinks = [
   { href: "/dashboard/settings", label: "Pengaturan", icon: Settings },
@@ -25,12 +31,22 @@ const bottomLinks = [
 
 export function DashboardSidebar({ role }: { role?: string }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
 
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  };
+
+  if (!isMounted) return <aside className="w-64 shrink-0 border-r border-border bg-background hidden md:flex flex-col py-6 px-4" />;
 
   const isInventoryActive = pathname.startsWith("/dashboard/inventory");
 
@@ -50,7 +66,9 @@ export function DashboardSidebar({ role }: { role?: string }) {
       : "flex items-center gap-3 px-3 py-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-sm";
   };
 
-  const isOwnerOrAdmin = role === "OWNER" || role === "ADMIN";
+  const isOwner = role === "OWNER";
+  const isStaff = role === "ADMIN" || role === "KASIR";
+  const isManagement = role === "OWNER" || role === "ADMIN";
 
   return (
     <aside className="w-64 shrink-0 border-r border-border bg-background hidden md:flex flex-col py-6 px-4">
@@ -61,13 +79,13 @@ export function DashboardSidebar({ role }: { role?: string }) {
         <span className="text-xl font-light tracking-tight text-foreground">Sobatti POS</span>
       </div>
 
-      <nav className="flex flex-col gap-1 flex-1">
+      <nav className="flex flex-col gap-1 flex-1 overflow-y-auto pr-2 custom-scrollbar">
         <Link href="/dashboard" className={linkClass("/dashboard")}>
           <LayoutGrid className="w-5 h-5" />
           <span className="text-sm">Ringkasan</span>
         </Link>
 
-        {!isOwnerOrAdmin && (
+        {isStaff && (
           <Link href="/pos" className={linkClass("/pos")}>
             <CircleDollarSign className="w-5 h-5" />
             <span className="text-sm">Penjualan</span>
@@ -129,6 +147,44 @@ export function DashboardSidebar({ role }: { role?: string }) {
           <BarChart3 className="w-5 h-5" />
           <span className="text-sm">Laporan</span>
         </Link>
+
+        {/* Attendance section for Staff (ADMIN/KASIR) */}
+        {isStaff && (
+          <div className="mt-4 pt-4 border-t border-border/50">
+            <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Absensi Saya
+            </div>
+            <div className="flex flex-col gap-1">
+              <Link href="/dashboard/attendance/scan" className={linkClass("/dashboard/attendance/scan")}>
+                <Camera className="w-5 h-5" />
+                <span className="text-sm">Scan QR Absensi</span>
+              </Link>
+              <Link href="/dashboard/attendance/history" className={linkClass("/dashboard/attendance/history")}>
+                <UserCheck className="w-5 h-5" />
+                <span className="text-sm">Riwayat Absen</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Admin/Owner section for OWNER */}
+        {isOwner && (
+          <div className="mt-4 pt-4 border-t border-border/50">
+            <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Manajemen Absensi
+            </div>
+            <div className="flex flex-col gap-1">
+              <Link href="/dashboard/attendance/generate-qr" className={linkClass("/dashboard/attendance/generate-qr")}>
+                <QrCode className="w-5 h-5" />
+                <span className="text-sm">Generate QR</span>
+              </Link>
+              <Link href="/dashboard/attendance/report" className={linkClass("/dashboard/attendance/report")}>
+                <UserCheck className="w-5 h-5" />
+                <span className="text-sm">Laporan Pegawai</span>
+              </Link>
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="flex flex-col gap-2 mt-auto pt-6 border-t border-border">
@@ -138,6 +194,14 @@ export function DashboardSidebar({ role }: { role?: string }) {
             <span className="text-sm">{label}</span>
           </Link>
         ))}
+        
+        <button 
+          onClick={handleLogout} 
+          className="flex items-center gap-3 px-3 py-2.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors w-full text-left mt-2"
+        >
+          <LogOut className="w-5 h-5" />
+          <span className="text-sm font-medium">Keluar</span>
+        </button>
       </div>
     </aside>
   );
