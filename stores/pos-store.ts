@@ -256,3 +256,5 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
   },
 }));
+
+// test
