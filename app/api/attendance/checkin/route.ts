@@ -76,9 +76,18 @@ export async function POST(request: Request) {
     const wibMinutes = nowWIB.getUTCMinutes();
     const wibTotalMinutes = wibHours * 60 + wibMinutes;
     
-    // Office start at 09:00 WIB, tolerance 15 mins = 09:15 WIB
-    const officeStartMinutes = 9 * 60;       // 09:00 WIB
-    const toleranceLimitMinutes = 9 * 60 + 15; // 09:15 WIB
+    // Read office start time and tolerance from environment variables, with defaults
+    const envStartTime = process.env.ATTENDANCE_START_TIME || "09:00";
+    const envToleranceStr = process.env.ATTENDANCE_TOLERANCE_MINUTES || "15";
+    
+    // Parse start time (e.g., "09:00")
+    const [startHourStr, startMinStr] = envStartTime.split(":");
+    const startHour = parseInt(startHourStr, 10) || 9;
+    const startMinute = parseInt(startMinStr, 10) || 0;
+    const toleranceMinutes = parseInt(envToleranceStr, 10) || 15;
+
+    const officeStartMinutes = startHour * 60 + startMinute;
+    const toleranceLimitMinutes = officeStartMinutes + toleranceMinutes;
 
     let status = "HADIR";
     let telat_menit = 0;
