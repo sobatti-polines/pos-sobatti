@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Calendar, ChevronLeft, ChevronRight, ClipboardList, Filter } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,7 +22,17 @@ function formatDate(dateStr: string) {
   }).format(date);
 }
 
-export default function OpnameHistoryClient({ initialHistory }: { initialHistory: any[] }) {
+interface OpnameRecord {
+  id: number;
+  tgl_opname: string;
+  produk: { nama_produk: string } | null;
+  stok_sistem: number;
+  stok_fisik: number;
+  selisih: number;
+  keterangan: string | null;
+}
+
+export default function OpnameHistoryClient({ initialHistory }: { initialHistory: OpnameRecord[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState({ start: "", end: "" });
   const [currentPage, setCurrentPage] = useState(1);

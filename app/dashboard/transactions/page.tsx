@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import TransactionsClient from "./transactions-client";
+import type { Transaction } from "./transactions-client";
 
 export default async function TransactionsPage() {
   const supabase = await createClient();
@@ -25,6 +26,9 @@ export default async function TransactionsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transactions = (transactionsRes.data ?? []) as any[] as Transaction[];
+
   return (
     <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto h-full max-h-screen overflow-hidden">
       <header className="shrink-0">
@@ -37,7 +41,7 @@ export default async function TransactionsPage() {
       </header>
 
       <TransactionsClient 
-        initialTransactions={transactionsRes.data ?? []} 
+        initialTransactions={transactions} 
         paymentMethods={paymentMethodsRes.data ?? []} 
         role={role}
       />

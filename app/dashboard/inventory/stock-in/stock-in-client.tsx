@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Plus, Trash2, Check, X, ChevronDown, AlertCircle, PackagePlus, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, AlertCircle, PackagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addStockIn } from "./actions";
@@ -69,10 +69,6 @@ function ProductCombo({
   }, [row.searchText, products]);
 
   useEffect(() => {
-    setHighlightIdx(0);
-  }, [row.searchText]);
-
-  useEffect(() => {
     if (!open) return;
     function handleClickOutside(e: MouseEvent) {
       if (
@@ -131,6 +127,7 @@ function ProductCombo({
 
   const handleInputChange = (value: string) => {
     onChange({ searchText: value, selectedProduct: null });
+    setHighlightIdx(0);
     setOpen(true);
   };
 

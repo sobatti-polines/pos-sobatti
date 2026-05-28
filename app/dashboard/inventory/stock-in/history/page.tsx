@@ -22,6 +22,11 @@ export default async function StockInHistoryPage() {
     supabase.from("supplier").select("id, nama_supplier").order("nama_supplier")
   ]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const history = (historyRes.data ?? []) as any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const suppliers = (suppliersRes.data ?? []) as any[];
+
   return (
     <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto h-full max-h-screen overflow-hidden">
       <header className="shrink-0">
@@ -33,10 +38,7 @@ export default async function StockInHistoryPage() {
         </p>
       </header>
 
-      <StockInHistoryClient 
-        initialHistory={historyRes.data ?? []} 
-        suppliers={suppliersRes.data ?? []} 
-      />
+      <StockInHistoryClient initialHistory={history} suppliers={suppliers} />
     </div>
   );
 }

@@ -4,7 +4,7 @@ import OpnameHistoryClient from "./history-client";
 export default async function StockOpnameHistoryPage() {
   const supabase = await createClient();
 
-  const { data: history } = await supabase
+  const { data: rawHistory } = await supabase
     .from("stok_opname")
     .select(`
       id,
@@ -18,6 +18,9 @@ export default async function StockOpnameHistoryPage() {
     .order("tgl_opname", { ascending: false })
     .order("created_at", { ascending: false });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const history = (rawHistory ?? []) as any[];
+
   return (
     <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto h-full max-h-screen overflow-hidden">
       <header className="shrink-0">
@@ -29,7 +32,7 @@ export default async function StockOpnameHistoryPage() {
         </p>
       </header>
 
-      <OpnameHistoryClient initialHistory={history ?? []} />
+      <OpnameHistoryClient initialHistory={history} />
     </div>
   );
 }

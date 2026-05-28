@@ -2,15 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { 
-  Search, 
-  Calendar, 
-  Filter, 
-  ChevronLeft, 
-  ChevronRight, 
   Clock,
   UserCheck,
   AlertCircle,
-  CheckCircle2,
   CalendarDays
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +24,7 @@ function formatTime(isoString: string | null) {
   return new Date(isoString).toLocaleTimeString("id-ID", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Jakarta"
   });
 }
 
@@ -42,7 +37,17 @@ function formatDate(dateStr: string) {
   }).format(date);
 }
 
-export function HistoryClient({ initialData }: { initialData: any[] }) {
+interface AttendanceRecord {
+  id: string;
+  tanggal: string;
+  jam_masuk: string | null;
+  jam_pulang: string | null;
+  status: string;
+  telat_menit: number;
+  device_info: string | null;
+}
+
+export function HistoryClient({ initialData }: { initialData: AttendanceRecord[] }) {
   const [dateFilter, setDateFilter] = useState({ start: "", end: "" });
 
   const filteredData = useMemo(() => {
@@ -70,32 +75,26 @@ export function HistoryClient({ initialData }: { initialData: any[] }) {
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden">
       <div className="shrink-0 flex flex-col p-4 lg:p-6 border-b border-border bg-transparent gap-6">
         {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <UserCheck className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">Total Hadir</p>
-              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{stats.total} Hari</p>
+        <div className="flex flex-col sm:flex-row gap-8 md:gap-16 pb-2">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Total Hadir</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-light tracking-tight text-foreground tabular-nums">{stats.total}</span>
+              <span className="text-sm text-muted-foreground">hari</span>
             </div>
           </div>
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-warning" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">Total Terlambat</p>
-              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{stats.telat} Kali</p>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Total Terlambat</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-light tracking-tight text-foreground tabular-nums">{stats.telat}</span>
+              <span className="text-sm text-muted-foreground">kali</span>
             </div>
           </div>
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-destructive" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">Total Menit Telat</p>
-              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{stats.totalTelatMenit} Menit</p>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Total Menit Telat</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-light tracking-tight text-foreground tabular-nums">{stats.totalTelatMenit}</span>
+              <span className="text-sm text-muted-foreground">menit</span>
             </div>
           </div>
         </div>
@@ -106,6 +105,7 @@ export function HistoryClient({ initialData }: { initialData: any[] }) {
             <div className="flex items-center gap-2">
               <Input 
                 type="date" 
+                aria-label="Tanggal Mulai"
                 className="rounded-md border px-3 py-2 text-sm w-40 h-10"
                 value={dateFilter.start}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
@@ -113,6 +113,7 @@ export function HistoryClient({ initialData }: { initialData: any[] }) {
               <span className="text-muted-foreground text-sm">s/d</span>
               <Input 
                 type="date" 
+                aria-label="Tanggal Selesai"
                 className="rounded-md border px-3 py-2 text-sm w-40 h-10"
                 value={dateFilter.end}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
@@ -129,7 +130,7 @@ export function HistoryClient({ initialData }: { initialData: any[] }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 relative">
+      <div className="flex-1 overflow-auto min-h-0 relative">
         <Table>
           <TableHeader>
             <TableRow>
@@ -183,7 +184,7 @@ export function HistoryClient({ initialData }: { initialData: any[] }) {
                       <span className="text-xs text-success font-medium">Tepat Waktu</span>
                     )}
                   </TableCell>
-                  <TableCell className="pr-6 text-xs text-muted-foreground truncate max-w-[200px]" title={d.device_info}>
+                  <TableCell className="pr-6 text-xs text-muted-foreground truncate max-w-[200px]" title={d.device_info ?? undefined}>
                     {d.device_info || "-"}
                   </TableCell>
                 </TableRow>

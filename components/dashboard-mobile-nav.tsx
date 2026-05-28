@@ -46,6 +46,7 @@ export function DashboardMobileNav({ role }: { role?: string }) {
 
   // Close the menu when pathname changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsOpen(false);
   }, [pathname]);
 

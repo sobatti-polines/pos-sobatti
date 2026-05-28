@@ -1,28 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// Haversine formula to calculate distance between two points in meters
-function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3; // metres
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  const d = R * c;
-  return d;
-}
-
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
-    const { token, latitude, longitude, device_info } = await request.json();
+    const { token, device_info } = await request.json();
 
     const {
       data: { user },
@@ -59,25 +42,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid or inactive QR token" }, { status: 400 });
     }
 
-    if (new Date(qrSession.expired_at) < new Date()) {
+    // Ensure expired_at is interpreted as UTC even if the column is `timestamp without time zone`
+    const expiredAtStr = qrSession.expired_at.endsWith("Z")
+      ? qrSession.expired_at
+      : qrSession.expired_at + "Z";
+    if (new Date(expiredAtStr) < new Date()) {
       return NextResponse.json({ error: "QR token expired" }, { status: 400 });
     }
 
-    // 3. Validate GPS
-    const storeLat = parseFloat(process.env.STORE_LATITUDE || "0");
-    const storeLong = parseFloat(process.env.STORE_LONGITUDE || "0");
-    const maxRadius = parseFloat(process.env.MAX_ATTENDANCE_RADIUS || "50");
-
-    const distance = getDistance(latitude, longitude, storeLat, storeLong);
-    if (distance > maxRadius) {
-      return NextResponse.json(
-        { error: `Too far from store: ${Math.round(distance)}m (max ${maxRadius}m)` },
-        { status: 400 }
-      );
-    }
-
-    // 4. Check for duplicate (already checked in today)
-    const today = new Date().toISOString().split("T")[0];
+    // 3. Check for duplicate (already checked in today)
+    // Use WIB (UTC+7) for the "today" date so it matches Indonesian business day
+    const nowUtc = new Date();
+    const wibOffset = 7 * 60 * 60 * 1000; // UTC+7 in ms
+    const nowWIB = new Date(nowUtc.getTime() + wibOffset);
+    const today = nowWIB.toISOString().split("T")[0];
     const { data: existingAttendance } = await supabase
       .from("absensi")
       .select("id")
@@ -89,33 +67,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Already checked in today" }, { status: 400 });
     }
 
-    // 5. Calculate Lateness
-    const now = new Date();
-    const jam_masuk = now.toISOString();
+    // 4. Calculate Lateness using WIB hours
+    // Store as ISO but ensure it represents the correct point in time
+    const jam_masuk = nowUtc.toISOString();
     
-    // Office start at 09:00, tolerance 15 mins = 09:15
-    const officeStart = new Date();
-    officeStart.setHours(9, 0, 0, 0);
-    const toleranceLimit = new Date();
-    toleranceLimit.setHours(9, 15, 0, 0);
+    // Get current hour/minute in WIB (UTC+7) for lateness check
+    const wibHours = nowWIB.getUTCHours();
+    const wibMinutes = nowWIB.getUTCMinutes();
+    const wibTotalMinutes = wibHours * 60 + wibMinutes;
+    
+    // Office start at 09:00 WIB, tolerance 15 mins = 09:15 WIB
+    const officeStartMinutes = 9 * 60;       // 09:00 WIB
+    const toleranceLimitMinutes = 9 * 60 + 15; // 09:15 WIB
 
     let status = "HADIR";
     let telat_menit = 0;
 
-    if (now > toleranceLimit) {
+    if (wibTotalMinutes > toleranceLimitMinutes) {
       status = "TELAT";
-      telat_menit = Math.floor((now.getTime() - officeStart.getTime()) / (1000 * 60));
+      telat_menit = wibTotalMinutes - officeStartMinutes;
     }
 
-    // 6. Record Attendance
+    // 5. Record Attendance
     const { error: insertError } = await supabase.from("absensi").insert({
       id_pengguna: pengguna.id,
       tanggal: today,
       jam_masuk,
       status,
       telat_menit,
-      latitude,
-      longitude,
       device_info,
     });
 
@@ -129,8 +108,9 @@ export async function POST(request: Request) {
       status,
       telat_menit,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error in checkin:", err);
-    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Internal Server Error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

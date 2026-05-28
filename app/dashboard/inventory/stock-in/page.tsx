@@ -13,7 +13,14 @@ export default async function StockInPage() {
     supabase.from("supplier").select("id, nama_supplier").order("nama_supplier"),
   ]);
 
-  const products = (productsRes.data ?? []).map((p: any) => ({
+  interface RawStockInProduct {
+    id: number;
+    nama_produk: string;
+    barcode: string | null;
+    satuan: { id: number; nama: string } | { id: number; nama: string }[] | null;
+  }
+
+  const products = (productsRes.data ?? []).map((p: RawStockInProduct) => ({
     id: p.id,
     nama_produk: p.nama_produk,
     barcode: p.barcode,

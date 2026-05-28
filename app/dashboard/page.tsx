@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/logout-button";
 import { AttendanceWidget } from "@/components/attendance-widget";
+import { createClient } from "@/lib/supabase/server";
+import { getTodayAttendance } from "@/lib/attendance";
 import {
   Table,
   TableBody,
@@ -46,7 +48,13 @@ function getStockIcon(name: string) {
 }
 
 export default async function DashboardPage() {
-  const data = await getDashboardData();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const dashboardData = await getDashboardData();
+  const attendanceData = await getTodayAttendance();
+
+  const role = user?.user_metadata?.role;
+  const isOwner = role === "OWNER";
 
   return (
     <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-16 mx-auto">
@@ -56,33 +64,30 @@ export default async function DashboardPage() {
             Ringkasan
           </h1>
         </div>
-        <div className="flex items-center gap-4">
-          <LogoutButton />
-        </div>
       </header>
 
-      <AttendanceWidget />
+      {!isOwner && <AttendanceWidget initialData={attendanceData} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
         <section className="flex flex-col">
           <h3 className="text-sm font-medium text-muted-foreground mb-6 uppercase tracking-widest">Pendapatan Hari Ini</h3>
           <div className="mb-8">
             <h2 className="text-7xl font-light tracking-tight tabular-nums text-foreground mb-4">
-              {formatIDR(data.todayRevenue)}
+              {formatIDR(dashboardData.todayRevenue)}
             </h2>
             <div className="flex items-center text-sm">
-              {data.revenueChangePercent >= 0 ? (
+              {dashboardData.revenueChangePercent >= 0 ? (
                 <>
                   <TrendingUp className="w-4 h-4 text-emerald-600 mr-2" />
                   <span className="text-emerald-600 font-medium tabular-nums">
-                    +{data.revenueChangePercent}%
+                    +{dashboardData.revenueChangePercent}%
                   </span>
                 </>
               ) : (
                 <>
                   <TrendingDown className="w-4 h-4 text-red-600 mr-2" />
                   <span className="text-red-600 font-medium tabular-nums">
-                    {data.revenueChangePercent}%
+                    {dashboardData.revenueChangePercent}%
                   </span>
                 </>
               )}
@@ -92,22 +97,22 @@ export default async function DashboardPage() {
 
           <div className="grid grid-cols-2 gap-6 mb-8">
             <div>
-              <p className="text-3xl font-light tabular-nums text-foreground">{data.todayOrders}</p>
+              <p className="text-3xl font-light tabular-nums text-foreground">{dashboardData.todayOrders}</p>
               <p className="text-sm text-muted-foreground mt-1">Pesanan</p>
             </div>
             <div>
-              <p className="text-3xl font-light tabular-nums text-foreground">{formatIDR(data.avgTicket)}</p>
+              <p className="text-3xl font-light tabular-nums text-foreground">{formatIDR(dashboardData.avgTicket)}</p>
               <p className="text-sm text-muted-foreground mt-1">Rata-rata</p>
             </div>
           </div>
 
-          {data.sparklineData.length > 0 && (
+          {dashboardData.sparklineData.length > 0 && (
             <div className="h-12 w-full flex items-end gap-1 mt-auto">
-              {data.sparklineData.map((h, i) => (
+              {dashboardData.sparklineData.map((h, i) => (
                 <div
                   key={i}
                   className="flex-1 bg-primary/10 rounded-t-sm"
-                  style={{ height: `${Math.max(5, (h / Math.max(...data.sparklineData)) * 100)}%` }}
+                  style={{ height: `${Math.max(5, (h / Math.max(...dashboardData.sparklineData)) * 100)}%` }}
                 />
               ))}
             </div>
@@ -117,11 +122,11 @@ export default async function DashboardPage() {
         <section className="flex flex-col">
           <div className="flex items-center gap-3 mb-6">
             <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Stok Menipis</h3>
-            <Badge variant="secondary" className="font-normal bg-muted">{data.productsLow} item</Badge>
+            <Badge variant="secondary" className="font-normal bg-muted">{dashboardData.productsLow} item</Badge>
           </div>
           <div className="flex flex-col gap-2">
-            {data.lowStockItems.length > 0 ? (
-              data.lowStockItems.slice(0, 5).map((item) => {
+            {dashboardData.lowStockItems.length > 0 ? (
+              dashboardData.lowStockItems.slice(0, 5).map((item) => {
                 const { icon: Icon, bg, color } = getStockIcon(item.nama_produk);
                 return (
                   <StockItem
@@ -155,8 +160,8 @@ export default async function DashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody className="text-sm font-light">
-              {data.recentTransactions.length > 0 ? (
-                data.recentTransactions.map((tx) => (
+              {dashboardData.recentTransactions.length > 0 ? (
+                dashboardData.recentTransactions.map((tx) => (
                   <TransactionRow key={tx.no_transaksi} {...tx} />
                 ))
               ) : (

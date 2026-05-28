@@ -2,11 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { 
-  Search, 
-  Calendar, 
-  Filter, 
-  ChevronLeft, 
-  ChevronRight, 
+  Search,
   Clock,
   UserCheck,
   AlertCircle,
@@ -31,6 +27,7 @@ function formatTime(isoString: string | null) {
   return new Date(isoString).toLocaleTimeString("id-ID", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Jakarta"
   });
 }
 
@@ -43,7 +40,19 @@ function formatDate(dateStr: string) {
   }).format(date);
 }
 
-export function ReportClient({ initialData }: { initialData: any[] }) {
+interface AttendanceReportRecord {
+  id: string;
+  tanggal: string;
+  jam_masuk: string | null;
+  jam_pulang: string | null;
+  status: string;
+  telat_menit: number;
+  device_info: string | null;
+  id_pengguna: string;
+  pengguna?: { username: string; level: string };
+}
+
+export function ReportClient({ initialData }: { initialData: AttendanceReportRecord[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState({ start: "", end: "" });
 
@@ -104,32 +113,26 @@ export function ReportClient({ initialData }: { initialData: any[] }) {
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden">
       <div className="shrink-0 flex flex-col p-4 lg:p-6 border-b border-border bg-transparent gap-6">
         {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">Pegawai Aktif</p>
-              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{stats.uniqueEmployees} Orang</p>
+        <div className="flex flex-col sm:flex-row gap-8 md:gap-16 pb-2">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Pegawai Aktif</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-light tracking-tight text-foreground tabular-nums">{stats.uniqueEmployees}</span>
+              <span className="text-sm text-muted-foreground">orang</span>
             </div>
           </div>
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
-              <UserCheck className="w-5 h-5 text-success" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">Total Kehadiran</p>
-              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{stats.total} Record</p>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Total Kehadiran</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-light tracking-tight text-foreground tabular-nums">{stats.total}</span>
+              <span className="text-sm text-muted-foreground">record</span>
             </div>
           </div>
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-warning" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">Total Keterlambatan</p>
-              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{stats.telat} Record</p>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Total Keterlambatan</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-light tracking-tight text-foreground tabular-nums">{stats.telat}</span>
+              <span className="text-sm text-muted-foreground">record</span>
             </div>
           </div>
         </div>
@@ -140,6 +143,7 @@ export function ReportClient({ initialData }: { initialData: any[] }) {
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
+                aria-label="Cari username"
                 placeholder="Cari username..." 
                 className="pl-9 w-full h-10"
                 value={searchQuery}
@@ -149,6 +153,7 @@ export function ReportClient({ initialData }: { initialData: any[] }) {
             <div className="flex items-center gap-2">
               <Input 
                 type="date" 
+                aria-label="Tanggal Mulai"
                 className="rounded-md border px-3 py-2 text-sm w-40 h-10"
                 value={dateFilter.start}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
@@ -156,6 +161,7 @@ export function ReportClient({ initialData }: { initialData: any[] }) {
               <span className="text-muted-foreground text-sm">s/d</span>
               <Input 
                 type="date" 
+                aria-label="Tanggal Selesai"
                 className="rounded-md border px-3 py-2 text-sm w-40 h-10"
                 value={dateFilter.end}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
@@ -180,7 +186,7 @@ export function ReportClient({ initialData }: { initialData: any[] }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 relative">
+      <div className="flex-1 overflow-auto min-h-0 relative">
         <Table>
           <TableHeader>
             <TableRow>
@@ -241,7 +247,7 @@ export function ReportClient({ initialData }: { initialData: any[] }) {
                       <span className="text-xs text-success font-medium">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="pr-6 text-[10px] text-muted-foreground truncate max-w-[150px]" title={d.device_info}>
+                  <TableCell className="pr-6 text-[10px] text-muted-foreground truncate max-w-[150px]" title={d.device_info ?? undefined}>
                     {d.device_info || "-"}
                   </TableCell>
                 </TableRow>

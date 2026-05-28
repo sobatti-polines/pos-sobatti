@@ -10,7 +10,7 @@ export default function GenerateQRPage() {
   const [qrData, setQrData] = useState<{ token: string; expired_at: string } | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
 
   const fetchQR = useCallback(async () => {
     try {
@@ -22,7 +22,6 @@ export default function GenerateQRPage() {
       }
       const data = await res.json();
       if (data.token) {
-        setQrData(data);
         const url = await QRCode.toDataURL(data.token, {
           width: 300,
           margin: 2,
@@ -31,40 +30,41 @@ export default function GenerateQRPage() {
             light: "#ffffff",
           },
         });
+        
+        setQrData(data);
         setQrDataUrl(url);
         
-        const expiry = new Date(data.expired_at).getTime();
-        const now = new Date().getTime();
-        setTimeLeft(Math.max(0, Math.floor((expiry - now) / 1000)));
+        // Use expire_seconds from server for a reliable, timezone-independent countdown
+        setTimeLeft(data.expire_seconds || 60);
       }
     } catch (error) {
-      console.error("Failed to fetch QR:", error);
+      console.error("Failed to generate QR:", error);
+      alert("Gagal membuat QR code. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (!qrData) return;
+    if (!qrData || timeLeft <= 0) return;
 
     const timer = setInterval(() => {
-      const expiry = new Date(qrData.expired_at).getTime();
-      const now = new Date().getTime();
-      const diff = Math.max(0, Math.floor((expiry - now) / 1000));
-      
-      setTimeLeft(diff);
-
-      if (diff <= 0) {
-        setQrData(null);
-        setQrDataUrl("");
-        clearInterval(timer);
-      }
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setQrData(null);
+          setQrDataUrl("");
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [qrData]);
+  }, [qrData, timeLeft === 0]);
 
-  const isExpired = !qrData || timeLeft <= 0;
+  const isExpired = qrData && timeLeft <= 0;
+  const hasQR = qrDataUrl && !isExpired;
 
   return (
     <div className="flex-1 p-8 lg:p-12 w-full max-w-4xl mx-auto flex flex-col gap-8">
@@ -81,15 +81,15 @@ export default function GenerateQRPage() {
         <Card className="w-full max-w-md bg-card border border-border/50 rounded-xl shadow-[0_8px_24px_rgba(0,55,112,0.08),_0_2px_6px_rgba(0,55,112,0.04)] overflow-hidden">
           <CardHeader className="text-center pb-2 bg-muted/30 border-b border-border/50">
             <CardTitle className="text-2xl font-light">QR Absensi</CardTitle>
-            <CardDescription>Berlaku selama 30 detik</CardDescription>
+            <CardDescription>Berlaku selama {timeLeft > 0 ? timeLeft : 30} detik</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-8 py-10">
-            <div className="bg-white p-4 rounded-2xl shadow-inner border border-border/50 relative">
+            <div className="bg-background p-4 rounded-2xl relative">
               {loading && !qrDataUrl ? (
                 <div className="w-[250px] h-[250px] flex items-center justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
-              ) : qrDataUrl && !isExpired ? (
+              ) : hasQR ? (
                 <img 
                   src={qrDataUrl} 
                   alt="QR Attendance" 
@@ -98,7 +98,7 @@ export default function GenerateQRPage() {
               ) : (
                 <div className="w-[250px] h-[250px] flex flex-col items-center justify-center text-center p-6 bg-muted/20 rounded-xl border-2 border-dashed border-border/50">
                   <p className="text-sm text-muted-foreground mb-4">
-                    {isExpired && qrData ? "QR Code telah kedaluwarsa." : "Klik tombol di bawah untuk membuat QR code baru."}
+                    {isExpired ? "QR Code telah kedaluwarsa." : "Klik tombol di bawah untuk membuat QR code baru."}
                   </p>
                   <Button 
                     onClick={fetchQR} 
@@ -110,8 +110,8 @@ export default function GenerateQRPage() {
                   </Button>
                 </div>
               )}
-              {loading && qrDataUrl && !isExpired && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[1px]">
+              {loading && hasQR && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-[1px]">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
               )}
@@ -125,7 +125,7 @@ export default function GenerateQRPage() {
                 </span>
               </div>
               
-              {!isExpired && (
+              {hasQR && (
                 <Button 
                   onClick={fetchQR} 
                   variant="outline" 

@@ -1,84 +1,45 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { BrowserQRCodeReader, IScannerControls } from "@zxing/browser";
+import { BrowserMultiFormatReader } from "@zxing/browser";
+import { NotFoundException, DecodeHintType, BarcodeFormat } from "@zxing/library";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera, RefreshCw, MapPin, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Camera, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type ScanStatus = "idle" | "requesting_permission" | "scanning" | "processing" | "success" | "error";
 
 export default function AttendanceScanPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const controlsRef = useRef<IScannerControls | null>(null);
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<ScanStatus>("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [successMsg, setSuccessMsg] = useState<string>("");
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const router = useRouter();
 
-  const startScanning = useCallback(async () => {
-    try {
-      setStatus("requesting_permission");
-      setErrorMsg("");
-      setSuccessMsg("");
-
-      // 1. Get GPS Location first
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        });
-      });
-
-      setLocation({
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude
-      });
-
-      // 2. Start Camera
-      const codeReader = new BrowserQRCodeReader();
-      const controls = await codeReader.decodeFromVideoDevice(
-        undefined, // default camera
-        videoRef.current!,
-        async (result, error) => {
-          if (result) {
-            controls.stop();
-            handleScan(result.getText(), pos.coords.latitude, pos.coords.longitude);
-          }
-        }
-      );
-
-      controlsRef.current = controls;
-      setStatus("scanning");
-    } catch (err: any) {
-      console.error("Scan error:", err);
-      setStatus("error");
-      if (err.code === 1) {
-        setErrorMsg("Izin lokasi atau kamera ditolak.");
-      } else {
-        setErrorMsg(err.message || "Gagal memulai scanner.");
-      }
+  const stopCamera = useCallback(() => {
+    if (readerRef.current) {
+      BrowserMultiFormatReader.releaseAllStreams();
+      readerRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     }
   }, []);
 
-  const handleScan = async (token: string, lat: number, lng: number) => {
+  const handleScan = useCallback(async (token: string) => {
     try {
       setStatus("processing");
       
       // Try Check-in first, if already checked in, try checkout
-      // In a real app, you might have a toggle for Masuk/Pulang
-      // For simplicity, we'll hit checkin and if it says "already checked in", we try checkout
-      
       const checkinRes = await fetch("/api/attendance/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
-          latitude: lat,
-          longitude: lng,
           device_info: navigator.userAgent
         })
       });
@@ -86,7 +47,7 @@ export default function AttendanceScanPage() {
       let checkinData;
       try {
         checkinData = await checkinRes.json();
-      } catch (e) {
+      } catch (_e) {
         checkinData = { error: "Failed to parse response from server" };
       }
 
@@ -107,7 +68,7 @@ export default function AttendanceScanPage() {
         let checkoutData;
         try {
           checkoutData = await checkoutRes.json();
-        } catch (e) {
+        } catch (_e) {
           checkoutData = { error: "Failed to parse response from server" };
         }
 
@@ -122,22 +83,88 @@ export default function AttendanceScanPage() {
         setStatus("error");
         setErrorMsg(checkinData.error || "Gagal melakukan absensi.");
       }
-    } catch (err) {
+    } catch (_err) {
       setStatus("error");
       setErrorMsg("Terjadi kesalahan koneksi.");
     }
-  };
+  }, []);
 
+  const startScanning = useCallback(async () => {
+    try {
+      setStatus("requesting_permission");
+      setErrorMsg("");
+      setSuccessMsg("");
+
+      // Stop any previous camera session
+      stopCamera();
+
+      // 1. Acquire camera stream manually
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      streamRef.current = stream;
+
+      // 2. Attach stream to video element and wait for it to play
+      const video = videoRef.current!;
+      video.srcObject = stream;
+      await video.play();
+
+      // 3. Configure ZXing reader with QR_CODE format
+      const hints = new Map();
+      hints.set(DecodeHintType.TRY_HARDER, true);
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
+
+      const reader = new BrowserMultiFormatReader(hints);
+      readerRef.current = reader;
+
+      // 4. Start continuous decoding from the already-playing stream
+      reader.decodeFromStream(stream, video, (result, err) => {
+        if (result) {
+          // Stop scanning immediately on successful decode
+          stopCamera();
+          handleScan(result.getText());
+        } else if (err && !(err instanceof NotFoundException)) {
+          // NotFoundException fires every frame when no QR visible — ignore
+          console.warn("[qr-scanner]", err);
+        }
+      });
+
+      setStatus("scanning");
+    } catch (err: unknown) {
+      console.error("Scan initialization error:", err);
+      setStatus("error");
+      
+      const errorName = err instanceof Error ? (err as Error & { name?: string }).name : undefined;
+      const errorMessage = err instanceof Error ? err.message : undefined;
+      
+      if (errorName === "NotAllowedError") {
+        setErrorMsg("Izin kamera ditolak. Silakan berikan izin di pengaturan browser Anda.");
+      } else if (errorName === "NotFoundError" || errorName === "DevicesNotFoundError") {
+        setErrorMsg("Kamera tidak ditemukan.");
+      } else if (errorName === "NotReadableError" || errorName === "AbortError") {
+        setErrorMsg("Kamera sedang digunakan aplikasi lain. Tutup aplikasi lain dan coba lagi.");
+      } else {
+        setErrorMsg(errorMessage || "Gagal memulai scanner.");
+      }
+    }
+  }, [stopCamera, handleScan]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (controlsRef.current) {
-        controlsRef.current.stop();
-      }
+      BrowserMultiFormatReader.releaseAllStreams();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
+  const isVideoVisible = status === "scanning" || status === "processing";
+
   return (
-    <div className="flex-1 p-8 lg:p-12 w-full max-w-4xl mx-auto flex flex-col gap-8">
+    <div className="flex-1 p-8 lg:p-12 w-full max-w-8xl mx-auto flex flex-col gap-8">
       <header>
         <h1 className="text-4xl font-light tracking-tight text-foreground">
           Scan QR Attendance
@@ -155,12 +182,22 @@ export default function AttendanceScanPage() {
               QR Scanner
             </CardTitle>
             <CardDescription>
-              Pastikan GPS aktif dan izin kamera diberikan
+              Pastikan izin kamera diberikan
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-0 relative bg-[#0d253d] aspect-square flex items-center justify-center">
+          <CardContent className="p-0 relative bg-card aspect-square flex items-center justify-center">
+            {/* Video is ALWAYS in the DOM — ZXing needs a mounted element */}
+            <video 
+              ref={videoRef} 
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ visibility: isVideoVisible ? "visible" : "hidden" }}
+              muted
+              playsInline
+              autoPlay
+            />
+
             {status === "idle" && (
-              <div className="flex flex-col items-center gap-6 p-8 text-white">
+              <div className="flex flex-col items-center gap-6 p-8 text-foreground relative z-10">
                 <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center">
                   <Camera className="w-10 h-10 text-primary" />
                 </div>
@@ -171,19 +208,15 @@ export default function AttendanceScanPage() {
             )}
 
             {status === "requesting_permission" && (
-              <div className="flex flex-col items-center gap-4 text-white">
-                <Loader2 className="w-10 h-10 animate-spin" />
-                <p>Meminta izin kamera & lokasi...</p>
+              <div className="flex flex-col items-center gap-4 text-foreground relative z-10">
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                <p>Meminta izin kamera...</p>
               </div>
             )}
 
             {(status === "scanning" || status === "processing") && (
-              <div className="relative w-full h-full">
-                <video 
-                  ref={videoRef} 
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 border-[40px] border-[#0d253d]/40 pointer-events-none">
+              <div className="absolute inset-0 z-10 pointer-events-none">
+                <div className="absolute inset-0 border-[40px] border-background/80">
                   <div className="w-full h-full border border-primary/30 relative">
                     <div className="absolute top-[-1px] left-[-1px] w-4 h-4 border-t-2 border-l-2 border-primary/70"></div>
                     <div className="absolute top-[-1px] right-[-1px] w-4 h-4 border-t-2 border-r-2 border-primary/70"></div>
@@ -197,7 +230,7 @@ export default function AttendanceScanPage() {
                 </div>
                 
                 {status === "processing" && (
-                  <div className="absolute inset-0 bg-[#0d253d]/60 backdrop-blur-sm flex flex-col items-center justify-center text-white gap-4">
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center text-foreground gap-4 pointer-events-auto">
                     <Loader2 className="w-10 h-10 animate-spin text-primary" />
                     <p className="font-medium">Memproses absensi...</p>
                   </div>
@@ -206,30 +239,30 @@ export default function AttendanceScanPage() {
             )}
 
             {status === "success" && (
-              <div className="flex flex-col items-center gap-6 p-8 text-center">
+              <div className="flex flex-col items-center gap-6 p-8 text-center relative z-10">
                 <div className="w-20 h-20 rounded-full bg-success/20 flex items-center justify-center">
                   <CheckCircle2 className="w-10 h-10 text-success" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-white mb-2">{successMsg}</h3>
-                  <p className="text-white/80">Data absensi telah tersimpan di sistem.</p>
+                  <h3 className="text-xl font-semibold text-foreground mb-2">{successMsg}</h3>
+                  <p className="text-muted-foreground">Data absensi telah tersimpan di sistem.</p>
                 </div>
-                <Button onClick={() => router.push("/dashboard")} variant="outline" className="bg-transparent text-white border-white/20 hover:bg-white/10">
+                <Button onClick={() => router.push("/dashboard")} variant="outline" className="bg-transparent border-border hover:bg-muted">
                   Kembali ke Dashboard
                 </Button>
               </div>
             )}
 
             {status === "error" && (
-              <div className="flex flex-col items-center gap-6 p-8 text-center">
+              <div className="flex flex-col items-center gap-6 p-8 text-center relative z-10">
                 <div className="w-20 h-20 rounded-full bg-destructive/20 flex items-center justify-center">
                   <AlertCircle className="w-10 h-10 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-white mb-2">Absensi Gagal</h3>
-                  <p className="text-white/80">{errorMsg}</p>
+                  <h3 className="text-xl font-semibold text-foreground mb-2">Absensi Gagal</h3>
+                  <p className="text-muted-foreground">{errorMsg}</p>
                 </div>
-                <Button onClick={startScanning} variant="outline" className="bg-transparent text-white border-white/20 hover:bg-white/10 gap-2">
+                <Button onClick={startScanning} variant="outline" className="bg-transparent border-border hover:bg-muted gap-2">
                   <RefreshCw className="w-4 h-4" />
                   Coba Lagi
                 </Button>
@@ -241,24 +274,19 @@ export default function AttendanceScanPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
         <Card className="bg-muted/30 border-none">
-          <CardContent className="pt-6">
+          <CardContent className="py-4 px-6">
             <div className="flex items-start gap-4">
-              <MapPin className="w-5 h-5 text-primary shrink-0 mt-1" />
+              <Camera className="w-5 h-5 text-primary shrink-0 mt-1" />
               <div>
-                <p className="font-medium">Lokasi Toko</p>
-                <p className="text-sm text-muted-foreground leading-relaxed">Absensi hanya dapat dilakukan dalam radius 50 meter dari koordinat toko yang terdaftar.</p>
-                {location && (
-                  <p className="text-[10px] font-mono mt-2 text-primary/70">
-                    Posisi Anda: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-                  </p>
-                )}
+                <p className="font-medium">Izin Kamera</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">Pastikan Anda memberikan izin akses kamera untuk melakukan pemindaian kode QR.</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card className="bg-muted/30 border-none">
-          <CardContent className="pt-6">
+          <CardContent className="py-4 px-6">
             <div className="flex items-start gap-4">
               <RefreshCw className="w-5 h-5 text-primary shrink-0 mt-1" />
               <div>
@@ -272,8 +300,8 @@ export default function AttendanceScanPage() {
 
       <style jsx global>{`
         @keyframes scan {
-          0%, 100% { top: 0%; }
-          50% { top: 100%; }
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(300px); }
         }
       `}</style>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { Search, Calendar, ChevronLeft, ChevronRight, PackagePlus, Filter, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Search, ChevronLeft, ChevronRight, PackagePlus, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,12 +31,27 @@ function formatDate(dateStr: string) {
   }).format(date);
 }
 
+interface StockInHistoryRecord {
+  id: number;
+  tgl_masuk: string;
+  supplier: { id: number; nama_supplier: string } | null;
+  produk: { nama_produk: string } | null;
+  harga_beli: number;
+  jumlah: number;
+  total: number;
+}
+
+interface SupplierRecord {
+  id: number;
+  nama_supplier: string;
+}
+
 export default function StockInHistoryClient({ 
   initialHistory, 
   suppliers 
 }: { 
-  initialHistory: any[];
-  suppliers: any[];
+  initialHistory: StockInHistoryRecord[];
+  suppliers: SupplierRecord[];
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
@@ -75,9 +90,9 @@ export default function StockInHistoryClient({
 
     // Sort
     if (sortConfig) {
-      result.sort((a: any, b: any) => {
-        let aVal = a[sortConfig.key];
-        let bVal = b[sortConfig.key];
+      result.sort((a, b) => {
+        let aVal: string | number = "";
+        let bVal: string | number = "";
         
         if (sortConfig.key === "supplier") {
           aVal = a.supplier?.nama_supplier || "Umum";
@@ -85,6 +100,9 @@ export default function StockInHistoryClient({
         } else if (sortConfig.key === "produk") {
           aVal = a.produk?.nama_produk || "";
           bVal = b.produk?.nama_produk || "";
+        } else {
+          aVal = (a[sortConfig.key as keyof typeof a] as string | number) ?? "";
+          bVal = (b[sortConfig.key as keyof typeof b] as string | number) ?? "";
         }
         
         if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
@@ -106,19 +124,16 @@ export default function StockInHistoryClient({
     return filteredHistory.slice(start, start + itemsPerPage);
   }, [filteredHistory, currentPage, itemsPerPage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, supplierFilter, dateFilter, itemsPerPage, sortConfig]);
-
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1);
   };
 
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+  const renderSortIcon = (columnKey: string) => {
     if (sortConfig?.key !== columnKey) return <ChevronDown className="w-3 h-3 opacity-20 ml-1 inline-block" />;
     return sortConfig.direction === "asc" 
       ? <ChevronUp className="w-3 h-3 text-foreground ml-1 inline-block" /> 
@@ -199,22 +214,22 @@ export default function StockInHistoryClient({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[140px] pl-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('tgl_masuk')}>
-                Tanggal <SortIcon columnKey="tgl_masuk" />
+                Tanggal {renderSortIcon("tgl_masuk")}
               </TableHead>
               <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('supplier')}>
-                Supplier <SortIcon columnKey="supplier" />
+                Supplier {renderSortIcon("supplier")}
               </TableHead>
               <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('produk')}>
-                Produk <SortIcon columnKey="produk" />
+                Produk {renderSortIcon("produk")}
               </TableHead>
               <TableHead className="w-[140px] text-right cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_beli')}>
-                Harga Beli <SortIcon columnKey="harga_beli" />
+                Harga Beli {renderSortIcon("harga_beli")}
               </TableHead>
               <TableHead className="w-[100px] text-center cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('jumlah')}>
-                Jumlah <SortIcon columnKey="jumlah" />
+                Jumlah {renderSortIcon("jumlah")}
               </TableHead>
               <TableHead className="w-[160px] text-right pr-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('total')}>
-                Total <SortIcon columnKey="total" />
+                Total {renderSortIcon("total")}
               </TableHead>
             </TableRow>
           </TableHeader>

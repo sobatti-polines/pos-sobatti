@@ -14,8 +14,23 @@ export default async function InventoryPage() {
     supabase.from("satuan").select("*").order("nama")
   ]);
 
-  const productsWithStock = (productsRes.data ?? []).map((p: any) => {
-    // Use the physical 'stok' column if it exists, otherwise fall back to null
+  interface RawProduct {
+    id: number;
+    nama_produk: string;
+    id_kategori: number;
+    id_satuan: number;
+    hitung_stok: boolean;
+    barcode: string | null;
+    harga_modal: number;
+    harga_jual_satuan: number;
+    harga_jual_grosir: number;
+    diskon: number;
+    stok: number | null;
+    kategori: { nama: string } | null;
+    satuan: { nama: string } | null;
+  }
+
+  const productsWithStock = (productsRes.data ?? []).map((p: RawProduct) => {
     const stock = p.hitung_stok ? (p.stok ?? 0) : null;
     return { ...p, stock };
   });

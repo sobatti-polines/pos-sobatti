@@ -1,15 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { 
   Search, 
-  Calendar, 
-  Filter, 
   ChevronLeft, 
   ChevronRight, 
   Receipt,
-  Download,
-  ExternalLink,
   ChevronDown,
   ChevronUp,
   Trash2,
@@ -51,7 +47,7 @@ function formatDate(dateStr: string) {
   }).format(date);
 }
 
-interface Transaction {
+export interface Transaction {
   id: number;
   no_transaksi: string;
   tgl_transaksi: string;
@@ -63,13 +59,21 @@ interface Transaction {
   metode_bayar: { id: number, nama: string } | null;
 }
 
+interface TransactionDetail {
+  id: number;
+  qty: number;
+  harga_jual: number;
+  jumlah: number;
+  produk: { nama_produk: string } | null;
+}
+
 export default function TransactionsClient({ 
   initialTransactions, 
   paymentMethods,
   role
 }: { 
-  initialTransactions: any[];
-  paymentMethods: any[];
+  initialTransactions: Transaction[];
+  paymentMethods: { id: number; nama: string }[];
   role?: string;
 }) {
   const router = useRouter();
@@ -80,7 +84,7 @@ export default function TransactionsClient({
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
 
-  const [voidModal, setVoidModal] = useState<{ open: boolean; transaction: any | null; items: any[]; loading: boolean }>({
+  const [voidModal, setVoidModal] = useState<{ open: boolean; transaction: Transaction | null; items: TransactionDetail[]; loading: boolean }>({
     open: false,
     transaction: null,
     items: [],
@@ -89,13 +93,13 @@ export default function TransactionsClient({
 
   const isOwnerOrAdmin = role === "OWNER" || role === "ADMIN";
 
-  const handleOpenVoid = async (e: React.MouseEvent, t: any) => {
+  const handleOpenVoid = async (e: React.MouseEvent, t: Transaction) => {
     e.stopPropagation();
     setVoidModal({ open: true, transaction: t, items: [], loading: true });
     
     const res = await getTransactionDetails(t.id);
     if (res.data) {
-      setVoidModal(prev => ({ ...prev, items: res.data, loading: false }));
+      setVoidModal(prev => ({ ...prev, items: res.data as unknown as TransactionDetail[], loading: false }));
     } else {
       setVoidModal(prev => ({ ...prev, loading: false }));
     }
@@ -148,9 +152,9 @@ export default function TransactionsClient({
 
     // Sort
     if (sortConfig) {
-      result.sort((a: any, b: any) => {
-        let aVal = a[sortConfig.key];
-        let bVal = b[sortConfig.key];
+      result.sort((a, b) => {
+        let aVal: string | number;
+        let bVal: string | number;
         
         if (sortConfig.key === "kasir") {
           aVal = a.pengguna?.nama || a.pengguna?.username || "";
@@ -161,6 +165,9 @@ export default function TransactionsClient({
         } else if (sortConfig.key === "metode_bayar") {
           aVal = a.metode_bayar?.nama || "";
           bVal = b.metode_bayar?.nama || "";
+        } else {
+          aVal = (a as unknown as Record<string, string | number>)[sortConfig.key] ?? "";
+          bVal = (b as unknown as Record<string, string | number>)[sortConfig.key] ?? "";
         }
         
         if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
@@ -182,19 +189,16 @@ export default function TransactionsClient({
     return filteredTransactions.slice(start, start + itemsPerPage);
   }, [filteredTransactions, currentPage, itemsPerPage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, paymentFilter, dateFilter, itemsPerPage, sortConfig]);
-
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1);
   };
 
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+  const renderSortIcon = (columnKey: string) => {
     if (sortConfig?.key !== columnKey) return <ChevronDown className="w-3 h-3 opacity-20 ml-1 inline-block" />;
     return sortConfig.direction === "asc" 
       ? <ChevronUp className="w-3 h-3 text-foreground ml-1 inline-block" /> 
@@ -239,7 +243,7 @@ export default function TransactionsClient({
             <Input aria-label="Cari No. Transaksi, Kasir, atau Pelanggan..." placeholder="Cari No. Transaksi, Kasir, atau Pelanggan..." 
               className="pl-9 w-full max-w-sm rounded-md"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             />
           </div>
           
@@ -250,7 +254,7 @@ export default function TransactionsClient({
                   type="date" 
                   className="rounded-md border px-3 py-2 text-sm w-40"
                   value={dateFilter.start}
-                  onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
+                  onChange={(e) => { setDateFilter(prev => ({ ...prev, start: e.target.value })); setCurrentPage(1); }}
                 />
               </div>
               <span className="text-muted-foreground text-sm">s/d</span>
@@ -259,13 +263,13 @@ export default function TransactionsClient({
                   type="date" 
                   className="rounded-md border px-3 py-2 text-sm w-40"
                   value={dateFilter.end}
-                  onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
+                  onChange={(e) => { setDateFilter(prev => ({ ...prev, end: e.target.value })); setCurrentPage(1); }}
                 />
               </div>
             </div>
 
             <select aria-label="Filter Metode Pembayaran" value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
+              onChange={(e) => { setPaymentFilter(e.target.value); setCurrentPage(1); }}
               className="h-10 rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 text-muted-foreground min-w-[160px]"
             >
               <option value="all">Semua Pembayaran</option>
@@ -290,22 +294,22 @@ export default function TransactionsClient({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[180px] pl-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('no_transaksi')}>
-                No. Transaksi <SortIcon columnKey="no_transaksi" />
+                No. Transaksi {renderSortIcon("no_transaksi")}
               </TableHead>
               <TableHead className="w-[180px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('tgl_transaksi')}>
-                Tanggal <SortIcon columnKey="tgl_transaksi" />
+                Tanggal {renderSortIcon("tgl_transaksi")}
               </TableHead>
               <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('kasir')}>
-                Kasir <SortIcon columnKey="kasir" />
+                Kasir {renderSortIcon("kasir")}
               </TableHead>
               <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('pelanggan')}>
-                Pelanggan <SortIcon columnKey="pelanggan" />
+                Pelanggan {renderSortIcon("pelanggan")}
               </TableHead>
               <TableHead className="w-[140px] text-right cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('total')}>
-                Total <SortIcon columnKey="total" />
+                Total {renderSortIcon("total")}
               </TableHead>
               <TableHead className="w-[140px] text-center cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('metode_bayar')}>
-                Pembayaran <SortIcon columnKey="metode_bayar" />
+                Pembayaran {renderSortIcon("metode_bayar")}
               </TableHead>
               <TableHead className="w-[120px] text-center">Status</TableHead>
               <TableHead className="w-[60px] pr-6"></TableHead>
@@ -388,7 +392,7 @@ export default function TransactionsClient({
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground whitespace-nowrap">Baris per halaman</span>
             <select aria-label="Baris per halaman" value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="h-8 rounded-md border border-border bg-background px-2 py-1 text-[13px] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 text-foreground"
             >
               {[10, 25, 50, 100].map((n) => (
@@ -462,7 +466,7 @@ export default function TransactionsClient({
                       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                     </div>
                   ) : (
-                    voidModal.items.map((item: any, idx: number) => (
+                    voidModal.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between text-sm p-2 bg-muted/20 rounded-md">
                         <span className="truncate flex-1 pr-4">{item.produk?.nama_produk}</span>
                         <span className="text-muted-foreground tabular-nums">{item.qty} x {formatIDR(item.harga_jual)}</span>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
 
-export async function POST(request: Request) {
+export async function POST(_request: Request) {
   try {
     const supabase = await createClient();
 
@@ -26,8 +26,11 @@ export async function POST(request: Request) {
     }
 
     const token = randomUUID();
-    const expireSeconds = parseInt(process.env.QR_EXPIRE_SECONDS || "30");
-    const expired_at = new Date(Date.now() + expireSeconds * 1000).toISOString();
+    const expireSeconds = parseInt(process.env.QR_EXPIRE_SECONDS || "60");
+    // Use ISO string with explicit UTC timezone — works with both `timestamp` and `timestamptz` columns
+    const now = new Date();
+    const expiryDate = new Date(now.getTime() + expireSeconds * 1000);
+    const expired_at = expiryDate.toISOString();
 
     const { data: qrSession, error } = await supabase
       .from("qr_session")
@@ -35,6 +38,7 @@ export async function POST(request: Request) {
         token,
         expired_at,
         created_by: pengguna.id,
+        is_active: true,
       })
       .select()
       .single();
@@ -46,9 +50,11 @@ export async function POST(request: Request) {
     return NextResponse.json({
       token: qrSession.token,
       expired_at: qrSession.expired_at,
+      expire_seconds: expireSeconds,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error generating QR:", err);
-    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Internal Server Error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

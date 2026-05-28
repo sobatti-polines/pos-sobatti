@@ -3,7 +3,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-export async function addCustomer(data: any) {
+export async function addCustomer(data: {
+  nama_pelanggan: string;
+  alamat?: string | null;
+  no_hp?: string | null;
+  email?: string | null;
+  keterangan?: string | null;
+}) {
   const supabase = await createClient();
   const { error } = await supabase.from("pelanggan").insert([data]);
   if (error) return { error: error.message };
@@ -11,7 +17,13 @@ export async function addCustomer(data: any) {
   return { success: true };
 }
 
-export async function updateCustomer(id: number, data: any) {
+export async function updateCustomer(id: number, data: {
+  nama_pelanggan: string;
+  alamat?: string | null;
+  no_hp?: string | null;
+  email?: string | null;
+  keterangan?: string | null;
+}) {
   const supabase = await createClient();
   const { error } = await supabase.from("pelanggan").update(data).eq("id", id);
   if (error) return { error: error.message };

@@ -49,16 +49,26 @@ export async function POST(request: Request) {
   const lastNumber = lastTx ? Number(String(lastTx.no_transaksi).slice(-4)) : 0;
   const no_transaksi = Number(`${datePrefix}${String(lastNumber + 1).padStart(4, "0")}`);
 
-  const productIds = items.map((i: any) => i.id_produk);
+  const productIds = items.map((i: { id_produk: number }) => i.id_produk);
   const { data: products } = await supabase
     .from("produk")
     .select("id, harga_modal, harga_jual_satuan, harga_jual_grosir, hitung_stok, stok")
     .in("id", productIds);
 
-  const productMap = new Map((products ?? []).map((p: any) => [p.id, p]));
+  const productMap = new Map((products ?? []).map((p: Record<string, unknown>) => [p.id, p as { id: number; harga_modal: number; harga_jual_satuan: number; harga_jual_grosir: number; hitung_stok: boolean; stok: number }]));
 
   let subtotal = 0;
-  const details: any[] = [];
+  const details: Array<{
+    id_produk: number;
+    type_harga_jual: string;
+    harga_modal: number;
+    harga_jual: number;
+    diskon_item: number;
+    qty: number;
+    jumlah: number;
+    kas_masuk: number;
+    profit: number;
+  }> = [];
 
   for (const item of items) {
     const prod = productMap.get(item.id_produk);

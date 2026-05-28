@@ -26,8 +26,8 @@ export async function updateProfile(prevState: ProfileFormState, formData: FormD
     return { error: "Kata sandi tidak cocok" };
   }
 
-  const updates: any = {};
-  const authUpdates: any = {};
+  const updates: Record<string, string> = {};
+  const authUpdates: Record<string, string> = {};
 
   if (newUsername !== oldUsername) {
     // Check if new username exists

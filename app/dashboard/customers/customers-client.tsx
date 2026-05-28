@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition, useEffect } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { Search, Plus, Trash2, Users, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,9 +57,9 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     }
 
     if (sortConfig) {
-      result.sort((a: any, b: any) => {
-        const aVal = a[sortConfig.key] || "";
-        const bVal = b[sortConfig.key] || "";
+      result.sort((a, b) => {
+        const aVal = (a as unknown as Record<string, string>)[sortConfig.key] || "";
+        const bVal = (b as unknown as Record<string, string>)[sortConfig.key] || "";
         if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
@@ -75,19 +75,16 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     return processedCustomers.slice(start, start + itemsPerPage);
   }, [processedCustomers, currentPage, itemsPerPage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, sortConfig, itemsPerPage]);
-
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1);
   };
 
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+  const renderSortIcon = (columnKey: string) => {
     if (sortConfig?.key !== columnKey) return <ChevronDown className="w-3 h-3 opacity-20 ml-1 inline-block" />;
     return sortConfig.direction === "asc" 
       ? <ChevronUp className="w-3 h-3 text-foreground ml-1 inline-block" /> 
@@ -111,7 +108,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
 
     startTransition(async () => {
       const result = editingId === "new" 
-        ? await addCustomer(data as any)
+        ? await addCustomer(data as Parameters<typeof addCustomer>[0])
         : await updateCustomer(editingId as number, data);
 
       if (result.error) {
@@ -191,12 +188,12 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
           <TableHeader>
             <TableRow>
               <TableHead onClick={() => handleSort("nama_pelanggan")} className="cursor-pointer select-none hover:text-foreground transition-colors pl-6">
-                Nama <SortIcon columnKey="nama_pelanggan" />
+                Nama {renderSortIcon("nama_pelanggan")}
               </TableHead>
-              <TableHead onClick={() => handleSort("no_hp")} className="cursor-pointer select-none hover:text-foreground transition-colors">No. HP <SortIcon columnKey="no_hp" /></TableHead>
-              <TableHead onClick={() => handleSort("email")} className="cursor-pointer select-none hover:text-foreground transition-colors">Email <SortIcon columnKey="email" /></TableHead>
-              <TableHead onClick={() => handleSort("alamat")} className="cursor-pointer select-none hover:text-foreground transition-colors">Alamat <SortIcon columnKey="alamat" /></TableHead>
-              <TableHead onClick={() => handleSort("keterangan")} className="cursor-pointer select-none hover:text-foreground transition-colors">Keterangan <SortIcon columnKey="keterangan" /></TableHead>
+              <TableHead onClick={() => handleSort("no_hp")} className="cursor-pointer select-none hover:text-foreground transition-colors">No. HP {renderSortIcon("no_hp")}</TableHead>
+              <TableHead onClick={() => handleSort("email")} className="cursor-pointer select-none hover:text-foreground transition-colors">Email {renderSortIcon("email")}</TableHead>
+              <TableHead onClick={() => handleSort("alamat")} className="cursor-pointer select-none hover:text-foreground transition-colors">Alamat {renderSortIcon("alamat")}</TableHead>
+              <TableHead onClick={() => handleSort("keterangan")} className="cursor-pointer select-none hover:text-foreground transition-colors">Keterangan {renderSortIcon("keterangan")}</TableHead>
               <TableHead className="w-[100px] pr-6"></TableHead>
             </TableRow>
           </TableHeader>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition, useEffect } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { Search, Plus, Trash2, Truck, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,9 +57,9 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
     }
 
     if (sortConfig) {
-      result.sort((a: any, b: any) => {
-        const aVal = a[sortConfig.key] || "";
-        const bVal = b[sortConfig.key] || "";
+      result.sort((a, b) => {
+        const aVal = (a as unknown as Record<string, unknown>)[sortConfig.key] ?? "";
+        const bVal = (b as unknown as Record<string, unknown>)[sortConfig.key] ?? "";
         if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
@@ -75,19 +75,16 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
     return processedSuppliers.slice(start, start + itemsPerPage);
   }, [processedSuppliers, currentPage, itemsPerPage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, sortConfig, itemsPerPage]);
-
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1);
   };
 
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+  const renderSortIcon = (columnKey: string) => {
     if (sortConfig?.key !== columnKey) return <ChevronDown className="w-3 h-3 opacity-20 ml-1 inline-block" />;
     return sortConfig.direction === "asc" 
       ? <ChevronUp className="w-3 h-3 text-foreground ml-1 inline-block" /> 
@@ -102,7 +99,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
     setErrorMsg("");
 
     const data = {
-      nama_supplier: editForm.nama_supplier,
+      nama_supplier: editForm.nama_supplier ?? "",
       alamat: editForm.alamat || null,
       telepon: editForm.telepon || null,
       email: editForm.email || null,
@@ -111,7 +108,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
 
     startTransition(async () => {
       const result = editingId === "new" 
-        ? await addSupplier(data as any)
+        ? await addSupplier(data)
         : await updateSupplier(editingId as number, data);
 
       if (result.error) {
@@ -158,7 +155,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
             <Input aria-label="Pencarian" placeholder="Cari supplier, telepon, atau alamat..."
               className="pl-9 rounded-md"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               disabled={editingId !== null}
             />
           </div>
@@ -190,12 +187,12 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
           <TableHeader>
             <TableRow>
               <TableHead onClick={() => handleSort("nama_supplier")} className="cursor-pointer select-none hover:text-foreground transition-colors pl-6">
-                Nama Supplier <SortIcon columnKey="nama_supplier" />
+                Nama Supplier {renderSortIcon("nama_supplier")}
               </TableHead>
-              <TableHead onClick={() => handleSort("telepon")} className="cursor-pointer select-none hover:text-foreground transition-colors">Telepon <SortIcon columnKey="telepon" /></TableHead>
-              <TableHead onClick={() => handleSort("email")} className="cursor-pointer select-none hover:text-foreground transition-colors">Email <SortIcon columnKey="email" /></TableHead>
-              <TableHead onClick={() => handleSort("alamat")} className="cursor-pointer select-none hover:text-foreground transition-colors">Alamat <SortIcon columnKey="alamat" /></TableHead>
-              <TableHead onClick={() => handleSort("keterangan")} className="cursor-pointer select-none hover:text-foreground transition-colors">Keterangan <SortIcon columnKey="keterangan" /></TableHead>
+              <TableHead onClick={() => handleSort("telepon")} className="cursor-pointer select-none hover:text-foreground transition-colors">Telepon {renderSortIcon("telepon")}</TableHead>
+              <TableHead onClick={() => handleSort("email")} className="cursor-pointer select-none hover:text-foreground transition-colors">Email {renderSortIcon("email")}</TableHead>
+              <TableHead onClick={() => handleSort("alamat")} className="cursor-pointer select-none hover:text-foreground transition-colors">Alamat {renderSortIcon("alamat")}</TableHead>
+              <TableHead onClick={() => handleSort("keterangan")} className="cursor-pointer select-none hover:text-foreground transition-colors">Keterangan {renderSortIcon("keterangan")}</TableHead>
               <TableHead className="w-[100px] pr-6"></TableHead>
             </TableRow>
           </TableHeader>
@@ -363,7 +360,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground whitespace-nowrap">Baris per halaman</span>
             <select aria-label="Baris per halaman" value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               disabled={editingId !== null}
               className="h-8 rounded-md border border-border bg-background px-2 py-1 text-[13px] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 text-foreground disabled:opacity-50"
             >

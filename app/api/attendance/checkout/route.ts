@@ -43,12 +43,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid or inactive QR token" }, { status: 400 });
     }
 
-    if (new Date(qrSession.expired_at) < new Date()) {
+    // Ensure expired_at is interpreted as UTC even if the column is `timestamp without time zone`
+    const expiredAtStr = qrSession.expired_at.endsWith("Z")
+      ? qrSession.expired_at
+      : qrSession.expired_at + "Z";
+    if (new Date(expiredAtStr) < new Date()) {
       return NextResponse.json({ error: "QR token expired" }, { status: 400 });
     }
 
-    // 3. Verify check-in exists for today
-    const today = new Date().toISOString().split("T")[0];
+    // 3. Verify check-in exists for today (use WIB / UTC+7 for Indonesian business day)
+    const nowUtc = new Date();
+    const wibOffset = 7 * 60 * 60 * 1000;
+    const nowWIB = new Date(nowUtc.getTime() + wibOffset);
+    const today = nowWIB.toISOString().split("T")[0];
     const { data: attendance } = await supabase
       .from("absensi")
       .select("*")
@@ -68,7 +75,7 @@ export async function POST(request: Request) {
     const { error: updateError } = await supabase
       .from("absensi")
       .update({
-        jam_pulang: new Date().toISOString(),
+        jam_pulang: nowUtc.toISOString(),
       })
       .eq("id", attendance.id);
 
@@ -80,8 +87,9 @@ export async function POST(request: Request) {
       success: true,
       message: "Check-out successful",
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error in checkout:", err);
-    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Internal Server Error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

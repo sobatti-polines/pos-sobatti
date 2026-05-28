@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition, useEffect } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { Search, Plus, PackageOpen, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,12 +43,12 @@ interface Product {
 
 export default function InventoryClient({ 
   initialProducts, 
-  categories, 
+  categories,
   units 
 }: { 
   initialProducts: Product[];
-  categories: any[];
-  units: any[];
+  categories: { id: number; nama: string }[];
+  units: { id: number; nama: string }[];
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -98,13 +98,19 @@ export default function InventoryClient({
     }
 
     if (sortConfig) {
-      result.sort((a: any, b: any) => {
-        let aVal = a[sortConfig.key];
-        let bVal = b[sortConfig.key];
+      result.sort((a, b) => {
+        let aVal: string | number = "";
+        let bVal: string | number = "";
         
         if (sortConfig.key === "kategori") {
           aVal = a.kategori?.nama || "";
           bVal = b.kategori?.nama || "";
+        } else if (sortConfig.key === "satuan") {
+          aVal = a.satuan?.nama || "";
+          bVal = b.satuan?.nama || "";
+        } else {
+          aVal = (a[sortConfig.key as keyof Product] as string | number) ?? "";
+          bVal = (b[sortConfig.key as keyof Product] as string | number) ?? "";
         }
         
         if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
@@ -122,19 +128,16 @@ export default function InventoryClient({
     return processedProducts.slice(start, start + itemsPerPage);
   }, [processedProducts, currentPage, itemsPerPage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, categoryFilter, stockFilter, sortConfig, itemsPerPage]);
-
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1);
   };
 
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+  const renderSortIcon = (columnKey: string) => {
     if (sortConfig?.key !== columnKey) return <ChevronDown className="w-3 h-3 opacity-20 ml-1 inline-block" />;
     return sortConfig.direction === "asc" 
       ? <ChevronUp className="w-3 h-3 text-foreground ml-1 inline-block" /> 
@@ -171,7 +174,7 @@ export default function InventoryClient({
     startTransition(async () => {
       let res;
       if (editingId === "new") {
-        res = await addProduct(data as any);
+        res = await addProduct(data);
       } else {
         res = await updateProduct(editingId as number, data);
       }
@@ -228,7 +231,7 @@ export default function InventoryClient({
     return <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Tersedia ({stock})</Badge>;
   };
 
-  const InlineEditExpandedRow = () => (
+  const renderInlineEditExpandedRow = () => (
     <TableRow className="bg-muted/10 border-t-0">
       <TableCell colSpan={8} className="py-3 px-6 bg-muted/5 border-b">
         <div className="flex flex-wrap items-center gap-6">
@@ -339,25 +342,25 @@ export default function InventoryClient({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[140px] pl-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('barcode')}>
-                Barcode <SortIcon columnKey="barcode" />
+                Barcode {renderSortIcon("barcode")}
               </TableHead>
               <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('nama_produk')}>
-                Item <SortIcon columnKey="nama_produk" />
+                Item {renderSortIcon("nama_produk")}
               </TableHead>
               <TableHead className="w-[160px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('kategori')}>
-                Kategori <SortIcon columnKey="kategori" />
+                Kategori {renderSortIcon("kategori")}
               </TableHead>
               <TableHead className="w-[140px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('stock')}>
-                Status Stok <SortIcon columnKey="stock" />
+                Status Stok {renderSortIcon("stock")}
               </TableHead>
               <TableHead className="text-left w-[140px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_modal')}>
-                Harga Modal <SortIcon columnKey="harga_modal" />
+                Harga Modal {renderSortIcon("harga_modal")}
               </TableHead>
               <TableHead className="text-left w-[140px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_jual_satuan')}>
-                Harga Retail <SortIcon columnKey="harga_jual_satuan" />
+                Harga Retail {renderSortIcon("harga_jual_satuan")}
               </TableHead>
               <TableHead className="text-left w-[140px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_jual_grosir')}>
-                Harga Grosir <SortIcon columnKey="harga_jual_grosir" />
+                Harga Grosir {renderSortIcon("harga_jual_grosir")}
               </TableHead>
               <TableHead className="w-[80px] pr-6"></TableHead>
             </TableRow>
@@ -425,7 +428,7 @@ export default function InventoryClient({
                     </div>
                   </TableCell>
                 </TableRow>
-                <InlineEditExpandedRow />
+                {renderInlineEditExpandedRow()}
               </>
             )}
 
@@ -504,7 +507,7 @@ export default function InventoryClient({
                           </div>
                         </TableCell>
                       </TableRow>
-                      <InlineEditExpandedRow />
+                {renderInlineEditExpandedRow()}
                     </React.Fragment>
                   );
                 }

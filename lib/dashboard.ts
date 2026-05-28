@@ -122,8 +122,16 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   }
 
-  const recentTransactions: TransactionRow[] = (transactionsRes.data ?? []).map(
-    (t: any) => ({
+  const recentTransactions: TransactionRow[] = (transactionsRes.data as unknown as Array<{
+    id: number;
+    no_transaksi: string;
+    tgl_transaksi: string;
+    total: number;
+    bayar: number;
+    pelanggan: { nama_pelanggan: string } | null;
+    pengguna: { username: string } | null;
+  }> ?? []).map(
+    (t) => ({
       no_transaksi: `#${t.no_transaksi}`,
       customer: t.pelanggan?.nama_pelanggan ?? null,
       time: new Date(t.tgl_transaksi).toLocaleTimeString("en-US", {

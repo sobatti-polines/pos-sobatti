@@ -5,13 +5,9 @@ import Link from "next/link";
 import { 
   BarChart3, 
   TrendingUp, 
-  Package, 
   ShoppingCart, 
   DollarSign, 
   ArrowUpRight, 
-  ArrowDownRight,
-  Calendar,
-  Filter,
   Download
 } from "lucide-react";
 import { 
@@ -45,10 +41,33 @@ function formatNumber(n: number) {
   return new Intl.NumberFormat("id-ID").format(n);
 }
 
+interface ReportTransaction {
+  id: number;
+  tgl_transaksi: string;
+  total: number;
+  bayar: number;
+}
+
+interface ReportDetail {
+  id_transaksi: number;
+  id_produk: number;
+  qty: number;
+  jumlah: number;
+  profit: number;
+  produk: { nama_produk: string } | null;
+}
+
+interface ReportProduct {
+  stok: number;
+  harga_modal: number;
+  hitung_stok: boolean;
+  stok_minimum: number;
+}
+
 interface ReportsClientProps {
-  transactions: any[];
-  details: any[];
-  products: any[];
+  transactions: ReportTransaction[];
+  details: ReportDetail[];
+  products: ReportProduct[];
 }
 
 export default function ReportsClient({ transactions, details, products }: ReportsClientProps) {
