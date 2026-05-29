@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const supabase = await createClient();
 
   const fields = `id, nama_produk, id_kategori, hitung_stok, stok,
-    harga_modal, harga_jual_satuan, harga_jual_grosir, diskon,
+    harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon,
     kategori(nama)`;
 
   // Try barcode match first (scanner input)

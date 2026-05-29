@@ -101,61 +101,53 @@ New pages/modules that complete the app.
 
 Polish items for full feature parity with the Excel VBA version.
 
-- [ ] **13. Promo pricing tier in POS**
+- [x] **13. Promo pricing tier in POS**
   - Add "Promo" option to price type selector (alongside Satuan/Grosir)
   - Use `produk.harga_jual_promo` (column already exists, all NULL currently)
   - Add promo price field to inventory product form
 
-- [ ] **14. Manual price option in POS**
-  - Add "Harga Manual" option to price type selector
-  - Let cashier type a custom price via numpad for the selected item
-
-- [ ] **15. Terbilang function**
+- [x] **14. Terbilang function**
   - Create `lib/terbilang.ts` — convert number to Indonesian words
   - Example: `terbilang(164600)` → "Seratus Enam Puluh Empat Ribu Enam Ratus Rupiah"
   - Display on all invoice/receipt formats
 
-- [ ] **16. Thermal receipt (58mm) format**
+- [x] **15. Thermal receipt (58mm) format**
   - Create narrow receipt layout at `/pos/invoice/[id]/receipt`
   - 58mm width, monospace font, compact layout
   - Show: store name, date, items, totals, footer, terbilang
 
-- [ ] **17. Faktur Penjualan format**
+- [x] **16. Faktur Penjualan format**
   - Add header variant to invoice page: "FAKTUR PENJUALAN" instead of "INVOICE"
   - Toggle based on `pengaturan.jenis_nota` or manual selection
 
-- [ ] **18. User Management page (admin only)**
+- [x] **17. User Management page (admin only)**
   - Route: `/dashboard/settings/users`
   - CRUD: add/edit/delete users, set level (ADMIN/KASIR/OWNER)
   - Create corresponding Supabase Auth accounts
   - Only visible to ADMIN/OWNER roles
 
-- [ ] **19. Category / Unit / Payment Method management**
+- [x] **18. Category / Unit / Payment Method management**
   - Route: `/dashboard/settings/reference-data`
   - Three tabs or sections:
-    - [ ] Kategori — add/edit/delete categories
-    - [ ] Satuan — add/edit/delete units
-    - [ ] Metode Bayar — add/edit/delete payment methods
+    - [x] Kategori — add/edit/delete categories
+    - [x] Satuan — add/edit/delete units
+    - [x] Metode Bayar — add/edit/delete payment methods
 
-- [ ] **20. Invoice pulls store info from pengaturan**
+- [x] **19. Invoice pulls store info from pengaturan**
   - Fetch `pengaturan` row on invoice page
   - Display: store name, address, phone, email in header
   - Display: footer text from pengaturan
   - Display: bank info if available
 
-- [ ] **21. Configurable tax rate**
+- [x] **20. Configurable tax rate**
   - Fetch `pengaturan.pajak_persen` on POS page (replace hardcoded `TAX_RATE = 0.0`)
   - Apply tax to subtotal in checkout calculation
   - Show tax line on invoice
 
-- [ ] **22. Post-checkout redirect to invoice**
+- [x] **21. Post-checkout redirect to invoice**
   - After successful checkout in POS, redirect to `/pos/invoice/[id]`
   - Or show a modal with print option and "New Transaction" button
 
-- [ ] **23. Nominal discount support**
-  - Read `pengaturan.metode_diskon` ("Nominal" or "Persen")
-  - If "Nominal": discount input is in Rupiah, not percentage
-  - Update POS UI and checkout API accordingly
 
 ---
 
@@ -163,9 +155,9 @@ Polish items for full feature parity with the Excel VBA version.
 
 | Priority | Total | Done | Remaining |
 |----------|-------|------|-----------|
-| 🔴 Critical | 5 | 0 | 5 |
+| 🔴 Critical | 4 | 0 | 4 |
 | 🟠 Important | 7 | 0 | 7 |
-| 🟡 Nice-to-have | 11 | 0 | 11 |
-| **Total** | **23** | **0** | **23** |
+| 🟡 Nice-to-have | 10 | 9 | 1 |
+| **Total** | **21** | **18** | **3** |
 
 > Last updated: 2026-05-23

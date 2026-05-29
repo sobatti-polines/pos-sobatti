@@ -24,6 +24,7 @@ export default async function InventoryPage() {
     harga_modal: number;
     harga_jual_satuan: number;
     harga_jual_grosir: number;
+    harga_jual_promo: number | null;
     diskon: number;
     stok: number | null;
     kategori: { nama: string } | null;

@@ -8,7 +8,7 @@ export async function GET() {
     .from("produk")
     .select(`
       id, nama_produk, id_kategori, hitung_stok, barcode, stok,
-      harga_modal, harga_jual_satuan, harga_jual_grosir, diskon,
+      harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon,
       kategori(nama)
     `)
     .order("nama_produk");

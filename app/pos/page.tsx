@@ -40,7 +40,6 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
-const TAX_RATE = 0.0;
 
 const categoryColors: Record<string, string> = {
   "Semen & Mortar": "bg-amber-100/50 text-amber-800",
@@ -79,7 +78,6 @@ export default function PosPage() {
   const selectedCustomer = usePosStore((s) => s.selectedCustomer);
   const selectedPayment = usePosStore((s) => s.selectedPayment);
   const activeCartItemId = usePosStore((s) => s.activeCartItemId);
-  const diskonPersen = usePosStore((s) => s.diskonPersen);
   const checkoutLoading = usePosStore((s) => s.checkoutLoading);
   const checkoutError = usePosStore((s) => s.checkoutError);
 
@@ -96,9 +94,7 @@ export default function PosPage() {
   const setSelectedPayment = usePosStore((s) => s.setSelectedPayment);
   const setActiveCartItemId = usePosStore((s) => s.setActiveCartItemId);
   const applyNumpadAsQty = usePosStore((s) => s.applyNumpadAsQty);
-  const applyNumpadAsDiskon = usePosStore((s) => s.applyNumpadAsDiskon);
-  const applyNumpadAsItemDiskon = usePosStore((s) => s.applyNumpadAsItemDiskon);
-  const clearDiskon = usePosStore((s) => s.clearDiskon);
+  const setPriceType = usePosStore((s) => s.setPriceType);
   const checkout = usePosStore((s) => s.checkout);
   const clearCart = usePosStore((s) => s.clearCart);
 
@@ -131,8 +127,8 @@ export default function PosPage() {
     fetchUser();
   }, [supabase]);
 
-  // ── Time state ─────────────────────────────────────────────────────────────
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [taxRate, setTaxRate] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -202,17 +198,22 @@ export default function PosPage() {
 
   useEffect(() => {
     const load = async () => {
-      const [prodRes, custRes, pmRes] = await Promise.all([
+      const [prodRes, custRes, pmRes, settingsRes] = await Promise.all([
         fetch("/api/pos/products"),
         fetch("/api/pos/customers"),
         fetch("/api/pos/payment-methods"),
+        supabase.from("pengaturan").select("pajak_persen").eq("id", 1).single()
       ]);
       setProducts(await prodRes.json());
       setCustomers(await custRes.json());
       setPaymentMethods(await pmRes.json());
+      
+      if (settingsRes.data) {
+        setTaxRate(settingsRes.data.pajak_persen || 0);
+      }
     };
     load();
-  }, [setProducts, setCustomers, setPaymentMethods]);
+  }, [setProducts, setCustomers, setPaymentMethods, supabase]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -250,9 +251,8 @@ export default function PosPage() {
   }, [products, searchQuery]);
 
   const subtotal = cart.reduce((sum, item) => sum + (item.harga_jual - item.diskon_item) * item.qty, 0);
-  const tax = subtotal * TAX_RATE;
-  const diskonNominal = diskonPersen > 0 ? Math.round(subtotal * (diskonPersen / 100)) : 0;
-  const total = subtotal + tax - diskonNominal;
+  const tax = subtotal * (taxRate / 100);
+  const total = subtotal + tax;
   const numpadAmount = numpadValue
     ? Math.round(parseFloat(numpadValue))
     : 0;
@@ -265,8 +265,9 @@ export default function PosPage() {
 
   const handleCheckout = async () => {
     const result = await checkout();
-    if (result.success) {
+    if (result.success && result.id) {
       setNumpadValue("");
+      router.push(`/pos/invoice/${result.id}`);
     }
   };
 
@@ -456,6 +457,9 @@ export default function PosPage() {
                           <p className="font-medium text-foreground text-sm truncate">{item.nama_produk}</p>
                           <p className="text-xs text-muted-foreground mt-0.5 truncate">
                             {item.kategori}
+                            <span className="ml-2 inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {item.tipe_harga}
+                            </span>
                             {item.diskon_item > 0 && (
                               <span className="text-destructive ml-2 font-medium">- {formatIDR(item.diskon_item)}</span>
                             )}
@@ -543,7 +547,7 @@ export default function PosPage() {
               </div>
               <div className="relative">
                 <select value={selectedCustomer?.id ?? ""}
-                  className="flex h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-[15px] shadow-sm transition-colors outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/20 disabled:opacity-50"
+                  className="appearance-none flex h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-[15px] shadow-sm transition-colors outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/20 disabled:opacity-50"
                   onChange={(e) => {
                     const id = Number(e.target.value);
                     const c = customers.find((c) => c.id === id);
@@ -566,6 +570,7 @@ export default function PosPage() {
               </div>
               <div className="relative">
                 <select value={selectedPayment}
+                  className="appearance-none flex h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-[15px] shadow-sm transition-colors outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/20 disabled:opacity-50"
                   onChange={(e) => setSelectedPayment(Number(e.target.value))}
                 >
                   {paymentMethods.map((pm) => (
@@ -621,7 +626,7 @@ export default function PosPage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="grid grid-cols-1 gap-3 mt-4">
                 <button
                   type="button"
                   className="h-12 rounded-lg font-medium bg-background border border-border hover:bg-primary/5 hover:border-primary/30 transition-colors shadow-sm text-sm text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
@@ -630,26 +635,32 @@ export default function PosPage() {
                 >
                   Set Qty
                 </button>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    className="h-12 rounded-lg font-medium bg-background border border-border hover:bg-primary/5 hover:border-primary/30 transition-colors shadow-sm text-[10px] uppercase tracking-wider text-foreground disabled:opacity-40 disabled:cursor-not-allowed leading-tight"
-                    onClick={applyNumpadAsItemDiskon}
-                    disabled={activeCartItemId === null || !numpadValue}
-                    title="Diskon Item"
-                  >
-                    Item Disc
-                  </button>
-                  <button
-                    type="button"
-                    className="h-12 rounded-lg font-medium bg-background border border-border hover:bg-primary/5 hover:border-primary/30 transition-colors shadow-sm text-[10px] uppercase tracking-wider text-foreground disabled:opacity-40 disabled:cursor-not-allowed leading-tight"
-                    onClick={applyNumpadAsDiskon}
-                    disabled={!numpadValue}
-                    title="Diskon Total"
-                  >
-                    Total Disc
-                  </button>
-                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-3">
+                <button
+                  type="button"
+                  className="h-10 rounded-lg font-medium bg-background border border-border hover:bg-primary/5 transition-colors text-[10px] uppercase tracking-wider text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => setPriceType("Satuan")}
+                  disabled={activeCartItemId === null}
+                >
+                  Satuan
+                </button>
+                <button
+                  type="button"
+                  className="h-10 rounded-lg font-medium bg-background border border-border hover:bg-primary/5 transition-colors text-[10px] uppercase tracking-wider text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => setPriceType("Grosir")}
+                  disabled={activeCartItemId === null}
+                >
+                  Grosir
+                </button>
+                <button
+                  type="button"
+                  className="h-10 rounded-lg font-medium bg-background border border-border hover:bg-primary/5 transition-colors text-[10px] uppercase tracking-wider text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => setPriceType("Promo")}
+                  disabled={activeCartItemId === null}
+                >
+                  Promo
+                </button>
               </div>
               {activeCartItemId === null && numpadValue && (
                 <p className="text-xs text-muted-foreground mt-2 text-center">
@@ -681,15 +692,10 @@ export default function PosPage() {
                 <span className="text-sm text-muted-foreground">Subtotal</span>
                 <span className="text-sm tabular-nums font-medium text-foreground">{formatIDR(subtotal)}</span>
               </div>
-              {diskonPersen > 0 && (
+              {taxRate > 0 && (
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Diskon {diskonPersen}%</span>
-                    <button type="button" onClick={clearDiskon} className="text-muted-foreground hover:text-destructive transition-colors">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                  <span className="text-sm tabular-nums font-medium text-destructive">-{formatIDR(diskonNominal)}</span>
+                  <span className="text-sm text-muted-foreground">Pajak ({taxRate}%)</span>
+                  <span className="text-sm tabular-nums font-medium text-foreground">{formatIDR(tax)}</span>
                 </div>
               )}
               {numpadAmount > 0 && (

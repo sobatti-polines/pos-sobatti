@@ -175,9 +175,9 @@ export default function AttendanceScanPage() {
       </header>
 
       <div className="flex justify-center mt-4">
-        <Card className="w-full max-w-md overflow-hidden border-none shadow-2xl">
-          <CardHeader className="bg-muted/30 border-b border-border/50 text-center">
-            <CardTitle className="flex items-center justify-center gap-2">
+        <Card className="w-full max-w-md overflow-hidden border-none shadow-lg">
+          <CardHeader className=" border-b border-border/50 text-center">
+            <CardTitle className="flex items-center justify-center gap-2 py-2">
               <Camera className="w-5 h-5 text-primary" />
               QR Scanner
             </CardTitle>

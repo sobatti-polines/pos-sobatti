@@ -35,6 +35,7 @@ interface Product {
   harga_modal: number;
   harga_jual_satuan: number;
   harga_jual_grosir: number;
+  harga_jual_promo: number | null;
   diskon: number;
   stock: number | null;
   kategori: { nama: string } | null;
@@ -168,6 +169,7 @@ export default function InventoryClient({
       harga_modal: Number(editForm.harga_modal || 0),
       harga_jual_satuan: Number(editForm.harga_jual_satuan || 0),
       harga_jual_grosir: Number(editForm.harga_jual_grosir || 0),
+      harga_jual_promo: editForm.harga_jual_promo ? Number(editForm.harga_jual_promo) : null,
       diskon: Number(editForm.diskon || 0),
     };
 
@@ -362,6 +364,9 @@ export default function InventoryClient({
               <TableHead className="text-left w-[140px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_jual_grosir')}>
                 Harga Grosir {renderSortIcon("harga_jual_grosir")}
               </TableHead>
+              <TableHead className="text-left w-[140px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_jual_promo')}>
+                Harga Promo {renderSortIcon("harga_jual_promo")}
+              </TableHead>
               <TableHead className="w-[80px] pr-6"></TableHead>
             </TableRow>
           </TableHeader>
@@ -414,6 +419,13 @@ export default function InventoryClient({
                     <Input type="number" aria-label="0" placeholder="0"
                       value={editForm.harga_jual_grosir || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, harga_jual_grosir: Number(e.target.value) }))}
+                      className="h-8 text-[13px] tabular-nums"
+                    />
+                  </TableCell>
+                  <TableCell className="align-top pt-4">
+                    <Input type="number" aria-label="0" placeholder="0"
+                      value={editForm.harga_jual_promo || ""}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, harga_jual_promo: Number(e.target.value) }))}
                       className="h-8 text-[13px] tabular-nums"
                     />
                   </TableCell>
@@ -496,6 +508,13 @@ export default function InventoryClient({
                             className="h-8 text-[13px] tabular-nums"
                           />
                         </TableCell>
+                        <TableCell className="align-top pt-4">
+                          <Input type="number" aria-label="0" placeholder="0"
+                            value={editForm.harga_jual_promo || ""}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, harga_jual_promo: Number(e.target.value) }))}
+                            className="h-8 text-[13px] tabular-nums"
+                          />
+                        </TableCell>
                         <TableCell className="pr-6 align-top pt-4 text-right">
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
@@ -537,6 +556,9 @@ export default function InventoryClient({
                     </TableCell>
                     <TableCell className="text-left py-4 tabular-nums">
                       {formatIDR(p.harga_jual_grosir)}
+                    </TableCell>
+                    <TableCell className="text-left py-4 tabular-nums">
+                      {p.harga_jual_promo != null ? formatIDR(p.harga_jual_promo) : "-"}
                     </TableCell>
                     <TableCell className="pr-6 py-4 text-right">
                       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

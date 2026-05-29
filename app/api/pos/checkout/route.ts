@@ -52,10 +52,10 @@ export async function POST(request: Request) {
   const productIds = items.map((i: { id_produk: number }) => i.id_produk);
   const { data: products } = await supabase
     .from("produk")
-    .select("id, harga_modal, harga_jual_satuan, harga_jual_grosir, hitung_stok, stok")
+    .select("id, harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, hitung_stok, stok")
     .in("id", productIds);
 
-  const productMap = new Map((products ?? []).map((p: Record<string, unknown>) => [p.id, p as { id: number; harga_modal: number; harga_jual_satuan: number; harga_jual_grosir: number; hitung_stok: boolean; stok: number }]));
+  const productMap = new Map((products ?? []).map((p: Record<string, unknown>) => [p.id, p as { id: number; harga_modal: number; harga_jual_satuan: number; harga_jual_grosir: number; harga_jual_promo: number | null; hitung_stok: boolean; stok: number }]));
 
   let subtotal = 0;
   const details: Array<{
@@ -75,9 +75,10 @@ export async function POST(request: Request) {
     if (!prod) continue;
 
     const diskon_item = item.diskon_item || 0;
-    const type_harga = item.qty >= 10 ? "GROSIR" : "SATUAN";
-    const harga_jual =
-      type_harga === "GROSIR" ? prod.harga_jual_grosir : prod.harga_jual_satuan;
+    const type_harga = item.tipe_harga ? item.tipe_harga.toUpperCase() : "SATUAN";
+    let harga_jual = prod.harga_jual_satuan;
+    if (type_harga === "GROSIR") harga_jual = prod.harga_jual_grosir;
+    if (type_harga === "PROMO" && prod.harga_jual_promo != null) harga_jual = prod.harga_jual_promo;
     
     // Update: jumlah = (harga - diskon_item) * qty
     const jumlah = (harga_jual - diskon_item) * item.qty;
@@ -104,7 +105,17 @@ export async function POST(request: Request) {
     ? Math.round(subtotal * (diskon_persen / 100))
     : 0;
 
-  const total_tagihan = subtotal - diskon_nominal;
+  // Fetch tax rate from settings
+  const { data: pengaturan } = await supabase
+    .from("pengaturan")
+    .select("pajak_persen")
+    .eq("id", 1)
+    .single();
+  
+  const pajak_persen = pengaturan?.pajak_persen || 0;
+  const pajak_nominal = Math.round((subtotal - diskon_nominal) * (pajak_persen / 100));
+
+  const total_tagihan = subtotal - diskon_nominal + pajak_nominal;
   const jumlah_bayar = bayar ?? total_tagihan;
   const kembali = Math.max(0, jumlah_bayar - total_tagihan);
 
@@ -130,8 +141,8 @@ export async function POST(request: Request) {
       subtotal,
       diskon_persen: diskon_persen || 0,
       diskon_nominal,
-      pajak_persen: 0,
-      pajak_nominal: 0,
+      pajak_persen,
+      pajak_nominal,
       total: total_tagihan,
       bayar: jumlah_bayar,
       kembali,
@@ -171,6 +182,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     success: true,
+    id: transaction.id,
     no_transaksi,
     total: total_tagihan,
     kembali,

@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PrintButton } from "./print-button";
+import { terbilangRupiah } from "@/lib/terbilang";
+import Link from "next/link";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -21,10 +23,18 @@ function formatDate(dateStr: string) {
   }).format(new Date(dateStr));
 }
 
-export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function InvoicePage({ 
+  params,
+  searchParams
+}: { 
+  params: Promise<{ id: string }>,
+  searchParams: Promise<{ type?: string }>
+}) {
   const supabase = await createClient();
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const id = parseInt(resolvedParams.id, 10);
+  const typeParam = resolvedSearchParams.type;
 
   if (isNaN(id)) {
     notFound();
@@ -60,16 +70,67 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     console.error("Error fetching invoice details:", detailsError);
   }
 
+  // Fetch store settings for default doc type and store info
+  const { data: pengaturan } = await supabase
+    .from("pengaturan")
+    .select("*")
+    .eq("id", 1)
+    .single();
+
   const items = details || [];
 
+  // Logic for header label
+  let headerLabel = "INVOICE";
+  const defaultType = pengaturan?.jenis_nota;
+  
+  if (typeParam === "faktur" || (!typeParam && defaultType === "Faktur")) {
+    headerLabel = "FAKTUR PENJUALAN";
+  } else if (typeParam === "invoice") {
+    headerLabel = "INVOICE";
+  }
+
   return (
-    <div className="min-h-screen bg-muted/20 py-8 print:p-0 print:bg-white flex justify-center">
+    <div className="min-h-screen bg-muted/20 py-8 print:p-0 print:bg-white flex flex-col items-center">
+      {/* Manual Toggle - Hidden in Print */}
+      <div className="w-full max-w-[210mm] mb-4 flex justify-end gap-2 print:hidden px-4 md:px-0">
+        <Link 
+          href={`/pos/invoice/${id}?type=invoice`}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+            headerLabel === "INVOICE" 
+            ? "bg-primary text-primary-foreground border-primary" 
+            : "bg-background text-muted-foreground border-border hover:bg-muted"
+          }`}
+        >
+          Mode Invoice
+        </Link>
+        <Link 
+          href={`/pos/invoice/${id}?type=faktur`}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+            headerLabel === "FAKTUR PENJUALAN" 
+            ? "bg-primary text-primary-foreground border-primary" 
+            : "bg-background text-muted-foreground border-border hover:bg-muted"
+          }`}
+        >
+          Mode Faktur
+        </Link>
+      </div>
+
       <div className="w-full max-w-[210mm] bg-white shadow-level-2 print:shadow-none p-10 md:p-16 print:p-0 flex flex-col mx-auto text-[#0d253d]">
         {/* Header */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-border/60 pb-8 mb-8">
           <div>
-            <h1 className="text-[32px] font-light tracking-[-0.64px] text-[#0d253d] mb-1">INVOICE</h1>
-            <p className="text-[15px] text-[#64748d] font-light">Terima kasih atas kepercayaan Anda.</p>
+            <h1 className="text-[32px] font-light tracking-[-0.64px] text-[#0d253d] mb-1 uppercase">{headerLabel}</h1>
+            <div className="text-[14px] text-[#64748d] font-light mt-3 space-y-0.5">
+              {pengaturan?.nama_toko && <p className="font-medium text-[#0d253d] text-[15px] mb-1">{pengaturan.nama_toko}</p>}
+              {pengaturan?.alamat && <p>{pengaturan.alamat}</p>}
+              {(pengaturan?.telepon || pengaturan?.email) && (
+                <p>
+                  {pengaturan?.telepon && <span>Telp: {pengaturan.telepon}</span>}
+                  {pengaturan?.telepon && pengaturan?.email && <span className="mx-2">|</span>}
+                  {pengaturan?.email && <span>Email: {pengaturan.email}</span>}
+                </p>
+              )}
+            </div>
           </div>
           <div className="mt-6 md:mt-0 text-left md:text-right">
             <p className="text-[15px] font-light text-[#0d253d]">Invoice No: <span className="tabular-nums tracking-[-0.42px] font-light">{transaksi.no_transaksi}</span></p>
@@ -127,8 +188,16 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
         {/* Summary Footer */}
         <div className="flex flex-col md:flex-row justify-between items-end gap-8">
-          <div className="w-full md:w-1/2 print:hidden">
+          <div className="w-full md:w-1/2 print:hidden flex gap-3">
             <PrintButton />
+            <a 
+              href={`/pos/invoice/${id}/receipt`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-muted text-muted-foreground text-[16px] h-10 rounded-full px-4 hover:bg-muted/80 transition-colors font-normal inline-flex items-center justify-center border border-border"
+            >
+              Struk Thermal
+            </a>
           </div>
           <div className="w-full md:w-[280px]">
             <div className="space-y-3 mb-6">
@@ -154,6 +223,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               <div className="flex justify-between text-[26px] font-light tracking-[-0.26px] text-[#0d253d]">
                 <span>Total</span>
                 <span className="tabular-nums tracking-[-0.42px]">{formatIDR(transaksi.total)}</span>
+              </div>
+              <div className="text-[12px] italic text-[#64748d] mt-1 text-right">
+                Terbilang: {terbilangRupiah(transaksi.total)}
               </div>
             </div>
 
@@ -183,10 +255,50 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             </div>
           </div>
         </div>
+
+        {/* Bank & Signatures */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-16 pt-8 border-t border-border/60">
+          <div>
+            {(pengaturan?.bank1_nama || pengaturan?.bank2_nama) && (
+              <>
+                <h3 className="text-[12px] font-normal text-[#64748d] uppercase tracking-[0.1px] mb-3">Informasi Pembayaran</h3>
+                <div className="space-y-4">
+                  {pengaturan?.bank1_nama && (
+                    <div>
+                      <p className="text-[14px] font-medium text-[#0d253d]">{pengaturan.bank1_nama}</p>
+                      <p className="text-[14px] font-light text-[#64748d] tabular-nums tracking-[-0.42px]">{pengaturan.bank1_rekening}</p>
+                      <p className="text-[13px] font-light text-[#64748d]">a.n. {pengaturan.bank1_atas_nama}</p>
+                    </div>
+                  )}
+                  {pengaturan?.bank2_nama && (
+                    <div>
+                      <p className="text-[14px] font-medium text-[#0d253d]">{pengaturan.bank2_nama}</p>
+                      <p className="text-[14px] font-light text-[#64748d] tabular-nums tracking-[-0.42px]">{pengaturan.bank2_rekening}</p>
+                      <p className="text-[13px] font-light text-[#64748d]">a.n. {pengaturan.bank2_atas_nama}</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="flex flex-col items-start md:items-end justify-end text-center md:text-right mt-8 md:mt-0">
+            {pengaturan?.hormat_kami_nama && (
+              <div className="w-48 text-center">
+                <p className="text-[14px] font-light text-[#0d253d] mb-16">Hormat Kami,</p>
+                <p className="text-[14px] font-medium text-[#0d253d] border-b border-border/60 pb-1 inline-block min-w-full">{pengaturan.hormat_kami_nama}</p>
+              </div>
+            )}
+          </div>
+        </div>
         
-        {/* Footer Note */}
-        <div className="mt-auto pt-16 text-center text-[11px] text-muted-foreground">
-          <p>Invoice ini sah dan diproses secara otomatis oleh sistem.</p>
+        {/* Footer Notes */}
+        <div className="mt-12 pt-8 border-t border-border/60 text-center space-y-1">
+          {pengaturan?.footer_invoice_1 && <p className="text-[12px] text-[#64748d] font-light">{pengaturan.footer_invoice_1}</p>}
+          {pengaturan?.footer_invoice_2 && <p className="text-[12px] text-[#64748d] font-light">{pengaturan.footer_invoice_2}</p>}
+          {pengaturan?.footer_invoice_3 && <p className="text-[12px] text-[#64748d] font-light">{pengaturan.footer_invoice_3}</p>}
+          {(!pengaturan?.footer_invoice_1 && !pengaturan?.footer_invoice_2 && !pengaturan?.footer_invoice_3) && (
+            <p className="text-[11px] text-muted-foreground">Invoice ini sah dan diproses secara otomatis oleh sistem.</p>
+          )}
         </div>
       </div>
     </div>

@@ -21,7 +21,7 @@ function SubmitButton() {
   return (
     <Button
       type="submit"
-      className="px-6 font-normal"
+      className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-normal shadow-sm shrink-0"
       disabled={pending}
     >
       {pending ? (
@@ -89,9 +89,8 @@ export function StoreForm({ initialData }: StoreFormProps) {
 
       {/* Store Info */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2 pb-2 border-b border-border">
-          <Store className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-medium">Informasi Toko</h2>
+        <div className="pb-2 border-b border-border">
+          <h2 className="text-[16px] font-medium text-foreground">Identitas Dasar</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -114,10 +113,9 @@ export function StoreForm({ initialData }: StoreFormProps) {
       </section>
 
       {/* Transaction Config */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 pb-2 border-b border-border">
-          <Receipt className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-medium">Konfigurasi Transaksi</h2>
+      <section className="space-y-4 pt-4">
+        <div className="pb-2 border-b border-border">
+          <h2 className="text-[16px] font-medium text-foreground">Konfigurasi Transaksi</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -135,7 +133,8 @@ export function StoreForm({ initialData }: StoreFormProps) {
             <label htmlFor="jenis_nota" className="text-sm font-medium">Jenis Nota Default</label>
             <Select id="jenis_nota" name="jenis_nota" defaultValue={initialData?.jenis_nota}>
               <option value="Invoice">Invoice</option>
-              <option value="Struk">Struk</option>
+              <option value="Faktur">Faktur Penjualan</option>
+              <option value="Struk">Struk 58mm</option>
             </Select>
           </div>
           <div className="space-y-2">
@@ -159,10 +158,9 @@ export function StoreForm({ initialData }: StoreFormProps) {
       </section>
 
       {/* Bank Info */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 pb-2 border-b border-border">
-          <CreditCard className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-medium">Informasi Bank</h2>
+      <section className="space-y-4 pt-4">
+        <div className="pb-2 border-b border-border">
+          <h2 className="text-[16px] font-medium text-foreground">Informasi Bank</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/20 rounded-lg">
           <h3 className="md:col-span-3 font-medium text-sm text-muted-foreground">Bank 1</h3>
@@ -197,10 +195,9 @@ export function StoreForm({ initialData }: StoreFormProps) {
       </section>
 
       {/* Footer Config */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 pb-2 border-b border-border">
-          <MessageSquare className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-medium">Konfigurasi Footer &amp; Salam</h2>
+      <section className="space-y-4 pt-4">
+        <div className="pb-2 border-b border-border">
+          <h2 className="text-[16px] font-medium text-foreground">Konfigurasi Footer &amp; Salam</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-3">

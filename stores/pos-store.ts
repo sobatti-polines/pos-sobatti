@@ -9,6 +9,7 @@ export interface Product {
   harga_modal: number;
   harga_jual_satuan: number;
   harga_jual_grosir: number;
+  harga_jual_promo: number | null;
   diskon: number;
   kategori: { nama: string } | null;
 }
@@ -32,10 +33,11 @@ export interface CartItem {
   harga_jual: number;
   qty: number;
   diskon_item: number;
+  tipe_harga: "Satuan" | "Grosir" | "Promo";
 }
 
 interface CheckoutPayload {
-  items: { id_produk: number; qty: number; diskon_item: number }[];
+  items: { id_produk: number; qty: number; diskon_item: number; tipe_harga: string }[];
   id_pelanggan: number | null;
   id_metode_bayar: number;
   diskon_persen: number;
@@ -52,7 +54,6 @@ interface PosState {
   selectedCustomer: Customer | null;
   selectedPayment: number;
   activeCartItemId: number | null;
-  diskonPersen: number;
   checkoutLoading: boolean;
   checkoutError: string | null;
 
@@ -73,13 +74,10 @@ interface PosState {
   setSelectedPayment: (id: number) => void;
 
   setActiveCartItemId: (id: number | null) => void;
-  setDiskonPersen: (pct: number) => void;
   applyNumpadAsQty: () => void;
-  applyNumpadAsDiskon: () => void;
-  applyNumpadAsItemDiskon: () => void;
-  clearDiskon: () => void;
+  setPriceType: (type: "Satuan" | "Grosir" | "Promo") => void;
 
-  checkout: () => Promise<{ success: boolean; no_transaksi?: number }>;
+  checkout: () => Promise<{ success: boolean; id?: number; no_transaksi?: number }>;
 }
 
 export const usePosStore = create<PosState>((set, get) => ({
@@ -92,7 +90,6 @@ export const usePosStore = create<PosState>((set, get) => ({
   selectedCustomer: null,
   selectedPayment: 1,
   activeCartItemId: null,
-  diskonPersen: 0,
   checkoutLoading: false,
   checkoutError: null,
 
@@ -120,7 +117,8 @@ export const usePosStore = create<PosState>((set, get) => ({
             kategori: product.kategori?.nama ?? "",
             harga_jual: product.harga_jual_satuan,
             qty: 1,
-            diskon_item: 0,
+            diskon_item: product.diskon || 0,
+            tipe_harga: "Satuan",
           },
         ],
       };
@@ -173,8 +171,6 @@ export const usePosStore = create<PosState>((set, get) => ({
       activeCartItemId: state.activeCartItemId === id ? null : id,
     })),
 
-  setDiskonPersen: (pct) => set({ diskonPersen: pct }),
-
   applyNumpadAsQty: () =>
     set((state) => {
       const id = state.activeCartItemId;
@@ -189,31 +185,23 @@ export const usePosStore = create<PosState>((set, get) => ({
       };
     }),
 
-  applyNumpadAsDiskon: () =>
-    set((state) => {
-      const pct = parseFloat(state.numpadValue);
-      if (isNaN(pct) || pct < 0) return { numpadValue: "" };
-      return {
-        diskonPersen: Math.min(100, pct),
-        numpadValue: "",
-      };
-    }),
-
-  applyNumpadAsItemDiskon: () =>
+  setPriceType: (type) =>
     set((state) => {
       const id = state.activeCartItemId;
       if (id === null) return {};
-      const discount = parseFloat(state.numpadValue);
-      if (isNaN(discount) || discount < 0) return { numpadValue: "" };
+      const product = state.products.find((p) => p.id === id);
+      if (!product) return {};
+      
+      let newPrice = product.harga_jual_satuan;
+      if (type === "Grosir") newPrice = product.harga_jual_grosir;
+      if (type === "Promo" && product.harga_jual_promo != null) newPrice = product.harga_jual_promo;
+
       return {
         cart: state.cart.map((item) =>
-          item.id_produk === id ? { ...item, diskon_item: discount } : item
+          item.id_produk === id ? { ...item, tipe_harga: type, harga_jual: newPrice } : item
         ),
-        numpadValue: "",
       };
     }),
-
-  clearDiskon: () => set({ diskonPersen: 0 }),
 
   checkout: async () => {
     set({ checkoutLoading: true, checkoutError: null });
@@ -228,10 +216,11 @@ export const usePosStore = create<PosState>((set, get) => ({
           id_produk: i.id_produk,
           qty: i.qty,
           diskon_item: i.diskon_item,
+          tipe_harga: i.tipe_harga,
         })),
         id_pelanggan: state.selectedCustomer?.id ?? null,
         id_metode_bayar: state.selectedPayment,
-        diskon_persen: state.diskonPersen,
+        diskon_persen: 0,
         bayar: numpadAmount || 0,
       };
 
@@ -248,13 +237,11 @@ export const usePosStore = create<PosState>((set, get) => ({
         return { success: false };
       }
 
-      set({ cart: [], numpadValue: "", activeCartItemId: null, diskonPersen: 0, checkoutLoading: false });
-      return { success: true, no_transaksi: data.no_transaksi };
+      set({ cart: [], numpadValue: "", activeCartItemId: null, checkoutLoading: false });
+      return { success: true, id: data.id, no_transaksi: data.no_transaksi };
     } catch {
       set({ checkoutError: "Gagal memproses pembayaran", checkoutLoading: false });
       return { success: false };
     }
   },
 }));
-
-// test
