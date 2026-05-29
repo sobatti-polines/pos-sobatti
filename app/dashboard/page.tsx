@@ -57,7 +57,7 @@ export default async function DashboardPage() {
   const isOwner = role === "OWNER";
 
   return (
-    <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-16 mx-auto">
+    <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h1 className="text-4xl font-light tracking-tight text-foreground">

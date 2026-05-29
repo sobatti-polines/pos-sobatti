@@ -86,7 +86,7 @@ export function DashboardSidebar({ role }: { role?: string }) {
           <span className="text-sm">Ringkasan</span>
         </Link>
 
-        {isStaff && (
+        {role === "KASIR" && (
           <Link href="/pos" className={linkClass("/pos")}>
             <CircleDollarSign className="w-5 h-5" />
             <span className="text-sm">Penjualan</span>

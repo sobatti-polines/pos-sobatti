@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { 
   Search, 
   ChevronLeft, 
@@ -78,6 +78,7 @@ export default function TransactionsClient({
 }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState({ start: "", end: "" });
   const [currentPage, setCurrentPage] = useState(1);
@@ -122,8 +123,8 @@ export default function TransactionsClient({
     let result = [...initialTransactions];
 
     // Search filter (no transaksi, kasir, pelanggan)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (deferredSearchQuery.trim()) {
+      const q = deferredSearchQuery.toLowerCase();
       result = result.filter(
         (t) =>
           String(t.no_transaksi).toLowerCase().includes(q) ||

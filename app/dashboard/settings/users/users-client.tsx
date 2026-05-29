@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition, useActionState, useEffect } from "react";
+import { useState, useMemo, useTransition, useActionState, useEffect, useDeferredValue } from "react";
 import { useFormStatus } from "react-dom";
 import { Search, Plus, Trash2, Edit2, CheckCircle2, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User as UserIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
   }, [initialUsers]);
   
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -75,8 +76,8 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
   const processedUsers = useMemo(() => {
     let result = [...users];
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (deferredSearchQuery.trim()) {
+      const q = deferredSearchQuery.toLowerCase();
       result = result.filter(
         (u) =>
           u.username.toLowerCase().includes(q) ||
@@ -414,7 +415,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
               </div>
 
               <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-border">
-                <Button type="button" variant="outline" onClick={handleCloseModal}>
+                <Button type="button" variant="outline" className="rounded-full px-6" onClick={handleCloseModal}>
                   Batal
                 </Button>
                 <SubmitButton isEditing={!!editingUser} />

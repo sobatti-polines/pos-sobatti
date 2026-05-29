@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useActionState, useEffect, useTransition } from "react";
+import { useState, useMemo, useActionState, useEffect, useTransition, useDeferredValue } from "react";
 import { useFormStatus } from "react-dom";
 import { Search, Plus, Edit2, Trash2, CheckCircle2, Database, AlertCircle, Loader2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ export function ReferenceClient({
   const [metodeBayar, setMetodeBayar] = useState<ReferenceItem[]>(initialMetodeBayar);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -131,8 +132,8 @@ export function ReferenceClient({
   const processedData = useMemo(() => {
     let result = [...activeData];
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (deferredSearchQuery.trim()) {
+      const q = deferredSearchQuery.toLowerCase();
       result = result.filter(
         (i) => i.nama.toLowerCase().includes(q) || String(i.id).includes(q)
       );
