@@ -115,7 +115,7 @@ export default async function InvoicePage({
         </Link>
       </div>
 
-      <div className="w-full max-w-[210mm] bg-white shadow-level-2 print:shadow-none p-10 md:p-16 print:p-0 flex flex-col mx-auto text-[#0d253d]">
+      <div className="invoice-print-area w-full max-w-[210mm] bg-white shadow-level-2 print:shadow-none p-10 md:p-16 print:p-0 flex flex-col mx-auto text-[#0d253d]">
         {/* Header */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-border/60 pb-8 mb-8">
           <div>
@@ -139,7 +139,7 @@ export default async function InvoicePage({
         </header>
 
         {/* Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+        <div className="invoice-info-grid grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           <div>
             <h3 className="text-[10px] font-normal text-[#64748d] uppercase tracking-[0.1px] mb-2">Kasir</h3>
             <p className="text-[15px] font-light text-[#0d253d]">{transaksi.kasir?.username || "Sistem"}</p>
@@ -160,7 +160,7 @@ export default async function InvoicePage({
         </div>
 
         {/* Table */}
-        <div className="mb-12">
+        <div className="invoice-table-wrap mb-12">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b-2 border-border/60">
@@ -187,7 +187,7 @@ export default async function InvoicePage({
         </div>
 
         {/* Summary Footer */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-8">
+        <div className="invoice-summary flex flex-col md:flex-row justify-between items-end gap-8">
           <div className="w-full md:w-1/2 print:hidden flex gap-3">
             <PrintButton />
             <a 
@@ -255,50 +255,12 @@ export default async function InvoicePage({
             </div>
           </div>
         </div>
-
-        {/* Bank & Signatures */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-16 pt-8 border-t border-border/60">
-          <div>
-            {(pengaturan?.bank1_nama || pengaturan?.bank2_nama) && (
-              <>
-                <h3 className="text-[12px] font-normal text-[#64748d] uppercase tracking-[0.1px] mb-3">Informasi Pembayaran</h3>
-                <div className="space-y-4">
-                  {pengaturan?.bank1_nama && (
-                    <div>
-                      <p className="text-[14px] font-medium text-[#0d253d]">{pengaturan.bank1_nama}</p>
-                      <p className="text-[14px] font-light text-[#64748d] tabular-nums tracking-[-0.42px]">{pengaturan.bank1_rekening}</p>
-                      <p className="text-[13px] font-light text-[#64748d]">a.n. {pengaturan.bank1_atas_nama}</p>
-                    </div>
-                  )}
-                  {pengaturan?.bank2_nama && (
-                    <div>
-                      <p className="text-[14px] font-medium text-[#0d253d]">{pengaturan.bank2_nama}</p>
-                      <p className="text-[14px] font-light text-[#64748d] tabular-nums tracking-[-0.42px]">{pengaturan.bank2_rekening}</p>
-                      <p className="text-[13px] font-light text-[#64748d]">a.n. {pengaturan.bank2_atas_nama}</p>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-          <div className="flex flex-col items-start md:items-end justify-end text-center md:text-right mt-8 md:mt-0">
-            {pengaturan?.hormat_kami_nama && (
-              <div className="w-48 text-center">
-                <p className="text-[14px] font-light text-[#0d253d] mb-16">Hormat Kami,</p>
-                <p className="text-[14px] font-medium text-[#0d253d] border-b border-border/60 pb-1 inline-block min-w-full">{pengaturan.hormat_kami_nama}</p>
-              </div>
-            )}
-          </div>
-        </div>
         
         {/* Footer Notes */}
-        <div className="mt-12 pt-8 border-t border-border/60 text-center space-y-1">
+        <div className="invoice-footer mt-12 pt-8 border-t border-border/60 text-center space-y-1">
           {pengaturan?.footer_invoice_1 && <p className="text-[12px] text-[#64748d] font-light">{pengaturan.footer_invoice_1}</p>}
           {pengaturan?.footer_invoice_2 && <p className="text-[12px] text-[#64748d] font-light">{pengaturan.footer_invoice_2}</p>}
           {pengaturan?.footer_invoice_3 && <p className="text-[12px] text-[#64748d] font-light">{pengaturan.footer_invoice_3}</p>}
-          {(!pengaturan?.footer_invoice_1 && !pengaturan?.footer_invoice_2 && !pengaturan?.footer_invoice_3) && (
-            <p className="text-[11px] text-muted-foreground">Invoice ini sah dan diproses secara otomatis oleh sistem.</p>
-          )}
         </div>
       </div>
     </div>

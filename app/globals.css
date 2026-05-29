@@ -148,3 +148,113 @@
     @apply font-sans;
   }
 }
+
+/* ── Invoice print: force single A4 page ── */
+@page {
+  size: A4 portrait;
+  margin: 10mm 12mm;
+}
+
+@media print {
+  html, body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Invoice wrapper: remove screen padding, fill page */
+  .invoice-print-area {
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Compress header */
+  .invoice-print-area header {
+    padding-bottom: 6px !important;
+    margin-bottom: 6px !important;
+  }
+
+  /* Compress info grid */
+  .invoice-print-area .invoice-info-grid {
+    gap: 4px !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Compress table */
+  .invoice-print-area table th {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+  .invoice-print-area table td {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+  }
+  .invoice-print-area .invoice-table-wrap {
+    margin-bottom: 6px !important;
+  }
+
+  /* Compress summary */
+  .invoice-print-area .invoice-summary {
+    gap: 4px !important;
+  }
+  .invoice-print-area .invoice-summary .space-y-3 {
+    gap: 2px !important;
+  }
+  .invoice-print-area .invoice-summary .space-y-3 > * + * {
+    margin-top: 2px !important;
+  }
+  .invoice-print-area .invoice-summary .space-y-2 > * + * {
+    margin-top: 2px !important;
+  }
+  .invoice-print-area .invoice-summary .mb-6 {
+    margin-bottom: 4px !important;
+  }
+  .invoice-print-area .invoice-summary .mb-4 {
+    margin-bottom: 4px !important;
+  }
+  .invoice-print-area .invoice-summary .pt-4 {
+    padding-top: 4px !important;
+  }
+  .invoice-print-area .invoice-summary .p-4 {
+    padding: 6px !important;
+  }
+
+  /* Compress bank & signature section */
+  .invoice-print-area .invoice-bank-sig {
+    margin-top: 8px !important;
+    padding-top: 6px !important;
+    gap: 4px !important;
+  }
+  .invoice-print-area .invoice-bank-sig .mb-16 {
+    margin-bottom: 24px !important;
+  }
+  .invoice-print-area .invoice-bank-sig .space-y-4 > * + * {
+    margin-top: 4px !important;
+  }
+
+  /* Compress footer */
+  .invoice-print-area .invoice-footer {
+    margin-top: 6px !important;
+    padding-top: 6px !important;
+  }
+
+  /* Scale down font sizes slightly for print density */
+  .invoice-print-area {
+    font-size: 12px !important;
+  }
+  .invoice-print-area h1 {
+    font-size: 22px !important;
+  }
+
+  /* Prevent page breaks inside the invoice */
+  .invoice-print-area {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .invoice-print-area table {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
