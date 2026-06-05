@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 import * as os from "os";
+import withPWAInit from "@ducanh2912/next-pwa";
+
+const withPWA = withPWAInit({
+  dest: "public",
+  disable: process.env.NODE_ENV === "development",
+});
 
 // Find local network IP dynamically
 const getLocalIp = () => {
@@ -27,4 +33,4 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [getLocalIp()],
 } as NextConfig;
 
-export default nextConfig;
+export default withPWA(nextConfig);

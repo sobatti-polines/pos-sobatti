@@ -12,6 +12,22 @@ const interSans = Inter({
 export const metadata: Metadata = {
   title: "Masuk — POS",
   description: "Sistem Kasir",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "POS System",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport = {
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

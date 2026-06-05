@@ -38,13 +38,7 @@ export function LoginForm() {
     return errors;
   }
 
-  function handleBlur(field: "identifier" | "password") {
-    setTouched((prev) => ({ ...prev, [field]: true }));
-    const errors = validate(
-      field === "identifier" ? { identifier } : { password }
-    );
-    setFieldErrors((prev) => ({ ...prev, [field]: errors[field] }));
-  }
+
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -113,7 +107,6 @@ export function LoginForm() {
                 setFieldErrors((prev) => ({ ...prev, identifier: err }));
               }
             }}
-            onBlur={() => handleBlur("identifier")}
             aria-invalid={!!fieldErrors.identifier}
             aria-describedby={fieldErrors.identifier ? "identifier-error" : undefined}
             disabled={isPending}
@@ -142,7 +135,6 @@ export function LoginForm() {
                   setFieldErrors((prev) => ({ ...prev, password: err }));
                 }
               }}
-              onBlur={() => handleBlur("password")}
               aria-invalid={!!fieldErrors.password}
               aria-describedby={fieldErrors.password ? "password-error" : undefined}
               disabled={isPending}
