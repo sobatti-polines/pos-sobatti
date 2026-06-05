@@ -126,7 +126,7 @@ export function AttendanceWidget({ initialData }: { initialData?: AttendanceData
           {/* Action Button */}
           {!attendance?.jam_pulang && (
             <Button asChild size="sm" className="w-full md:w-auto rounded-full h-[52px] md:h-11 px-6 text-sm font-semibold shadow-md shadow-primary/10 bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02] shrink-0 mt-1 md:mt-0">
-              <Link href="/dashboard/attendance/scan">
+              <Link href="/attendance/scan">
                 <Camera className="w-4 h-4 mr-2" />
                 Scan
               </Link>

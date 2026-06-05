@@ -149,7 +149,7 @@
   }
 }
 
-/* ── Invoice print: force single A4 page ── */
+/* ── Invoice print styles ── */
 @page {
   size: A4 portrait;
   margin: 10mm 12mm;
@@ -168,39 +168,51 @@
     box-shadow: none !important;
     max-width: 100% !important;
     width: 100% !important;
+    /* Allow natural page breaks — do NOT use page-break-inside: avoid here */
+  }
+
+  /* Scale down font sizes for print density */
+  .invoice-print-area {
+    font-size: 11px !important;
+  }
+  .invoice-print-area h1 {
+    font-size: 18px !important;
   }
 
   /* Compress header */
   .invoice-print-area header {
-    padding-bottom: 6px !important;
-    margin-bottom: 6px !important;
+    padding-bottom: 5px !important;
+    margin-bottom: 5px !important;
   }
 
   /* Compress info grid */
   .invoice-print-area .invoice-info-grid {
     gap: 4px !important;
-    margin-bottom: 8px !important;
+    margin-bottom: 6px !important;
   }
 
-  /* Compress table */
+  /* Compress table — allow rows to break across pages */
   .invoice-print-area table th {
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
   }
   .invoice-print-area table td {
     padding-top: 3px !important;
     padding-bottom: 3px !important;
   }
+  .invoice-print-area table tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
   .invoice-print-area .invoice-table-wrap {
-    margin-bottom: 6px !important;
+    margin-bottom: 5px !important;
   }
 
-  /* Compress summary */
+  /* Compress summary — keep together on same page if possible */
   .invoice-print-area .invoice-summary {
     gap: 4px !important;
-  }
-  .invoice-print-area .invoice-summary .space-y-3 {
-    gap: 2px !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
   .invoice-print-area .invoice-summary .space-y-3 > * + * {
     margin-top: 2px !important;
@@ -209,51 +221,37 @@
     margin-top: 2px !important;
   }
   .invoice-print-area .invoice-summary .mb-6 {
-    margin-bottom: 4px !important;
+    margin-bottom: 3px !important;
   }
   .invoice-print-area .invoice-summary .mb-4 {
-    margin-bottom: 4px !important;
+    margin-bottom: 3px !important;
   }
   .invoice-print-area .invoice-summary .pt-4 {
-    padding-top: 4px !important;
+    padding-top: 3px !important;
   }
   .invoice-print-area .invoice-summary .p-4 {
-    padding: 6px !important;
+    padding: 5px !important;
   }
 
   /* Compress bank & signature section */
   .invoice-print-area .invoice-bank-sig {
-    margin-top: 8px !important;
-    padding-top: 6px !important;
+    margin-top: 6px !important;
+    padding-top: 5px !important;
     gap: 4px !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
   .invoice-print-area .invoice-bank-sig .mb-16 {
-    margin-bottom: 24px !important;
+    margin-bottom: 20px !important;
   }
   .invoice-print-area .invoice-bank-sig .space-y-4 > * + * {
     margin-top: 4px !important;
   }
 
-  /* Compress footer */
+  /* Compress footer — keep together */
   .invoice-print-area .invoice-footer {
-    margin-top: 6px !important;
-    padding-top: 6px !important;
-  }
-
-  /* Scale down font sizes slightly for print density */
-  .invoice-print-area {
-    font-size: 12px !important;
-  }
-  .invoice-print-area h1 {
-    font-size: 22px !important;
-  }
-
-  /* Prevent page breaks inside the invoice */
-  .invoice-print-area {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-  .invoice-print-area table {
+    margin-top: 5px !important;
+    padding-top: 5px !important;
     page-break-inside: avoid;
     break-inside: avoid;
   }

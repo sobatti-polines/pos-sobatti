@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PrintButton } from "./print-button";
 import { terbilangRupiah } from "@/lib/terbilang";
@@ -31,6 +31,15 @@ export default async function InvoicePage({
   searchParams: Promise<{ type?: string }>
 }) {
   const supabase = await createClient();
+
+  // VULN-003 fix: layouts are not a security boundary in Next.js; verify auth per-page.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/");
+  }
+
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
   const id = parseInt(resolvedParams.id, 10);
@@ -91,29 +100,47 @@ export default async function InvoicePage({
 
   return (
     <div className="min-h-screen bg-muted/20 py-8 print:p-0 print:bg-white flex flex-col items-center">
-      {/* Manual Toggle - Hidden in Print */}
-      <div className="w-full max-w-[210mm] mb-4 flex justify-end gap-2 print:hidden px-4 md:px-0">
-        <Link 
-          href={`/pos/invoice/${id}?type=invoice`}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
-            headerLabel === "INVOICE" 
-            ? "bg-primary text-primary-foreground border-primary" 
-            : "bg-background text-muted-foreground border-border hover:bg-muted"
-          }`}
-        >
-          Mode Invoice
-        </Link>
-        <Link 
-          href={`/pos/invoice/${id}?type=faktur`}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
-            headerLabel === "FAKTUR PENJUALAN" 
-            ? "bg-primary text-primary-foreground border-primary" 
-            : "bg-background text-muted-foreground border-border hover:bg-muted"
-          }`}
-        >
-          Mode Faktur
-        </Link>
+      {/* Sticky action bar — always visible, hidden in print */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-sm border-b border-border print:hidden">
+        <div className="w-full max-w-[210mm] mx-auto px-4 py-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Link 
+              href={`/pos/invoice/${id}?type=invoice`}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+                headerLabel === "INVOICE" 
+                ? "bg-primary text-primary-foreground border-primary" 
+                : "bg-background text-muted-foreground border-border hover:bg-muted"
+              }`}
+            >
+              Invoice
+            </Link>
+            <Link 
+              href={`/pos/invoice/${id}?type=faktur`}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+                headerLabel === "FAKTUR PENJUALAN" 
+                ? "bg-primary text-primary-foreground border-primary" 
+                : "bg-background text-muted-foreground border-border hover:bg-muted"
+              }`}
+            >
+              Faktur
+            </Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <PrintButton />
+            <a 
+              href={`/pos/invoice/${id}/receipt`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-muted text-muted-foreground text-sm h-9 rounded-full px-4 hover:bg-muted/80 transition-colors font-normal inline-flex items-center justify-center border border-border"
+            >
+              Struk Thermal
+            </a>
+          </div>
+        </div>
       </div>
+
+      {/* Spacer to offset sticky bar height */}
+      <div className="h-14 print:hidden" />
 
       <div className="invoice-print-area w-full max-w-[210mm] bg-white shadow-level-2 print:shadow-none p-10 md:p-16 print:p-0 flex flex-col mx-auto text-[#0d253d]">
         {/* Header */}
@@ -187,18 +214,7 @@ export default async function InvoicePage({
         </div>
 
         {/* Summary Footer */}
-        <div className="invoice-summary flex flex-col md:flex-row justify-between items-end gap-8">
-          <div className="w-full md:w-1/2 print:hidden flex gap-3">
-            <PrintButton />
-            <a 
-              href={`/pos/invoice/${id}/receipt`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-muted text-muted-foreground text-[16px] h-10 rounded-full px-4 hover:bg-muted/80 transition-colors font-normal inline-flex items-center justify-center border border-border"
-            >
-              Struk Thermal
-            </a>
-          </div>
+        <div className="invoice-summary flex flex-col md:flex-row justify-end items-end gap-8">
           <div className="w-full md:w-[280px]">
             <div className="space-y-3 mb-6">
               <div className="flex justify-between text-[15px] font-light text-[#64748d]">

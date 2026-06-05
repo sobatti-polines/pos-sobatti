@@ -247,8 +247,8 @@ export default function AttendanceScanPage() {
                   <h3 className="text-xl font-semibold text-foreground mb-2">{successMsg}</h3>
                   <p className="text-muted-foreground">Data absensi telah tersimpan di sistem.</p>
                 </div>
-                <Button onClick={() => router.push("/dashboard")} variant="outline" className="bg-transparent border-border hover:bg-muted">
-                  Kembali ke Dashboard
+                <Button onClick={() => router.back()} variant="outline" className="bg-transparent border-border hover:bg-muted">
+                  Kembali
                 </Button>
               </div>
             )}

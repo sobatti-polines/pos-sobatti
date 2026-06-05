@@ -205,7 +205,7 @@ export function DashboardMobileNav({ role }: { role?: string }) {
                       Absensi Saya
                     </div>
                     <div className="flex flex-col gap-1">
-                      <Link href="/dashboard/attendance/scan" className={linkClass("/dashboard/attendance/scan")}>
+                      <Link href="/attendance/scan" className={linkClass("/attendance/scan")}>
                         <Camera className="w-5 h-5" />
                         <span>Scan QR Absensi</span>
                       </Link>

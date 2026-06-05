@@ -30,80 +30,14 @@ export async function POST(request: Request) {
     .eq("username", user.email?.split("@")[0])
     .maybeSingle();
 
-  const id_kasir = pengguna?.id ?? 2;
-
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-
-  const datePrefix = `${year}${month}`;
-
-  const { data: lastTx } = await supabase
-    .from("transaksi_keluar")
-    .select("no_transaksi")
-    .like("no_transaksi", `${datePrefix}%`)
-    .order("no_transaksi", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const lastNumber = lastTx ? Number(String(lastTx.no_transaksi).slice(-4)) : 0;
-  const no_transaksi = Number(`${datePrefix}${String(lastNumber + 1).padStart(4, "0")}`);
-
-  const productIds = items.map((i: { id_produk: number }) => i.id_produk);
-  const { data: products } = await supabase
-    .from("produk")
-    .select("id, harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, hitung_stok, stok")
-    .in("id", productIds);
-
-  const productMap = new Map((products ?? []).map((p: Record<string, unknown>) => [p.id, p as { id: number; harga_modal: number; harga_jual_satuan: number; harga_jual_grosir: number; harga_jual_promo: number | null; hitung_stok: boolean; stok: number }]));
-
-  let subtotal = 0;
-  const details: Array<{
-    id_produk: number;
-    type_harga_jual: string;
-    harga_modal: number;
-    harga_jual: number;
-    diskon_item: number;
-    qty: number;
-    jumlah: number;
-    kas_masuk: number;
-    profit: number;
-  }> = [];
-
-  for (const item of items) {
-    const prod = productMap.get(item.id_produk);
-    if (!prod) continue;
-
-    const diskon_item = item.diskon_item || 0;
-    const type_harga = item.tipe_harga ? item.tipe_harga.toUpperCase() : "SATUAN";
-    let harga_jual = prod.harga_jual_satuan;
-    if (type_harga === "GROSIR") harga_jual = prod.harga_jual_grosir;
-    if (type_harga === "PROMO" && prod.harga_jual_promo != null) harga_jual = prod.harga_jual_promo;
-    
-    // Update: jumlah = (harga - diskon_item) * qty
-    const jumlah = (harga_jual - diskon_item) * item.qty;
-    
-    // Update: profit = (harga_jual - harga_modal) * qty - diskon_item * qty
-    const profit = (harga_jual - prod.harga_modal) * item.qty - (diskon_item * item.qty);
-
-    subtotal += jumlah;
-
-    details.push({
-      id_produk: item.id_produk,
-      type_harga_jual: type_harga,
-      harga_modal: prod.harga_modal,
-      harga_jual,
-      diskon_item,
-      qty: item.qty,
-      jumlah,
-      kas_masuk: jumlah,
-      profit,
-    });
+  if (!pengguna) {
+    return NextResponse.json(
+      { error: "Staff profile not found. Cannot process checkout." },
+      { status: 403 }
+    );
   }
 
-  const diskon_nominal = diskon_persen > 0
-    ? Math.round(subtotal * (diskon_persen / 100))
-    : 0;
+  const id_kasir = pengguna.id;
 
   // Fetch tax rate from settings
   const { data: pengaturan } = await supabase
@@ -111,80 +45,50 @@ export async function POST(request: Request) {
     .select("pajak_persen")
     .eq("id", 1)
     .single();
-  
+
   const pajak_persen = pengaturan?.pajak_persen || 0;
-  const pajak_nominal = Math.round((subtotal - diskon_nominal) * (pajak_persen / 100));
 
-  const total_tagihan = subtotal - diskon_nominal + pajak_nominal;
-  const jumlah_bayar = bayar ?? total_tagihan;
-  const kembali = Math.max(0, jumlah_bayar - total_tagihan);
-
-  // Check if payment method is "DP"
+  // Determine if payment method is DP
   const { data: mBayar } = await supabase
     .from("metode_bayar")
     .select("nama")
     .eq("id", id_metode_bayar)
     .single();
-  
+
   const isDP = mBayar?.nama?.toUpperCase() === "DP";
-  const dp_amount = isDP ? jumlah_bayar : 0;
-  const sisa_amount = jumlah_bayar < total_tagihan ? total_tagihan - jumlah_bayar : 0;
 
-  const { data: transaction, error: txError } = await supabase
-    .from("transaksi_keluar")
-    .insert({
-      no_transaksi,
-      tgl_transaksi: now.toISOString(),
-      id_kasir,
-      id_pelanggan: id_pelanggan || null,
-      id_metode_bayar,
-      subtotal,
-      diskon_persen: diskon_persen || 0,
-      diskon_nominal,
-      pajak_persen,
-      pajak_nominal,
-      total: total_tagihan,
-      bayar: jumlah_bayar,
-      kembali,
-      dp: dp_amount,
-      sisa: sisa_amount,
-    })
-    .select("id")
-    .single();
-
-  if (txError) {
-    return NextResponse.json({ error: txError.message }, { status: 500 });
-  }
-
-  const detailsWithTx = details.map((d) => ({
-    ...d,
-    id_transaksi: transaction.id,
+  // Map cart items to the shape expected by the stored procedure
+  const itemsForRpc = items.map((i: {
+    id_produk: number;
+    qty: number;
+    diskon_item?: number;
+    tipe_harga?: string;
+  }) => ({
+    id_produk: i.id_produk,
+    qty: i.qty,
+    diskon_item: i.diskon_item || 0,
+    type_harga_jual: i.tipe_harga ? i.tipe_harga.toUpperCase() : "SATUAN",
   }));
 
-  const { error: dtError } = await supabase
-    .from("detail_transaksi_keluar")
-    .insert(detailsWithTx);
-
-  if (dtError) {
-    return NextResponse.json({ error: dtError.message }, { status: 500 });
-  }
-
-  // Deduct stock for items where hitung_stok = true
-  for (const item of items) {
-    const prod = productMap.get(item.id_produk);
-    if (prod?.hitung_stok && typeof prod.stok === 'number') {
-      await supabase
-        .from("produk")
-        .update({ stok: prod.stok - item.qty })
-        .eq("id", item.id_produk);
-    }
-  }
-
-  return NextResponse.json({
-    success: true,
-    id: transaction.id,
-    no_transaksi,
-    total: total_tagihan,
-    kembali,
+  /**
+   * Delegate the entire checkout (no_transaksi generation + insert header +
+   * insert details + stock deduction) to a single Postgres function so the
+   * operation is fully atomic and race-free.
+   */
+  const { data, error } = await supabase.rpc("process_checkout", {
+    p_items: itemsForRpc,
+    p_id_kasir: id_kasir,
+    p_id_pelanggan: id_pelanggan || null,
+    p_id_metode_bayar: id_metode_bayar,
+    p_diskon_persen: diskon_persen || 0,
+    p_bayar: bayar ?? 0,
+    p_pajak_persen: pajak_persen,
+    p_is_dp: isDP,
   });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json(data);
 }

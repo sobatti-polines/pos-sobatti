@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { terbilang } from "@/lib/terbilang";
 
@@ -23,6 +23,15 @@ function formatDate(dateStr: string) {
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
+
+  // VULN-003 fix: layouts are not a security boundary in Next.js; verify auth per-page.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/");
+  }
+
   const resolvedParams = await params;
   const id = parseInt(resolvedParams.id, 10);
 
