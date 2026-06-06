@@ -225,8 +225,8 @@ export default function PosPage() {
       if (!e.ctrlKey && !e.altKey && !e.metaKey) {
         const now = Date.now();
         
-        // If more than 50ms since last key, assume human typing and reset buffer
-        if (now - lastKeyTimeRef.current > 50) {
+        // If more than 150ms since last key, assume human typing and reset buffer
+        if (now - lastKeyTimeRef.current > 150) {
           barcodeBufferRef.current = "";
         }
         

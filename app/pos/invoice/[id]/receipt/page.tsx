@@ -181,9 +181,10 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         {/* Print triggering script */}
         <script dangerouslySetInnerHTML={{ __html: `window.onload = function() { window.print(); }` }} />
       </div>
-      
+
       {/* Print styles */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @media print {
           body { background: white; margin: 0; padding: 0; }
           .min-h-screen { min-height: 0; background: white; padding: 0; }
