@@ -102,10 +102,6 @@ export function LoginForm() {
             value={identifier}
             onChange={(e) => {
               setIdentifier(e.target.value);
-              if (touched.identifier) {
-                const err = validate({ identifier: e.target.value }).identifier;
-                setFieldErrors((prev) => ({ ...prev, identifier: err }));
-              }
             }}
             aria-invalid={!!fieldErrors.identifier}
             aria-describedby={fieldErrors.identifier ? "identifier-error" : undefined}
@@ -130,10 +126,6 @@ export function LoginForm() {
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                if (touched.password) {
-                  const err = validate({ password: e.target.value }).password;
-                  setFieldErrors((prev) => ({ ...prev, password: err }));
-                }
               }}
               aria-invalid={!!fieldErrors.password}
               aria-describedby={fieldErrors.password ? "password-error" : undefined}
