@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Search, Plus, Trash2, Users, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2 } from "lucide-react";
+import { Search, Plus, Trash2, Users, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { addCustomer, updateCustomer, deleteCustomer } from "./actions";
+import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 
 interface Customer {
   id: number;
@@ -148,6 +149,30 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     setErrorMsg("");
   };
 
+  const handleExportCSV = () => {
+    const headers = ["Nama Pelanggan", "No. HP", "Email", "Alamat", "Keterangan"];
+    const data = processedCustomers.map(c => [
+      c.nama_pelanggan,
+      c.no_hp || "-",
+      c.email || "-",
+      c.alamat || "-",
+      c.keterangan || "-"
+    ]);
+    exportToCSV("Data_Pelanggan", headers, data);
+  };
+
+  const handleExportPDF = () => {
+    const headers = ["Nama Pelanggan", "No. HP", "Email", "Alamat", "Keterangan"];
+    const data = processedCustomers.map(c => [
+      c.nama_pelanggan,
+      c.no_hp || "-",
+      c.email || "-",
+      c.alamat || "-",
+      c.keterangan || "-"
+    ]);
+    exportToPDF("Data_Pelanggan", "Laporan Data Pelanggan", headers, data);
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
       <div className="shrink-0 flex items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4">
@@ -162,19 +187,35 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
             />
           </div>
         </div>
-        <Button 
-          onClick={() => {
-            setEditingId('new');
-            setEditForm({});
-            setCurrentPage(1);
-            setErrorMsg("");
-          }}
-          disabled={editingId !== null}
-          className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm ml-4 font-normal shrink-0 gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Pelanggan
-        </Button>
+        <div className="flex items-center gap-2 ml-4 shrink-0">
+          <Button
+            variant="outline"
+            onClick={handleExportCSV}
+            className="rounded-full px-4 h-10 gap-2"
+          >
+            <Download className="w-4 h-4" /> CSV
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportPDF}
+            className="rounded-full px-4 h-10 gap-2"
+          >
+            <Download className="w-4 h-4" /> PDF
+          </Button>
+          <Button 
+            onClick={() => {
+              setEditingId('new');
+              setEditForm({});
+              setCurrentPage(1);
+              setErrorMsg("");
+            }}
+            disabled={editingId !== null}
+            className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm font-normal shrink-0 gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Pelanggan
+          </Button>
+        </div>
       </div>
 
       {errorMsg && editingId === 'new' && (

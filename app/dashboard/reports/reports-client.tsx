@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -136,6 +137,26 @@ export default function ReportsClient({ transactions, details, products }: Repor
     };
   }, [products]);
 
+  const handleExportCSV = () => {
+    const headers = ["Produk", "Qty Terjual", "Pendapatan"];
+    const data = topProducts.map(p => [
+      p.name,
+      p.qty,
+      p.revenue
+    ]);
+    exportToCSV("Laporan_Produk_Terlaris", headers, data);
+  };
+
+  const handleExportPDF = () => {
+    const headers = ["Produk", "Qty Terjual", "Pendapatan"];
+    const data = topProducts.map(p => [
+      p.name,
+      p.qty,
+      formatIDR(p.revenue)
+    ]);
+    exportToPDF("Laporan_Produk_Terlaris", "Laporan Produk Terlaris", headers, data);
+  };
+
   return (
     <div className="flex flex-col gap-8 pb-12">
       <div className="flex items-center justify-between">
@@ -166,10 +187,16 @@ export default function ReportsClient({ transactions, details, products }: Repor
           </Button>
         </div>
 
-        <Button variant="outline" size="sm" className="gap-2 h-9 rounded-full border-border">
-          <Download className="w-4 h-4" />
-          Ekspor Laporan
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-2 h-9 rounded-full border-border" onClick={handleExportCSV}>
+            <Download className="w-4 h-4" />
+            CSV
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2 h-9 rounded-full border-border" onClick={handleExportPDF}>
+            <Download className="w-4 h-4" />
+            PDF
+          </Button>
+        </div>
       </div>
 
       {/* Overview Stats */}

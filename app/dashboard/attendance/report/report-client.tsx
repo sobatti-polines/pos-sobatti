@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 
 function formatTime(isoString: string | null) {
   if (!isoString) return "--:--";
@@ -84,7 +85,7 @@ export function ReportClient({ initialData }: { initialData: AttendanceReportRec
     return { total, telat, uniqueEmployees };
   }, [filteredData]);
 
-  const downloadCSV = () => {
+  const handleExportCSV = () => {
     const headers = ["Tanggal", "Username", "Level", "Jam Masuk", "Jam Pulang", "Status", "Telat (Menit)", "Device"];
     const rows = filteredData.map(d => [
       d.tanggal,
@@ -94,19 +95,24 @@ export function ReportClient({ initialData }: { initialData: AttendanceReportRec
       formatTime(d.jam_pulang),
       d.status,
       d.telat_menit || 0,
-      (d.device_info || "").replace(/,/g, ";")
+      d.device_info || "-"
     ]);
+    exportToCSV(`Laporan_Absensi_${new Date().toISOString().split("T")[0]}`, headers, rows);
+  };
 
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `laporan_absensi_${new Date().toISOString().split("T")[0]}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportPDF = () => {
+    const headers = ["Tanggal", "Username", "Level", "Jam Masuk", "Jam Pulang", "Status", "Telat (Menit)", "Device"];
+    const rows = filteredData.map(d => [
+      d.tanggal,
+      d.pengguna?.username || "-",
+      d.pengguna?.level || "-",
+      formatTime(d.jam_masuk),
+      formatTime(d.jam_pulang),
+      d.status,
+      d.telat_menit || 0,
+      d.device_info || "-"
+    ]);
+    exportToPDF(`Laporan_Absensi_${new Date().toISOString().split("T")[0]}`, "Laporan Absensi", headers, rows);
   };
 
   return (
@@ -179,10 +185,16 @@ export function ReportClient({ initialData }: { initialData: AttendanceReportRec
             </Button>
           </div>
 
-          <Button onClick={downloadCSV} className="h-10 rounded-full gap-2 px-6 shadow-lg shadow-primary/20">
-            <Download className="w-4 h-4" />
-            Export CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleExportCSV} variant="outline" className="h-10 rounded-full gap-2 px-6">
+              <Download className="w-4 h-4" />
+              CSV
+            </Button>
+            <Button onClick={handleExportPDF} variant="outline" className="h-10 rounded-full gap-2 px-6">
+              <Download className="w-4 h-4" />
+              PDF
+            </Button>
+          </div>
         </div>
       </div>
 

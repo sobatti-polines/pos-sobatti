@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Search, Plus, PackageOpen, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2, Trash2 } from "lucide-react";
+import { Search, Plus, PackageOpen, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { addProduct, updateProduct, deleteProduct } from "./actions";
+import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import React from "react";
 
 function formatIDR(n: number) {
@@ -280,6 +281,36 @@ export default function InventoryClient({
     </TableRow>
   );
 
+  const handleExportCSV = () => {
+    const headers = ["Barcode", "Item", "Kategori", "Stok", "Harga Modal", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const data = processedProducts.map(p => [
+      p.barcode || "-",
+      p.nama_produk,
+      p.kategori?.nama || "-",
+      p.hitung_stok ? (p.stock || 0) : "Tidak dilacak",
+      p.harga_modal,
+      p.harga_jual_satuan,
+      p.harga_jual_grosir,
+      p.harga_jual_promo || "-"
+    ]);
+    exportToCSV("Data_Inventaris", headers, data);
+  };
+
+  const handleExportPDF = () => {
+    const headers = ["Barcode", "Item", "Kategori", "Stok", "Harga Modal", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const data = processedProducts.map(p => [
+      p.barcode || "-",
+      p.nama_produk,
+      p.kategori?.nama || "-",
+      p.hitung_stok ? (p.stock || 0) : "Tidak dilacak",
+      formatIDR(p.harga_modal),
+      formatIDR(p.harga_jual_satuan),
+      formatIDR(p.harga_jual_grosir),
+      p.harga_jual_promo ? formatIDR(p.harga_jual_promo) : "-"
+    ]);
+    exportToPDF("Data_Inventaris", "Laporan Data Inventaris", headers, data);
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
       <div className="shrink-0 flex items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4">
@@ -318,19 +349,35 @@ export default function InventoryClient({
           </select>
         </div>
 
-        <Button 
-          className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm ml-4 font-normal shrink-0"
-          disabled={editingId !== null}
-          onClick={() => {
-            setEditingId('new');
-            setEditForm({ hitung_stok: true, diskon: 0 });
-            setCurrentPage(1);
-            setErrorMsg("");
-          }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Tambah Produk
-        </Button>
+        <div className="flex items-center gap-2 ml-4 shrink-0">
+          <Button
+            variant="outline"
+            onClick={handleExportCSV}
+            className="rounded-full px-4 h-10 gap-2"
+          >
+            <Download className="w-4 h-4" /> CSV
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportPDF}
+            className="rounded-full px-4 h-10 gap-2"
+          >
+            <Download className="w-4 h-4" /> PDF
+          </Button>
+          <Button 
+            className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm font-normal shrink-0"
+            disabled={editingId !== null}
+            onClick={() => {
+              setEditingId('new');
+              setEditForm({ hitung_stok: true, diskon: 0 });
+              setCurrentPage(1);
+              setErrorMsg("");
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Tambah Produk
+          </Button>
+        </div>
       </div>
 
       {errorMsg && editingId === 'new' && (

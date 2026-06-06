@@ -11,7 +11,8 @@ import {
   Trash2,
   AlertTriangle,
   Loader2,
-  X
+  X,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
 import { voidTransaction, getTransactionDetails } from "./actions";
+import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -216,6 +218,34 @@ export default function TransactionsClient({
     return <Badge variant="secondary" className="bg-destructive/10 text-destructive hover:bg-destructive/20 font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Tertunda</Badge>;
   };
 
+  const handleExportCSV = () => {
+    const headers = ["No. Transaksi", "Tanggal", "Kasir", "Pelanggan", "Total", "Pembayaran", "Status"];
+    const data = filteredTransactions.map(t => [
+      `#${t.no_transaksi}`,
+      formatDate(t.tgl_transaksi),
+      t.pengguna?.nama || t.pengguna?.username || "-",
+      t.pelanggan?.nama_pelanggan || "Umum",
+      formatIDR(t.total),
+      t.metode_bayar?.nama || "-",
+      t.bayar >= t.total ? "Selesai" : (t.bayar > 0 ? "Sebagian" : "Tertunda")
+    ]);
+    exportToCSV("Data_Transaksi", headers, data);
+  };
+
+  const handleExportPDF = () => {
+    const headers = ["No. Transaksi", "Tanggal", "Kasir", "Pelanggan", "Total", "Pembayaran", "Status"];
+    const data = filteredTransactions.map(t => [
+      `#${t.no_transaksi}`,
+      formatDate(t.tgl_transaksi),
+      t.pengguna?.nama || t.pengguna?.username || "-",
+      t.pelanggan?.nama_pelanggan || "Umum",
+      formatIDR(t.total),
+      t.metode_bayar?.nama || "-",
+      t.bayar >= t.total ? "Selesai" : (t.bayar > 0 ? "Sebagian" : "Tertunda")
+    ]);
+    exportToPDF("Data_Transaksi", "Laporan Data Transaksi", headers, data);
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
       <div className="shrink-0 flex flex-col p-4 lg:p-6 border-b border-border bg-transparent gap-6">
@@ -285,6 +315,12 @@ export default function TransactionsClient({
               setDateFilter({ start: "", end: "" });
             }}>
               Reset
+            </Button>
+            <Button variant="outline" className="h-10 rounded-full gap-2 px-4" onClick={handleExportCSV}>
+              <Download className="w-4 h-4" /> CSV
+            </Button>
+            <Button variant="outline" className="h-10 rounded-full gap-2 px-4" onClick={handleExportPDF}>
+              <Download className="w-4 h-4" /> PDF
             </Button>
           </div>
         </div>
