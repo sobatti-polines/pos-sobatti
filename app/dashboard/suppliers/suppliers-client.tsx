@@ -185,62 +185,67 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
 
       <div className="flex-1 overflow-y-auto min-h-0 relative">
         <Table>
-          <TableHeader>
+          <TableHeader className="hidden md:table-header-group">
             <TableRow>
-              <TableHead onClick={() => handleSort("nama_supplier")} className="cursor-pointer select-none hover:text-foreground transition-colors pl-6">
+              <TableHead onClick={() => handleSort("nama_supplier")} className="cursor-pointer select-none hover:text-foreground transition-colors md:pl-6">
                 Nama Supplier {renderSortIcon("nama_supplier")}
               </TableHead>
               <TableHead onClick={() => handleSort("telepon")} className="cursor-pointer select-none hover:text-foreground transition-colors">Telepon {renderSortIcon("telepon")}</TableHead>
               <TableHead onClick={() => handleSort("email")} className="cursor-pointer select-none hover:text-foreground transition-colors">Email {renderSortIcon("email")}</TableHead>
               <TableHead onClick={() => handleSort("alamat")} className="cursor-pointer select-none hover:text-foreground transition-colors">Alamat {renderSortIcon("alamat")}</TableHead>
               <TableHead onClick={() => handleSort("keterangan")} className="cursor-pointer select-none hover:text-foreground transition-colors">Keterangan {renderSortIcon("keterangan")}</TableHead>
-              <TableHead className="w-[100px] pr-6"></TableHead>
+              <TableHead className="w-[100px] md:pr-6"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {editingId === 'new' && (
-              <TableRow className="bg-muted/30">
-                <TableCell className="pl-6 align-top pt-4">
+              <TableRow className="bg-muted/30 flex flex-col md:table-row p-4 md:p-0 gap-3 md:gap-0 border-b-2 md:border-b">
+                <TableCell className="md:pl-6 align-top md:pt-4 p-0 md:p-2 block md:table-cell">
+                  <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Nama Supplier</span>
                   <Input autoFocus aria-label="Nama Supplier" placeholder="Nama Supplier"
                     value={editForm.nama_supplier || ""}
                     onChange={(e) => setEditForm(prev => ({ ...prev, nama_supplier: e.target.value }))}
-                    className="h-8 text-[13px]"
+                    className="h-10 md:h-8 text-[15px] md:text-[13px]"
                   />
                 </TableCell>
-                <TableCell className="align-top pt-4">
+                <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
+                  <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Telepon</span>
                   <Input aria-label="Telepon" placeholder="Telepon"
                     value={editForm.telepon || ""}
                     onChange={(e) => setEditForm(prev => ({ ...prev, telepon: e.target.value }))}
-                    className="h-8 text-[13px] tabular-nums"
+                    className="h-10 md:h-8 text-[15px] md:text-[13px] tabular-nums"
                   />
                 </TableCell>
-                <TableCell className="align-top pt-4">
+                <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
+                  <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Email</span>
                   <Input aria-label="Email" placeholder="Email"
                     value={editForm.email || ""}
                     onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                    className="h-8 text-[13px]"
+                    className="h-10 md:h-8 text-[15px] md:text-[13px]"
                   />
                 </TableCell>
-                <TableCell className="align-top pt-4">
+                <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
+                  <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Alamat</span>
                   <Input aria-label="Alamat" placeholder="Alamat"
                     value={editForm.alamat || ""}
                     onChange={(e) => setEditForm(prev => ({ ...prev, alamat: e.target.value }))}
-                    className="h-8 text-[13px]"
+                    className="h-10 md:h-8 text-[15px] md:text-[13px]"
                   />
                 </TableCell>
-                <TableCell className="align-top pt-4">
+                <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
+                  <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Keterangan</span>
                   <Input aria-label="Keterangan" placeholder="Keterangan"
                     value={editForm.keterangan || ""}
                     onChange={(e) => setEditForm(prev => ({ ...prev, keterangan: e.target.value }))}
-                    className="h-8 text-[13px]"
+                    className="h-10 md:h-8 text-[15px] md:text-[13px]"
                   />
                 </TableCell>
-                <TableCell className="pr-6 align-top pt-4 text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
+                <TableCell className="md:pr-6 align-top pt-2 md:pt-4 text-right p-0 md:p-2 block md:table-cell mt-2 md:mt-0">
+                  <div className="flex justify-end gap-2 md:gap-1">
+                    <Button variant="outline" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
                       <X className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8 text-primary hover:text-primary hover:bg-primary/10" onClick={handleSaveInline} disabled={isPending}>
+                    <Button variant="default" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8" onClick={handleSaveInline} disabled={isPending}>
                       {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                     </Button>
                   </div>
@@ -251,49 +256,54 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
             {paginatedData.map((supplier) => {
               if (editingId === supplier.id) {
                 return (
-                  <TableRow key={supplier.id} className="bg-muted/10">
-                    <TableCell className="pl-6 align-top pt-4">
+                  <TableRow key={supplier.id} className="bg-muted/10 flex flex-col md:table-row p-4 md:p-0 gap-3 md:gap-0 border-b-2 md:border-b">
+                    <TableCell className="md:pl-6 align-top md:pt-4 p-0 md:p-2 block md:table-cell">
+                      <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Nama Supplier</span>
                       <Input autoFocus aria-label="Nama Supplier" placeholder="Nama Supplier"
                         value={editForm.nama_supplier || ""}
                         onChange={(e) => setEditForm(prev => ({ ...prev, nama_supplier: e.target.value }))}
-                        className="h-8 text-[13px]"
+                        className="h-10 md:h-8 text-[15px] md:text-[13px]"
                       />
                       {errorMsg && <p className="text-[11px] text-destructive mt-1">{errorMsg}</p>}
                     </TableCell>
-                    <TableCell className="align-top pt-4">
+                    <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
+                      <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Telepon</span>
                       <Input aria-label="Telepon" placeholder="Telepon"
                         value={editForm.telepon || ""}
                         onChange={(e) => setEditForm(prev => ({ ...prev, telepon: e.target.value }))}
-                        className="h-8 text-[13px] tabular-nums"
+                        className="h-10 md:h-8 text-[15px] md:text-[13px] tabular-nums"
                       />
                     </TableCell>
-                    <TableCell className="align-top pt-4">
+                    <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
+                      <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Email</span>
                       <Input aria-label="Email" placeholder="Email"
                         value={editForm.email || ""}
                         onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                        className="h-8 text-[13px]"
+                        className="h-10 md:h-8 text-[15px] md:text-[13px]"
                       />
                     </TableCell>
-                    <TableCell className="align-top pt-4">
+                    <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
+                      <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Alamat</span>
                       <Input aria-label="Alamat" placeholder="Alamat"
                         value={editForm.alamat || ""}
                         onChange={(e) => setEditForm(prev => ({ ...prev, alamat: e.target.value }))}
-                        className="h-8 text-[13px]"
+                        className="h-10 md:h-8 text-[15px] md:text-[13px]"
                       />
                     </TableCell>
-                    <TableCell className="align-top pt-4">
+                    <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
+                      <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Keterangan</span>
                       <Input aria-label="Keterangan" placeholder="Keterangan"
                         value={editForm.keterangan || ""}
                         onChange={(e) => setEditForm(prev => ({ ...prev, keterangan: e.target.value }))}
-                        className="h-8 text-[13px]"
+                        className="h-10 md:h-8 text-[15px] md:text-[13px]"
                       />
                     </TableCell>
-                    <TableCell className="pr-6 align-top pt-4 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
+                    <TableCell className="md:pr-6 align-top pt-2 md:pt-4 text-right p-0 md:p-2 block md:table-cell mt-2 md:mt-0">
+                      <div className="flex justify-end gap-2 md:gap-1">
+                        <Button variant="outline" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
                           <X className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8 text-primary hover:text-primary hover:bg-primary/10" onClick={handleSaveInline} disabled={isPending}>
+                        <Button variant="default" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8" onClick={handleSaveInline} disabled={isPending}>
                           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                         </Button>
                       </div>
@@ -305,19 +315,34 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
               return (
                 <TableRow 
                   key={supplier.id} 
-                  className="group hover:bg-muted/30 transition-colors"
+                  className="group hover:bg-muted/30 transition-colors flex flex-col md:table-row p-4 md:p-0 border-b"
                 >
-                  <TableCell className="pl-6 py-4">{supplier.nama_supplier}</TableCell>
-                  <TableCell className="py-4 tabular-nums">{supplier.telepon || "-"}</TableCell>
-                  <TableCell className="py-4">{supplier.email || "-"}</TableCell>
-                  <TableCell className="py-4 max-w-xs truncate">{supplier.alamat || "-"}</TableCell>
-                  <TableCell className="py-4 max-w-xs truncate">{supplier.keterangan || "-"}</TableCell>
-                  <TableCell className="pr-6 py-4 text-right">
-                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" aria-label="Edit supplier" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, supplier)} disabled={editingId !== null}>
+                  <TableCell className="md:pl-6 py-2 md:py-4 block md:table-cell">
+                    <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Nama Supplier</span>
+                    <span className="text-base md:text-[15px] font-medium md:font-normal">{supplier.nama_supplier}</span>
+                  </TableCell>
+                  <TableCell className="py-2 md:py-4 tabular-nums block md:table-cell">
+                    <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Telepon</span>
+                    {supplier.telepon || "-"}
+                  </TableCell>
+                  <TableCell className="py-2 md:py-4 block md:table-cell">
+                    <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Email</span>
+                    {supplier.email || "-"}
+                  </TableCell>
+                  <TableCell className="py-2 md:py-4 max-w-xs md:max-w-[200px] xl:max-w-xs truncate block md:table-cell">
+                    <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Alamat</span>
+                    <span className="whitespace-normal md:whitespace-nowrap md:truncate block">{supplier.alamat || "-"}</span>
+                  </TableCell>
+                  <TableCell className="py-2 md:py-4 max-w-xs md:max-w-[150px] xl:max-w-xs truncate block md:table-cell">
+                    <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Keterangan</span>
+                    <span className="whitespace-normal md:whitespace-nowrap md:truncate block">{supplier.keterangan || "-"}</span>
+                  </TableCell>
+                  <TableCell className="md:pr-6 py-3 md:py-4 text-right block md:table-cell mt-2 md:mt-0 border-t md:border-t-0 border-border/50">
+                    <div className="flex justify-end gap-2 md:gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      <Button variant="outline" size="icon" aria-label="Edit supplier" className="h-11 w-11 md:h-8 md:w-8 md:border-transparent md:bg-transparent text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, supplier)} disabled={editingId !== null}>
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" aria-label="Hapus supplier" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, data: supplier }); }} disabled={editingId !== null}>
+                      <Button variant="outline" size="icon" aria-label="Hapus supplier" className="h-11 w-11 md:h-8 md:w-8 md:border-transparent md:bg-transparent text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, data: supplier }); }} disabled={editingId !== null}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

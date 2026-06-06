@@ -96,8 +96,31 @@ function ProductCombo({
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      // Handle physical barcode scanner (which types fast and presses Enter)
+      // We check raw input value because React state (row.searchText) might be stale
+      const rawValue = inputRef.current?.value;
+      if (rawValue) {
+        const exactMatch = products.find(p => p.barcode === rawValue);
+        if (exactMatch) {
+          selectProduct(exactMatch);
+          return;
+        }
+      }
+      
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      if (filtered[highlightIdx]) {
+        selectProduct(filtered[highlightIdx]);
+      }
+      return;
+    }
+
     if (!open) {
-      if (e.key === "ArrowDown" || e.key === "Enter") {
+      if (e.key === "ArrowDown") {
         setOpen(true);
         e.preventDefault();
       }
@@ -112,12 +135,6 @@ function ProductCombo({
       case "ArrowUp":
         e.preventDefault();
         setHighlightIdx((i) => Math.max(i - 1, 0));
-        break;
-      case "Enter":
-        e.preventDefault();
-        if (filtered[highlightIdx]) {
-          selectProduct(filtered[highlightIdx]);
-        }
         break;
       case "Escape":
         setOpen(false);

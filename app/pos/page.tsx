@@ -215,8 +215,46 @@ export default function PosPage() {
     load();
   }, [setProducts, setCustomers, setPaymentMethods, supabase]);
 
+  const barcodeBufferRef = useRef<string>("");
+  const lastKeyTimeRef = useRef<number>(0);
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      // ── Global Barcode Scanner Detection ──
+      // Ignore modifier keys
+      if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+        const now = Date.now();
+        
+        // If more than 50ms since last key, assume human typing and reset buffer
+        if (now - lastKeyTimeRef.current > 50) {
+          barcodeBufferRef.current = "";
+        }
+        
+        // If Enter is pressed and we have a buffer (likely a scanner)
+        if (e.key === "Enter" && barcodeBufferRef.current.length > 3) {
+          e.preventDefault();
+          const barcode = barcodeBufferRef.current;
+          barcodeBufferRef.current = "";
+          
+          const product = products.find(p => p.barcode === barcode);
+          if (product) {
+            addToCart(product);
+            pushToast(product.nama_produk, true);
+            setSearchQuery(""); // Clear search field if it got typed there
+          } else {
+            pushToast(`Produk "${barcode}" tidak ditemukan`, false);
+          }
+          return;
+        }
+        
+        // Accumulate printable characters
+        if (e.key.length === 1) {
+          barcodeBufferRef.current += e.key;
+          lastKeyTimeRef.current = now;
+        }
+      }
+
+      // ── Numpad Controls ──
       const numpadMap: Record<string, string> = {
         Numpad0: "0", Numpad1: "1", Numpad2: "2", Numpad3: "3",
         Numpad4: "4", Numpad5: "5", Numpad6: "6", Numpad7: "7",
@@ -236,7 +274,7 @@ export default function PosPage() {
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [numpadPress]);
+  }, [numpadPress, products, addToCart, pushToast, setSearchQuery]);
 
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
@@ -436,7 +474,7 @@ export default function PosPage() {
         <div className="flex-1 flex flex-col min-w-0 bg-background shrink-0">
           <div className="flex-1 lg:overflow-y-scroll overflow-x-hidden px-4 lg:px-10 py-4 lg:py-6">
             <Table>
-              <TableHeader>
+              <TableHeader className="hidden md:table-header-group">
                 <TableRow>
                   <TableHead className="px-0">Item</TableHead>
                   <TableHead className="text-center w-[140px]">Qty</TableHead>
@@ -448,11 +486,11 @@ export default function PosPage() {
               <TableBody>
                 {cart.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-16">
+                    <TableCell colSpan={5} className="text-center py-16 block md:table-cell border-b-0">
                       <div className="flex flex-col items-center gap-3">
                         <Receipt className="w-12 h-12 text-muted-foreground/40" />
                         <p className="text-base">Keranjang kosong</p>
-                        <p className="text-sm">Cari produk untuk memulai transaksi</p>
+                        <p className="text-sm text-center">Cari produk untuk memulai transaksi</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -462,13 +500,13 @@ export default function PosPage() {
                     return (
                       <TableRow
                         key={item.id_produk}
-                        className={`border-b border-border/40 transition-colors group cursor-pointer ${isActive
+                        className={`border-b border-border/40 transition-colors group cursor-pointer flex flex-col md:table-row p-4 md:p-0 gap-2 md:gap-0 ${isActive
                           ? "bg-primary/5 hover:bg-primary/10"
                           : "hover:bg-muted/30"
                           }`}
                         onClick={() => setActiveCartItemId(item.id_produk)}
                       >
-                        <TableCell className="px-0 truncate">
+                        <TableCell className="px-0 truncate block md:table-cell p-0 md:p-4 border-none md:border-b">
                           <p className="font-medium text-foreground text-sm truncate">{item.nama_produk}</p>
                           <p className="text-xs text-muted-foreground mt-0.5 truncate">
                             {item.kategori}
@@ -480,42 +518,61 @@ export default function PosPage() {
                             )}
                           </p>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-4">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              type="button"
-                              className="w-9 h-9 rounded-full border-border hover:bg-background shadow-sm transition-all"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateQty(item.id_produk, -1);
-                              }}
-                            >
-                              <Minus className="w-3.5 h-3.5" />
-                            </Button>
-                            <span className="w-8 text-center tabular-nums text-lg font-medium">{item.qty}</span>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              type="button"
-                              className="w-9 h-9 rounded-full border-border hover:bg-background shadow-sm transition-all"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateQty(item.id_produk, 1);
-                              }}
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </Button>
+                        <TableCell className="block md:table-cell p-0 md:p-4 border-none md:border-b mt-2 md:mt-0">
+                          <div className="flex items-center justify-between md:justify-center w-full">
+                            <div className="flex items-center gap-4">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                type="button"
+                                className="w-9 h-9 rounded-full border-border hover:bg-background shadow-sm transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateQty(item.id_produk, -1);
+                                }}
+                              >
+                                <Minus className="w-3.5 h-3.5" />
+                              </Button>
+                              <span className="w-8 text-center tabular-nums text-lg font-medium">{item.qty}</span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                type="button"
+                                className="w-9 h-9 rounded-full border-border hover:bg-background shadow-sm transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateQty(item.id_produk, 1);
+                                }}
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                            
+                            {/* Mobile Jumlah & Delete */}
+                            <div className="flex md:hidden items-center gap-3">
+                              <span className="font-medium text-base tabular-nums">{formatIDR((item.harga_jual - item.diskon_item) * item.qty)}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                className="w-9 h-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeItem(item.id_produk);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right hidden md:table-cell">
                           {formatIDR(item.harga_jual)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right hidden md:table-cell">
                           {formatIDR((item.harga_jual - item.diskon_item) * item.qty)}
                         </TableCell>
-                        <TableCell className="px-0 text-right">
+                        <TableCell className="px-0 text-right hidden md:table-cell">
                           <Button
                             variant="ghost"
                             size="icon"

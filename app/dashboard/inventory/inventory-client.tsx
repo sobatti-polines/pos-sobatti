@@ -342,9 +342,9 @@ export default function InventoryClient({
 
       <div className="flex-1 overflow-y-auto min-h-0 relative">
         <Table>
-          <TableHeader>
+          <TableHeader className="hidden xl:table-header-group">
             <TableRow>
-              <TableHead className="w-[140px] pl-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('barcode')}>
+              <TableHead className="w-[140px] xl:pl-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('barcode')}>
                 Barcode {renderSortIcon("barcode")}
               </TableHead>
               <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('nama_produk')}>
@@ -368,74 +368,82 @@ export default function InventoryClient({
               <TableHead className="text-left w-[140px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_jual_promo')}>
                 Harga Promo {renderSortIcon("harga_jual_promo")}
               </TableHead>
-              <TableHead className="w-[80px] pr-6"></TableHead>
+              <TableHead className="w-[80px] xl:pr-6"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {editingId === 'new' && (
               <>
-                <TableRow className="bg-muted/10 border-b-0 hover:bg-muted/10">
-                  <TableCell className="pl-6 align-top pt-4">
+                <TableRow className="bg-muted/10 border-b-2 xl:border-b-0 hover:bg-muted/10 flex flex-col xl:table-row p-4 xl:p-0 gap-3 xl:gap-0">
+                  <TableCell className="xl:pl-6 align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                    <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Barcode</span>
                     <Input aria-label="Barcode" placeholder="Barcode"
                       value={editForm.barcode || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, barcode: e.target.value }))}
-                      className="h-8 text-[13px] font-mono"
+                      className="h-10 xl:h-8 text-[15px] xl:text-[13px] font-mono"
                     />
                   </TableCell>
-                  <TableCell className="align-top pt-4">
+                  <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                    <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Nama Produk</span>
                     <Input autoFocus aria-label="Nama Produk" placeholder="Nama Produk"
                       value={editForm.nama_produk || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, nama_produk: e.target.value }))}
-                      className="h-8 text-[13px]"
+                      className="h-10 xl:h-8 text-[15px] xl:text-[13px]"
                     />
                   </TableCell>
-                  <TableCell className="align-top pt-4">
+                  <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                    <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Kategori Produk</span>
                     <select aria-label="Kategori Produk"
                       value={editForm.id_kategori || ""} 
                       onChange={(e) => setEditForm(prev => ({ ...prev, id_kategori: Number(e.target.value) }))}
-                      className="w-full h-8 rounded-md border border-input bg-background px-2 text-[13px] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20"
+                      className="w-full h-10 xl:h-8 rounded-md border border-input bg-background px-3 xl:px-2 text-[15px] xl:text-[13px] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20"
                     >
                       <option value="">Pilih</option>
                       {categories.map((c) => <option key={c.id} value={c.id}>{c.nama}</option>)}
                     </select>
                   </TableCell>
-                  <TableCell className="align-top pt-4">
+                  <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                    <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Status Stok</span>
                     {getStockBadge(editForm.hitung_stok ?? true, null)}
                   </TableCell>
-                  <TableCell className="align-top pt-4">
+                  <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                    <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Modal</span>
                     <Input type="number" aria-label="0" placeholder="0"
                       value={editForm.harga_modal || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, harga_modal: Number(e.target.value) }))}
-                      className="h-8 text-[13px] tabular-nums"
+                      className="h-10 xl:h-8 text-[15px] xl:text-[13px] tabular-nums"
                     />
                   </TableCell>
-                  <TableCell className="align-top pt-4">
+                  <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                    <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Retail</span>
                     <Input type="number" aria-label="0" placeholder="0"
                       value={editForm.harga_jual_satuan || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, harga_jual_satuan: Number(e.target.value) }))}
-                      className="h-8 text-[13px] tabular-nums"
+                      className="h-10 xl:h-8 text-[15px] xl:text-[13px] tabular-nums"
                     />
                   </TableCell>
-                  <TableCell className="align-top pt-4">
+                  <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                    <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Grosir</span>
                     <Input type="number" aria-label="0" placeholder="0"
                       value={editForm.harga_jual_grosir || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, harga_jual_grosir: Number(e.target.value) }))}
-                      className="h-8 text-[13px] tabular-nums"
+                      className="h-10 xl:h-8 text-[15px] xl:text-[13px] tabular-nums"
                     />
                   </TableCell>
-                  <TableCell className="align-top pt-4">
+                  <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                    <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Promo</span>
                     <Input type="number" aria-label="0" placeholder="0"
                       value={editForm.harga_jual_promo || ""}
                       onChange={(e) => setEditForm(prev => ({ ...prev, harga_jual_promo: Number(e.target.value) }))}
-                      className="h-8 text-[13px] tabular-nums"
+                      className="h-10 xl:h-8 text-[15px] xl:text-[13px] tabular-nums"
                     />
                   </TableCell>
-                  <TableCell className="pr-6 align-top pt-4 text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
+                  <TableCell className="xl:pr-6 align-top pt-2 xl:pt-4 text-right p-0 xl:p-2 block xl:table-cell mt-2 xl:mt-0">
+                    <div className="flex justify-end gap-2 xl:gap-1">
+                      <Button variant="outline" size="icon" aria-label="Batal Edit" className="h-11 w-11 xl:h-8 xl:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
                         <X className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8 text-primary hover:text-primary hover:bg-primary/10" onClick={handleSaveInline} disabled={isPending}>
+                      <Button variant="default" size="icon" aria-label="Simpan Edit" className="h-11 w-11 xl:h-8 xl:w-8" onClick={handleSaveInline} disabled={isPending}>
                         {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                       </Button>
                     </div>
@@ -460,68 +468,76 @@ export default function InventoryClient({
                 if (editingId === p.id) {
                   return (
                     <React.Fragment key={p.id}>
-                      <TableRow className="bg-muted/10 border-b-0 hover:bg-muted/10">
-                        <TableCell className="pl-6 align-top pt-4">
+                      <TableRow className="bg-muted/10 border-b-2 xl:border-b-0 hover:bg-muted/10 flex flex-col xl:table-row p-4 xl:p-0 gap-3 xl:gap-0">
+                        <TableCell className="xl:pl-6 align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                          <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Barcode</span>
                           <Input aria-label="Barcode" placeholder="Barcode"
                             value={editForm.barcode || ""}
                             onChange={(e) => setEditForm(prev => ({ ...prev, barcode: e.target.value }))}
-                            className="h-8 text-[13px] font-mono"
+                            className="h-10 xl:h-8 text-[15px] xl:text-[13px] font-mono"
                           />
                         </TableCell>
-                        <TableCell className="align-top pt-4">
+                        <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                          <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Nama Produk</span>
                           <Input autoFocus aria-label="Nama Produk" placeholder="Nama Produk"
                             value={editForm.nama_produk || ""}
                             onChange={(e) => setEditForm(prev => ({ ...prev, nama_produk: e.target.value }))}
-                            className="h-8 text-[13px]"
+                            className="h-10 xl:h-8 text-[15px] xl:text-[13px]"
                           />
                         </TableCell>
-                        <TableCell className="align-top pt-4">
+                        <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                          <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Kategori Produk</span>
                           <select aria-label="Kategori Produk"
                             value={editForm.id_kategori || ""} 
                             onChange={(e) => setEditForm(prev => ({ ...prev, id_kategori: Number(e.target.value) }))}
-                            className="w-full h-8 rounded-md border border-input bg-background px-2 text-[13px] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20"
+                            className="w-full h-10 xl:h-8 rounded-md border border-input bg-background px-3 xl:px-2 text-[15px] xl:text-[13px] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20"
                           >
                             <option value="">Pilih</option>
                             {categories.map((c) => <option key={c.id} value={c.id}>{c.nama}</option>)}
                           </select>
                         </TableCell>
-                        <TableCell className="align-top pt-4">
+                        <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                          <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Status Stok</span>
                           {getStockBadge(editForm.hitung_stok ?? true, p.stock)}
                         </TableCell>
-                        <TableCell className="align-top pt-4">
+                        <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                          <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Modal</span>
                           <Input type="number" aria-label="0" placeholder="0"
                             value={editForm.harga_modal || ""}
                             onChange={(e) => setEditForm(prev => ({ ...prev, harga_modal: Number(e.target.value) }))}
-                            className="h-8 text-[13px] tabular-nums"
+                            className="h-10 xl:h-8 text-[15px] xl:text-[13px] tabular-nums"
                           />
                         </TableCell>
-                        <TableCell className="align-top pt-4">
+                        <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                          <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Retail</span>
                           <Input type="number" aria-label="0" placeholder="0"
                             value={editForm.harga_jual_satuan || ""}
                             onChange={(e) => setEditForm(prev => ({ ...prev, harga_jual_satuan: Number(e.target.value) }))}
-                            className="h-8 text-[13px] tabular-nums"
+                            className="h-10 xl:h-8 text-[15px] xl:text-[13px] tabular-nums"
                           />
                         </TableCell>
-                        <TableCell className="align-top pt-4">
+                        <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                          <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Grosir</span>
                           <Input type="number" aria-label="0" placeholder="0"
                             value={editForm.harga_jual_grosir || ""}
                             onChange={(e) => setEditForm(prev => ({ ...prev, harga_jual_grosir: Number(e.target.value) }))}
-                            className="h-8 text-[13px] tabular-nums"
+                            className="h-10 xl:h-8 text-[15px] xl:text-[13px] tabular-nums"
                           />
                         </TableCell>
-                        <TableCell className="align-top pt-4">
+                        <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+                          <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Promo</span>
                           <Input type="number" aria-label="0" placeholder="0"
                             value={editForm.harga_jual_promo || ""}
                             onChange={(e) => setEditForm(prev => ({ ...prev, harga_jual_promo: Number(e.target.value) }))}
-                            className="h-8 text-[13px] tabular-nums"
+                            className="h-10 xl:h-8 text-[15px] xl:text-[13px] tabular-nums"
                           />
                         </TableCell>
-                        <TableCell className="pr-6 align-top pt-4 text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
+                        <TableCell className="xl:pr-6 align-top pt-2 xl:pt-4 text-right p-0 xl:p-2 block xl:table-cell mt-2 xl:mt-0">
+                          <div className="flex justify-end gap-2 xl:gap-1">
+                            <Button variant="outline" size="icon" aria-label="Batal Edit" className="h-11 w-11 xl:h-8 xl:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
                               <X className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8 text-primary hover:text-primary hover:bg-primary/10" onClick={handleSaveInline} disabled={isPending}>
+                            <Button variant="default" size="icon" aria-label="Simpan Edit" className="h-11 w-11 xl:h-8 xl:w-8" onClick={handleSaveInline} disabled={isPending}>
                               {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                             </Button>
                           </div>
@@ -535,38 +551,46 @@ export default function InventoryClient({
                 return (
                   <TableRow 
                     key={p.id} 
-                    className="group hover:bg-muted/30 transition-colors"
+                    className="group hover:bg-muted/30 transition-colors flex flex-col xl:table-row p-4 xl:p-0 border-b"
                   >
-                    <TableCell className="pl-6 py-4">
-                      {p.barcode || "-"}
+                    <TableCell className="xl:pl-6 py-2 xl:py-4 block xl:table-cell">
+                      <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Barcode</span>
+                      <span className="font-mono text-[14px]">{p.barcode || "-"}</span>
                     </TableCell>
-                    <TableCell className="py-4">
-                      <p className="text-foreground text-[14px] line-clamp-1">{p.nama_produk}</p>
+                    <TableCell className="py-2 xl:py-4 block xl:table-cell">
+                      <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Item</span>
+                      <p className="text-foreground text-[15px] xl:text-[14px] font-medium xl:font-normal line-clamp-2 xl:line-clamp-1">{p.nama_produk}</p>
                     </TableCell>
-                    <TableCell className="py-4">
+                    <TableCell className="py-2 xl:py-4 block xl:table-cell">
+                      <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Kategori</span>
                       {p.kategori?.nama || "-"}
                     </TableCell>
-                    <TableCell className="py-4">
+                    <TableCell className="py-2 xl:py-4 block xl:table-cell">
+                      <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Status Stok</span>
                       {getStockBadge(p.hitung_stok, p.stock)}
                     </TableCell>
-                    <TableCell className="text-left py-4 tabular-nums">
+                    <TableCell className="xl:text-left py-2 xl:py-4 tabular-nums block xl:table-cell">
+                      <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Modal</span>
                       {formatIDR(p.harga_modal)}
                     </TableCell>
-                    <TableCell className="text-left py-4 tabular-nums">
+                    <TableCell className="xl:text-left py-2 xl:py-4 tabular-nums block xl:table-cell">
+                      <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Retail</span>
                       {formatIDR(p.harga_jual_satuan)}
                     </TableCell>
-                    <TableCell className="text-left py-4 tabular-nums">
+                    <TableCell className="xl:text-left py-2 xl:py-4 tabular-nums block xl:table-cell">
+                      <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Grosir</span>
                       {formatIDR(p.harga_jual_grosir)}
                     </TableCell>
-                    <TableCell className="text-left py-4 tabular-nums">
+                    <TableCell className="xl:text-left py-2 xl:py-4 tabular-nums block xl:table-cell">
+                      <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Promo</span>
                       {p.harga_jual_promo != null ? formatIDR(p.harga_jual_promo) : "-"}
                     </TableCell>
-                    <TableCell className="pr-6 py-4 text-right">
-                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" aria-label="Edit p" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, p)} disabled={editingId !== null}>
+                    <TableCell className="xl:pr-6 py-3 xl:py-4 text-right block xl:table-cell mt-2 xl:mt-0 border-t xl:border-t-0 border-border/50">
+                      <div className="flex justify-end gap-2 xl:gap-1 opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
+                        <Button variant="outline" size="icon" aria-label="Edit p" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, p)} disabled={editingId !== null}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" aria-label="Hapus p" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, data: p }); }} disabled={editingId !== null}>
+                        <Button variant="outline" size="icon" aria-label="Hapus p" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, data: p }); }} disabled={editingId !== null}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
