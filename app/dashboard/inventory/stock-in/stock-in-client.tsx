@@ -321,7 +321,7 @@ export default function StockInClient({
   );
 
   return (
-    <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto h-full max-h-screen overflow-hidden">
+    <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
       <header className="shrink-0">
         <h1 className="text-4xl font-light tracking-tighter text-foreground">
           Barang Masuk
@@ -346,14 +346,14 @@ export default function StockInClient({
           </div>
         )}
 
-        <div className="shrink-0 flex flex-wrap items-end gap-4 px-6 py-5 border-b border-border bg-transparent">
-          <div className="flex flex-col gap-1.5">
+        <div className="shrink-0 flex flex-col md:flex-row md:items-end gap-4 px-6 py-5 border-b border-border bg-transparent">
+          <div className="flex flex-col gap-1.5 w-full md:w-auto">
             <label htmlFor="id_supplier" className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
               Supplier
             </label>
             <select id="id_supplier" value={idSupplier}
               onChange={(e) => setIdSupplier(Number(e.target.value) || "")}
-              className="h-9 rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary min-w-[200px]"
+              className="h-9 w-full md:min-w-[200px] rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
             >
               <option value="">Pilih supplier</option>
               {suppliers.map((s) => (
@@ -364,14 +364,14 @@ export default function StockInClient({
             </select>
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 w-full md:w-auto">
             <label htmlFor="tgl_masuk" className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
               Tanggal Masuk
             </label>
             <input id="tgl_masuk" type="date"
               value={tglMasuk}
               onChange={(e) => setTglMasuk(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
             />
           </div>
         </div>

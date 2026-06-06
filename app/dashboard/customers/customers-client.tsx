@@ -175,30 +175,30 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
-      <div className="shrink-0 flex items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4">
-        <div className="flex-1 flex flex-wrap items-center gap-3">
-          <div className="relative w-full max-w-sm">
+      <div className="shrink-0 flex flex-col items-start md:flex-row md:items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4">
+        <div className="flex-1 flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full">
+          <div className="relative w-full md:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input aria-label="Pencarian" placeholder="Cari nama, telp, atau alamat..."
-              className="pl-9 rounded-md"
+              className="pl-9 rounded-md w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               disabled={editingId !== null}
             />
           </div>
         </div>
-        <div className="flex items-center gap-2 ml-4 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 md:ml-4 shrink-0 w-full md:w-auto">
           <Button
             variant="outline"
             onClick={handleExportCSV}
-            className="rounded-full px-4 h-10 gap-2"
+            className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none"
           >
             <Download className="w-4 h-4" /> CSV
           </Button>
           <Button
             variant="outline"
             onClick={handleExportPDF}
-            className="rounded-full px-4 h-10 gap-2"
+            className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none"
           >
             <Download className="w-4 h-4" /> PDF
           </Button>
@@ -210,7 +210,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
               setErrorMsg("");
             }}
             disabled={editingId !== null}
-            className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm font-normal shrink-0 gap-2"
+            className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm font-normal shrink-0 gap-2 w-full md:w-auto"
           >
             <Plus className="w-4 h-4" />
             Tambah Pelanggan
@@ -388,7 +388,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
       </div>
 
       {/* Pagination */}
-      <div className="shrink-0 flex items-center justify-between gap-4 px-4 lg:px-6 py-3 border-t border-border bg-background">
+      <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 lg:p-6 border-t border-border bg-background">
         <p className="text-[13px] text-muted-foreground tabular-nums">
           Menampilkan{" "}
           <span className="font-medium text-foreground">

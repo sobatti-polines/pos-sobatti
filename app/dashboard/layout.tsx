@@ -22,11 +22,11 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-background flex-col md:flex-row">
+    <div className="flex flex-col min-h-[100dvh] md:h-[100dvh] md:overflow-hidden bg-background md:flex-row">
       <DashboardSidebar role={role} />
-      <div className="flex-1 flex flex-col w-full overflow-hidden">
+      <div className="flex-1 flex flex-col w-full min-h-[100dvh] md:min-h-0 md:overflow-hidden">
         <DashboardMobileNav role={role} />
-        <main className="flex-1 overflow-auto flex flex-col w-full">
+        <main className="flex-1 flex flex-col w-full md:overflow-auto">
           {children}
         </main>
       </div>

@@ -24,8 +24,8 @@ export default async function PosLayout({
   // We can add a redirect inside 'app/pos/page.tsx' instead for the main POS screen.
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-background">
-      <div className="flex-1 overflow-hidden flex flex-col w-full">
+    <div className="flex min-h-[100dvh] md:h-[100dvh] md:overflow-hidden bg-background">
+      <div className="flex-1 md:overflow-hidden flex flex-col w-full">
         {children}
       </div>
     </div>

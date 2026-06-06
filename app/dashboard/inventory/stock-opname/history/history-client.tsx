@@ -99,32 +99,32 @@ export default function OpnameHistoryClient({ initialHistory }: { initialHistory
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
-      <div className="shrink-0 flex items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4">
-        <div className="flex-1 flex flex-wrap items-center gap-3">
-          <div className="relative w-full max-w-sm">
+      <div className="shrink-0 flex flex-col items-start md:flex-row md:items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4">
+        <div className="flex-1 flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full">
+          <div className="relative w-full md:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
               placeholder="Cari produk atau keterangan..." 
-              className="pl-9 rounded-md"
+              className="pl-9 rounded-md w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1">
               <Input 
                 type="date" 
-                className="rounded-md border px-3 py-2 text-sm w-40"
+                className="rounded-md border px-3 py-2 text-sm w-full md:w-40"
                 value={dateFilter.start}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
               />
             </div>
-            <span className="text-muted-foreground">s/d</span>
-            <div className="relative">
+            <span className="text-muted-foreground text-sm">s/d</span>
+            <div className="relative flex-1">
               <Input 
                 type="date" 
-                className="rounded-md border px-3 py-2 text-sm w-40"
+                className="rounded-md border px-3 py-2 text-sm w-full md:w-40"
                 value={dateFilter.end}
                 onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
               />
@@ -132,17 +132,17 @@ export default function OpnameHistoryClient({ initialHistory }: { initialHistory
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0 px-4" onClick={() => {
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <Button variant="outline" className="h-10 rounded-full gap-2 px-4 flex-1 md:flex-none" onClick={() => {
             setSearchQuery("");
             setDateFilter({ start: "", end: "" });
           }}>
             Reset
           </Button>
-          <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0 px-4" onClick={handleExportCSV}>
+          <Button variant="outline" className="h-10 rounded-full gap-2 px-4 flex-1 md:flex-none" onClick={handleExportCSV}>
             <Download className="w-4 h-4" /> CSV
           </Button>
-          <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0 px-4" onClick={handleExportPDF}>
+          <Button variant="outline" className="h-10 rounded-full gap-2 px-4 flex-1 md:flex-none" onClick={handleExportPDF}>
             <Download className="w-4 h-4" /> PDF
           </Button>
         </div>
@@ -152,7 +152,7 @@ export default function OpnameHistoryClient({ initialHistory }: { initialHistory
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[140px] pl-6">Tanggal</TableHead>
+              <TableHead className="w-[140px] pl-6 md:pl-6">Tanggal</TableHead>
               <TableHead>Produk</TableHead>
               <TableHead className="w-[140px] text-center">Stok Sistem</TableHead>
               <TableHead className="w-[140px] text-center">Stok Fisik</TableHead>
@@ -174,7 +174,7 @@ export default function OpnameHistoryClient({ initialHistory }: { initialHistory
             ) : (
               paginatedData.map((h) => (
                 <TableRow key={h.id}>
-                  <TableCell className="pl-6">
+                  <TableCell className="pl-6 md:pl-6">
                     {formatDate(h.tgl_opname)}
                   </TableCell>
                   <TableCell>
@@ -203,7 +203,7 @@ export default function OpnameHistoryClient({ initialHistory }: { initialHistory
         </Table>
       </div>
 
-      <div className="shrink-0 flex items-center justify-between p-4 border-t border-border bg-background">
+      <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 lg:p-6 border-t border-border bg-background">
         <p className="text-[13px] text-muted-foreground tabular-nums">
           Menampilkan <span className="font-medium text-foreground">{filteredHistory.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</span> hingga <span className="font-medium text-foreground">{Math.min(currentPage * itemsPerPage, filteredHistory.length)}</span> dari <span className="font-medium text-foreground">{filteredHistory.length}</span> catatan
         </p>

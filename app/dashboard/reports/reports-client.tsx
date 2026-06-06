@@ -159,13 +159,13 @@ export default function ReportsClient({ transactions, details, products }: Repor
 
   return (
     <div className="flex flex-col gap-8 pb-12">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-1 sm:gap-2 bg-muted/50 p-1 rounded-lg border border-border w-full sm:w-auto">
           <Button 
             variant={dateRange === "7" ? "secondary" : "ghost"} 
             size="sm" 
             onClick={() => setDateRange("7")}
-            className="rounded-md h-8 text-xs font-medium"
+            className="rounded-md h-8 text-xs font-medium flex-1 sm:flex-none"
           >
             7 Hari
           </Button>
@@ -173,7 +173,7 @@ export default function ReportsClient({ transactions, details, products }: Repor
             variant={dateRange === "30" ? "secondary" : "ghost"} 
             size="sm" 
             onClick={() => setDateRange("30")}
-            className="rounded-md h-8 text-xs font-medium"
+            className="rounded-md h-8 text-xs font-medium flex-1 sm:flex-none"
           >
             30 Hari
           </Button>
@@ -181,18 +181,18 @@ export default function ReportsClient({ transactions, details, products }: Repor
             variant={dateRange === "all" ? "secondary" : "ghost"} 
             size="sm" 
             onClick={() => setDateRange("all")}
-            className="rounded-md h-8 text-xs font-medium"
+            className="rounded-md h-8 text-xs font-medium flex-1 sm:flex-none"
           >
             Semua
           </Button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2 h-9 rounded-full border-border" onClick={handleExportCSV}>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none gap-2 h-9 rounded-full border-border" onClick={handleExportCSV}>
             <Download className="w-4 h-4" />
             CSV
           </Button>
-          <Button variant="outline" size="sm" className="gap-2 h-9 rounded-full border-border" onClick={handleExportPDF}>
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none gap-2 h-9 rounded-full border-border" onClick={handleExportPDF}>
             <Download className="w-4 h-4" />
             PDF
           </Button>
