@@ -29,6 +29,7 @@ const nextConfig: NextConfig = {
       allowedOrigins: [getLocalIp(), 'localhost:3000'],
     },
   },
+  turbopack: {},
   // If allowedDevOrigins is a custom thing you are using:
   allowedDevOrigins: [getLocalIp()],
 } as NextConfig;

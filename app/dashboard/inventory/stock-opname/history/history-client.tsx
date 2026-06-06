@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ClipboardList, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
@@ -70,6 +71,32 @@ export default function OpnameHistoryClient({ initialHistory }: { initialHistory
     return filteredHistory.slice(start, start + itemsPerPage);
   }, [filteredHistory, currentPage]);
 
+  const handleExportCSV = () => {
+    const headers = ["Tanggal", "Produk", "Stok Sistem", "Stok Fisik", "Selisih", "Keterangan"];
+    const rows = filteredHistory.map(h => [
+      formatDate(h.tgl_opname),
+      h.produk?.nama_produk || "Produk dihapus",
+      h.stok_sistem,
+      h.stok_fisik,
+      h.selisih > 0 ? `+${h.selisih}` : h.selisih,
+      h.keterangan || "-"
+    ]);
+    exportToCSV(`Riwayat_Stok_Opname_${new Date().toISOString().split("T")[0]}`, headers, rows);
+  };
+
+  const handleExportPDF = () => {
+    const headers = ["Tanggal", "Produk", "Stok Sistem", "Stok Fisik", "Selisih", "Keterangan"];
+    const rows = filteredHistory.map(h => [
+      formatDate(h.tgl_opname),
+      h.produk?.nama_produk || "Produk dihapus",
+      h.stok_sistem,
+      h.stok_fisik,
+      h.selisih > 0 ? `+${h.selisih}` : h.selisih,
+      h.keterangan || "-"
+    ]);
+    exportToPDF(`Riwayat_Stok_Opname_${new Date().toISOString().split("T")[0]}`, "Riwayat Stok Opname", headers, rows);
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
       <div className="shrink-0 flex items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4">
@@ -105,12 +132,20 @@ export default function OpnameHistoryClient({ initialHistory }: { initialHistory
           </div>
         </div>
 
-        <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0" onClick={() => {
-          setSearchQuery("");
-          setDateFilter({ start: "", end: "" });
-        }}>
-          Reset
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0 px-4" onClick={() => {
+            setSearchQuery("");
+            setDateFilter({ start: "", end: "" });
+          }}>
+            Reset
+          </Button>
+          <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0 px-4" onClick={handleExportCSV}>
+            <Download className="w-4 h-4" /> CSV
+          </Button>
+          <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0 px-4" onClick={handleExportPDF}>
+            <Download className="w-4 h-4" /> PDF
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0 relative">

@@ -2,12 +2,13 @@
 
 import { useState, useMemo, useActionState, useEffect, useTransition, useDeferredValue } from "react";
 import { useFormStatus } from "react-dom";
-import { Search, Plus, Edit2, Trash2, CheckCircle2, Database, AlertCircle, Loader2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, CheckCircle2, Database, AlertCircle, Loader2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createReferenceData, updateReferenceData, deleteReferenceData, ReferenceActionState } from "./actions";
+import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 
 type ReferenceItem = {
   id: number;
@@ -180,6 +181,24 @@ export function ReferenceClient({
     return "Metode Pembayaran";
   };
 
+  const handleExportCSV = () => {
+    const headers = ["ID", "Nama"];
+    const data = processedData.map(item => [
+      item.id,
+      item.nama
+    ]);
+    exportToCSV(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, headers, data);
+  };
+
+  const handleExportPDF = () => {
+    const headers = ["ID", "Nama"];
+    const data = processedData.map(item => [
+      item.id,
+      item.nama
+    ]);
+    exportToPDF(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, `Laporan ${getTabLabel(activeTab)}`, headers, data);
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 gap-6">
       {/* Tabs */}
@@ -216,10 +235,26 @@ export function ReferenceClient({
               />
             </div>
           </div>
-          <Button onClick={() => handleOpenModal()} className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm ml-4 font-normal shrink-0 gap-2">
-            <Plus className="w-4 h-4" />
-            Tambah Data
-          </Button>
+          <div className="flex items-center gap-2 ml-4 shrink-0">
+            <Button
+              variant="outline"
+              onClick={handleExportCSV}
+              className="rounded-full px-4 h-10 gap-2"
+            >
+              <Download className="w-4 h-4" /> CSV
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              className="rounded-full px-4 h-10 gap-2"
+            >
+              <Download className="w-4 h-4" /> PDF
+            </Button>
+            <Button onClick={() => handleOpenModal()} className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm font-normal shrink-0 gap-2">
+              <Plus className="w-4 h-4" />
+              Tambah Data
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0 relative">

@@ -5,7 +5,8 @@ import {
   Clock,
   UserCheck,
   AlertCircle,
-  CalendarDays
+  CalendarDays,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 
 function formatTime(isoString: string | null) {
   if (!isoString) return "--:--";
@@ -70,6 +72,32 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
     
     return { total, telat, totalTelatMenit };
   }, [filteredData]);
+
+  const handleExportCSV = () => {
+    const headers = ["Tanggal", "Status", "Jam Masuk", "Jam Pulang", "Keterangan", "Informasi Perangkat"];
+    const rows = filteredData.map(d => [
+      formatDate(d.tanggal),
+      d.status,
+      formatTime(d.jam_masuk),
+      formatTime(d.jam_pulang),
+      d.telat_menit > 0 ? `Telat ${d.telat_menit} menit` : "Tepat Waktu",
+      d.device_info || "-"
+    ]);
+    exportToCSV(`Riwayat_Absensi_${new Date().toISOString().split("T")[0]}`, headers, rows);
+  };
+
+  const handleExportPDF = () => {
+    const headers = ["Tanggal", "Status", "Jam Masuk", "Jam Pulang", "Keterangan", "Informasi Perangkat"];
+    const rows = filteredData.map(d => [
+      formatDate(d.tanggal),
+      d.status,
+      formatTime(d.jam_masuk),
+      formatTime(d.jam_pulang),
+      d.telat_menit > 0 ? `Telat ${d.telat_menit} menit` : "Tepat Waktu",
+      d.device_info || "-"
+    ]);
+    exportToPDF(`Riwayat_Absensi_${new Date().toISOString().split("T")[0]}`, "Riwayat Absensi", headers, rows);
+  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden">
@@ -125,6 +153,16 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
               onClick={() => setDateFilter({ start: "", end: "" })}
             >
               Reset
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleExportCSV} variant="outline" className="h-10 rounded-full gap-2 px-6">
+              <Download className="w-4 h-4" />
+              CSV
+            </Button>
+            <Button onClick={handleExportPDF} variant="outline" className="h-10 rounded-full gap-2 px-6">
+              <Download className="w-4 h-4" />
+              PDF
             </Button>
           </div>
         </div>

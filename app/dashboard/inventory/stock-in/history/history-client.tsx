@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, ChevronLeft, ChevronRight, PackagePlus, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, PackagePlus, ChevronDown, ChevronUp, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -140,6 +141,32 @@ export default function StockInHistoryClient({
       : <ChevronDown className="w-3 h-3 text-foreground ml-1 inline-block" />;
   };
 
+  const handleExportCSV = () => {
+    const headers = ["Tanggal", "Supplier", "Produk", "Harga Beli", "Jumlah", "Total"];
+    const rows = filteredHistory.map(h => [
+      formatDate(h.tgl_masuk),
+      h.supplier?.nama_supplier || "Umum",
+      h.produk?.nama_produk || "Produk dihapus",
+      h.harga_beli,
+      h.jumlah,
+      h.total
+    ]);
+    exportToCSV(`Riwayat_Stok_Masuk_${new Date().toISOString().split("T")[0]}`, headers, rows);
+  };
+
+  const handleExportPDF = () => {
+    const headers = ["Tanggal", "Supplier", "Produk", "Harga Beli", "Jumlah", "Total"];
+    const rows = filteredHistory.map(h => [
+      formatDate(h.tgl_masuk),
+      h.supplier?.nama_supplier || "Umum",
+      h.produk?.nama_produk || "Produk dihapus",
+      formatIDR(h.harga_beli),
+      h.jumlah,
+      formatIDR(h.total)
+    ]);
+    exportToPDF(`Riwayat_Stok_Masuk_${new Date().toISOString().split("T")[0]}`, "Riwayat Stok Masuk", headers, rows);
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
       <div className="shrink-0 flex flex-col p-4 lg:p-6 border-b border-border bg-transparent gap-6">
@@ -199,13 +226,21 @@ export default function StockInHistoryClient({
             </select>
           </div>
 
-          <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0" onClick={() => {
-            setSearchQuery("");
-            setSupplierFilter("all");
-            setDateFilter({ start: "", end: "" });
-          }}>
-            Reset
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0 px-4" onClick={() => {
+              setSearchQuery("");
+              setSupplierFilter("all");
+              setDateFilter({ start: "", end: "" });
+            }}>
+              Reset
+            </Button>
+            <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0 px-4" onClick={handleExportCSV}>
+              <Download className="w-4 h-4" /> CSV
+            </Button>
+            <Button variant="outline" className="h-10 rounded-full gap-2 shrink-0 px-4" onClick={handleExportPDF}>
+              <Download className="w-4 h-4" /> PDF
+            </Button>
+          </div>
         </div>
       </div>
 
