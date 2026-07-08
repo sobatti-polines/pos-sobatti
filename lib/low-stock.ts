@@ -28,7 +28,7 @@ export async function getLowStockItems(): Promise<LowStockItem[]> {
         nama_produk: p.nama_produk,
         stok,
         stok_minimum: min,
-        satuan: p.satuan,
+        satuan: p.satuan as unknown as { nama: string } | null,
       });
     }
   }
