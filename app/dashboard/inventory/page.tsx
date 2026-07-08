@@ -27,13 +27,15 @@ export default async function InventoryPage() {
     harga_jual_promo: number | null;
     diskon: number;
     stok: number | null;
+    stok_gudang: number | null;
+    stok_minimum: number | null;
     kategori: { nama: string } | null;
     satuan: { nama: string } | null;
   }
 
   const productsWithStock = (productsRes.data ?? []).map((p: RawProduct) => {
     const stock = p.hitung_stok ? (p.stok ?? 0) : null;
-    return { ...p, stock };
+    return { ...p, stock, stok_gudang: p.stok_gudang ?? 0, stok_minimum: p.stok_minimum ?? 5 };
   });
 
   return (

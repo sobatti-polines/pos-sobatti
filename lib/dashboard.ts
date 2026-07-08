@@ -76,7 +76,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .limit(5),
     supabase
       .from("produk")
-      .select("id, nama_produk, hitung_stok, stok"),
+      .select("id, nama_produk, hitung_stok, stok, stok_minimum"),
     supabase
       .from("transaksi_keluar")
       .select("tgl_transaksi, total")
@@ -102,7 +102,8 @@ export async function getDashboardData(): Promise<DashboardData> {
   for (const p of allProductsRes.data ?? []) {
     if (!p.hitung_stok) continue;
     const stok = p.stok ?? 0;
-    if (stok >= 0 && stok <= 20) {
+    const min = p.stok_minimum ?? 5;
+    if (stok > 0 && stok <= min) {
       lowStockItems.push({ id: p.id, nama_produk: p.nama_produk, stock: stok });
     }
   }

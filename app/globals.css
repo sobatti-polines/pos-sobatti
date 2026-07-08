@@ -255,4 +255,27 @@
     page-break-inside: avoid;
     break-inside: avoid;
   }
+
+  /* ── General Report Print Styles ── */
+  .print-area {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  
+  .print-area table {
+    border-collapse: collapse !important;
+  }
+  
+  .print-area th, .print-area td {
+    border: 1px solid #e5e7eb !important;
+  }
+  
+  /* Hide interactive elements during print */
+  .print\:hidden {
+    display: none !important;
+  }
 }

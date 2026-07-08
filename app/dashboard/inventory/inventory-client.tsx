@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Search, Plus, PackageOpen, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2, Trash2, Download } from "lucide-react";
+import { Search, Plus, PackageOpen, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2, Trash2, Download, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { addProduct, updateProduct, deleteProduct } from "./actions";
+import { addProduct, updateProduct, deleteProduct, restockDisplay } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import React from "react";
 
@@ -39,6 +39,8 @@ interface Product {
   harga_jual_promo: number | null;
   diskon: number;
   stock: number | null;
+  stok_gudang: number;
+  stok_minimum: number;
   kategori: { nama: string } | null;
   satuan: { nama: string } | null;
 }
@@ -72,6 +74,13 @@ export default function InventoryClient({
     data: null,
   });
 
+  const [restockModal, setRestockModal] = useState<{ open: boolean; product: Product | null; qty: string; error: string }>({
+    open: false,
+    product: null,
+    qty: "1",
+    error: "",
+  });
+
   const processedProducts = useMemo(() => {
     let result = [...initialProducts];
 
@@ -94,8 +103,8 @@ export default function InventoryClient({
         if (stockFilter === "untracked") return !p.hitung_stok;
         if (!p.hitung_stok || p.stock === null) return false;
         if (stockFilter === "out") return p.stock <= 0;
-        if (stockFilter === "low") return p.stock > 0 && p.stock <= 20;
-        if (stockFilter === "in") return p.stock > 20;
+        if (stockFilter === "low") return p.stock > 0 && p.stock <= p.stok_minimum;
+        if (stockFilter === "in") return p.stock > p.stok_minimum;
         return true;
       });
     }
@@ -173,6 +182,7 @@ export default function InventoryClient({
       harga_jual_grosir: Number(editForm.harga_jual_grosir || 0),
       harga_jual_promo: editForm.harga_jual_promo ? Number(editForm.harga_jual_promo) : null,
       diskon: Number(editForm.diskon || 0),
+      stok_minimum: Number(editForm.stok_minimum ?? 5),
     };
 
     startTransition(async () => {
@@ -206,6 +216,28 @@ export default function InventoryClient({
     });
   };
 
+  const handleRestock = async () => {
+    if (!restockModal.product) return;
+    const qty = parseInt(restockModal.qty, 10);
+    if (isNaN(qty) || qty <= 0) {
+      setRestockModal(prev => ({ ...prev, error: "Jumlah harus lebih dari 0" }));
+      return;
+    }
+    if (qty > restockModal.product.stok_gudang) {
+      setRestockModal(prev => ({ ...prev, error: `Stok gudang tidak mencukupi. Tersedia: ${restockModal.product!.stok_gudang}` }));
+      return;
+    }
+    setRestockModal(prev => ({ ...prev, error: "" }));
+    startTransition(async () => {
+      const res = await restockDisplay(restockModal.product!.id, qty);
+      if (res?.error) {
+        setRestockModal(prev => ({ ...prev, error: res.error }));
+      } else {
+        setRestockModal({ open: false, product: null, qty: "1", error: "" });
+      }
+    });
+  };
+
   const handleEditClick = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
     setEditingId(product.id);
@@ -222,14 +254,14 @@ export default function InventoryClient({
     setErrorMsg("");
   };
 
-  const getStockBadge = (hitung_stok: boolean, stock: number | null) => {
+  const getStockBadge = (hitung_stok: boolean, stock: number | null, stok_minimum = 5) => {
     if (!hitung_stok) return <Badge variant="outline" className="text-muted-foreground border-border/50 font-normal rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Tidak dilacak</Badge>;
     if (stock === null) return null;
     
     if (stock <= 0) {
       return <Badge variant="secondary" className="bg-destructive/10 text-destructive hover:bg-destructive/20 font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Habis</Badge>;
     }
-    if (stock <= 20) {
+    if (stock <= stok_minimum) {
       return <Badge variant="secondary" className="bg-warning/10 text-warning hover:bg-warning/20 font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">{stock} Sisa</Badge>;
     }
     return <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Tersedia ({stock})</Badge>;
@@ -260,6 +292,16 @@ export default function InventoryClient({
             />
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-[13px] text-muted-foreground">Min Stok:</span>
+            <Input 
+              type="number"
+              min={0}
+              value={editForm.stok_minimum ?? 5}
+              onChange={(e) => setEditForm(prev => ({ ...prev, stok_minimum: Number(e.target.value) }))}
+              className="h-8 w-20 text-[13px] tabular-nums"
+            />
+          </div>
+          <div className="flex items-center gap-2">
             <input 
               type="checkbox" 
               id="hitung_stok"
@@ -282,12 +324,13 @@ export default function InventoryClient({
   );
 
   const handleExportCSV = () => {
-    const headers = ["Barcode", "Item", "Kategori", "Stok", "Harga Modal", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const headers = ["Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "Harga Retail", "Harga Grosir", "Harga Promo"];
     const data = processedProducts.map(p => [
       p.barcode || "-",
       p.nama_produk,
       p.kategori?.nama || "-",
       p.hitung_stok ? (p.stock || 0) : "Tidak dilacak",
+      p.hitung_stok ? p.stok_gudang : "-",
       p.harga_modal,
       p.harga_jual_satuan,
       p.harga_jual_grosir,
@@ -297,12 +340,13 @@ export default function InventoryClient({
   };
 
   const handleExportPDF = () => {
-    const headers = ["Barcode", "Item", "Kategori", "Stok", "Harga Modal", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const headers = ["Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "Harga Retail", "Harga Grosir", "Harga Promo"];
     const data = processedProducts.map(p => [
       p.barcode || "-",
       p.nama_produk,
       p.kategori?.nama || "-",
       p.hitung_stok ? (p.stock || 0) : "Tidak dilacak",
+      p.hitung_stok ? String(p.stok_gudang) : "-",
       formatIDR(p.harga_modal),
       formatIDR(p.harga_jual_satuan),
       formatIDR(p.harga_jual_grosir),
@@ -369,7 +413,7 @@ export default function InventoryClient({
             disabled={editingId !== null}
             onClick={() => {
               setEditingId('new');
-              setEditForm({ hitung_stok: true, diskon: 0 });
+              setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5 });
               setCurrentPage(1);
               setErrorMsg("");
             }}
@@ -545,7 +589,7 @@ export default function InventoryClient({
                         </TableCell>
                         <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
                           <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Status Stok</span>
-                          {getStockBadge(editForm.hitung_stok ?? true, p.stock)}
+                          {getStockBadge(editForm.hitung_stok ?? true, p.stock, p.stok_minimum)}
                         </TableCell>
                         <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
                           <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Modal</span>
@@ -614,7 +658,12 @@ export default function InventoryClient({
                     </TableCell>
                     <TableCell className="py-2 xl:py-4 block xl:table-cell">
                       <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Status Stok</span>
-                      {getStockBadge(p.hitung_stok, p.stock)}
+                      {getStockBadge(p.hitung_stok, p.stock, p.stok_minimum)}
+                      {p.hitung_stok && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          Gudang: {p.stok_gudang} · Min: {p.stok_minimum}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="xl:text-left py-2 xl:py-4 tabular-nums block xl:table-cell">
                       <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Modal</span>
@@ -634,6 +683,11 @@ export default function InventoryClient({
                     </TableCell>
                     <TableCell className="xl:pr-6 py-3 xl:py-4 text-right block xl:table-cell mt-2 xl:mt-0 border-t xl:border-t-0 border-border/50">
                       <div className="flex justify-end gap-2 xl:gap-1 opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
+                        {p.hitung_stok && p.stok_gudang > 0 && (
+                          <Button variant="outline" size="icon" aria-label="Restok Display" title="Restok Display" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); setRestockModal({ open: true, product: p, qty: "1", error: "" }); }} disabled={editingId !== null}>
+                            <Warehouse className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button variant="outline" size="icon" aria-label="Edit p" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, p)} disabled={editingId !== null}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
@@ -739,6 +793,71 @@ export default function InventoryClient({
               >
                 {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Hapus Produk
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {restockModal.open && restockModal.product && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-background border border-border shadow-[0_8px_24px_rgba(0,55,112,0.08),0_2px_6px_rgba(0,55,112,0.04)] rounded-[12px] w-full max-w-md flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4">
+                <Warehouse className="w-6 h-6" />
+              </div>
+              <h2 className="text-[22px] font-light tracking-tight text-foreground mb-2 text-center">Restok Stok Display</h2>
+              <p className="text-sm text-muted-foreground text-center mb-6">
+                Pindahkan stok dari gudang ke display untuk <strong className="text-foreground">{restockModal.product.nama_produk}</strong>
+              </p>
+
+              <div className="flex gap-4 mb-6">
+                <div className="flex-1 bg-muted/30 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Stok Display</p>
+                  <p className="text-2xl font-semibold tabular-nums">{restockModal.product.stock}</p>
+                </div>
+                <div className="flex-1 bg-muted/30 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Stok Gudang</p>
+                  <p className="text-2xl font-semibold tabular-nums">{restockModal.product.stok_gudang}</p>
+                </div>
+              </div>
+
+              <label className="text-sm font-medium text-foreground mb-2 block">Jumlah pindah</label>
+              <Input
+                type="number"
+                min={1}
+                max={restockModal.product.stok_gudang}
+                value={restockModal.qty}
+                onChange={(e) => setRestockModal(prev => ({ ...prev, qty: e.target.value, error: "" }))}
+                className="h-12 text-lg text-center tabular-nums"
+                autoFocus
+              />
+
+              {restockModal.error && (
+                <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive text-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {restockModal.error}
+                </div>
+              )}
+            </div>
+            <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full px-6 bg-background"
+                onClick={() => setRestockModal({ open: false, product: null, qty: "1", error: "" })}
+                disabled={isPending}
+              >
+                Batal
+              </Button>
+              <Button
+                variant="default"
+                className="rounded-full px-6 shadow-sm"
+                onClick={handleRestock}
+                disabled={isPending}
+              >
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Restok Display
               </Button>
             </div>
           </div>

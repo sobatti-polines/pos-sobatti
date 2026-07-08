@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { AlertTriangle } from "lucide-react";
+import { useLowStockRealtime } from "@/hooks/use-low-stock-realtime";
 import { 
   LayoutGrid, 
   CircleDollarSign, 
@@ -20,12 +22,19 @@ import {
   UserCheck,
   Camera,
   LogOut,
+  CreditCard,
+  Calculator,
+  FileText,
+  TrendingUp,
+  Scale,
+  Landmark,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 const bottomLinks = [
   { href: "/dashboard/settings", label: "Pengaturan", icon: Settings },
+  { href: "/dashboard/settings/keuangan", label: "Keuangan", icon: Landmark },
   { href: "/dashboard/support", label: "Bantuan", icon: HelpCircle },
 ];
 
@@ -35,6 +44,14 @@ export function DashboardSidebar({ role }: { role?: string }) {
   const supabase = createClient();
 
   const [isMounted, setIsMounted] = useState(false);
+
+  const isOwner = role === "OWNER";
+  const isStaff = role === "ADMIN" || role === "KASIR" || role === "KARYAWAN";
+  const isManagement = role === "OWNER" || role === "ADMIN";
+  const isKaryawan = role === "KARYAWAN";
+
+  const lowStockItems = useLowStockRealtime();
+  const lowStockCount = isManagement ? lowStockItems.length : 0;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -50,6 +67,8 @@ export function DashboardSidebar({ role }: { role?: string }) {
   if (!isMounted) return <aside className="w-64 shrink-0 border-r border-border bg-background hidden md:flex flex-col py-6 px-4" />;
 
   const isInventoryActive = pathname.startsWith("/dashboard/inventory");
+  const isHutangPiutangActive = pathname.startsWith("/dashboard/hutang") || pathname.startsWith("/dashboard/piutang");
+  const isLaporanActive = pathname.startsWith("/dashboard/reports") || pathname.startsWith("/dashboard/laporan");
 
   const linkClass = (href: string) => {
     const active = href === "/dashboard"
@@ -66,10 +85,6 @@ export function DashboardSidebar({ role }: { role?: string }) {
       ? "flex items-center gap-3 px-3 py-2 rounded-md bg-primary/10 text-primary font-medium transition-colors text-sm"
       : "flex items-center gap-3 px-3 py-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-sm";
   };
-
-  const isOwner = role === "OWNER";
-  const isStaff = role === "ADMIN" || role === "KASIR";
-  const isManagement = role === "OWNER" || role === "ADMIN";
 
   return (
     <aside className="w-64 shrink-0 border-r border-border bg-background hidden md:flex flex-col py-6 px-4">
@@ -93,61 +108,134 @@ export function DashboardSidebar({ role }: { role?: string }) {
           </Link>
         )}
 
-        <Link href="/dashboard/transactions" className={linkClass("/dashboard/transactions")}>
-          <Receipt className="w-5 h-5" />
-          <span className="text-sm">Riwayat Transaksi</span>
-        </Link>
-
-        <Link href="/dashboard/customers" className={linkClass("/dashboard/customers")}>
-          <Users className="w-5 h-5" />
-          <span className="text-sm">Pelanggan</span>
-        </Link>
-
-        <Link href="/dashboard/suppliers" className={linkClass("/dashboard/suppliers")}>
-          <Truck className="w-5 h-5" />
-          <span className="text-sm">Supplier</span>
-        </Link>
-
-        <div>
-          <div
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm ${
-              isInventoryActive
-                ? "text-primary font-medium"
-                : "text-muted-foreground"
-            }`}
-          >
-            <Package className="w-5 h-5" />
-            <span className="text-sm flex-1 text-left">Inventaris</span>
-          </div>
-
-          <div className="ml-2 mt-1 flex flex-col gap-0.5 pl-6 border-l border-border/50">
-            <Link href="/dashboard/inventory" className={subLinkClass("/dashboard/inventory")}>
-              <PackageOpen className="w-4 h-4" />
-              <span>Produk</span>
+        {isManagement && (
+          <>
+            <Link href="/dashboard/transactions" className={linkClass("/dashboard/transactions")}>
+              <Receipt className="w-5 h-5" />
+              <span className="text-sm">Riwayat Transaksi</span>
             </Link>
-            <Link href="/dashboard/inventory/stock-in" className={subLinkClass("/dashboard/inventory/stock-in")}>
-              <PackagePlus className="w-4 h-4" />
-              <span>Barang Masuk</span>
-            </Link>
-            <Link href="/dashboard/inventory/stock-in/history" className={subLinkClass("/dashboard/inventory/stock-in/history")}>
-              <Receipt className="w-4 h-4" />
-              <span>Riwayat Barang Masuk</span>
-            </Link>
-            <Link href="/dashboard/inventory/stock-opname" className={subLinkClass("/dashboard/inventory/stock-opname")}>
-              <ClipboardList className="w-4 h-4" />
-              <span>Stok Opname</span>
-            </Link>
-            <Link href="/dashboard/inventory/stock-opname/history" className={subLinkClass("/dashboard/inventory/stock-opname/history")}>
-              <Receipt className="w-4 h-4" />
-              <span>Riwayat Opname</span>
-            </Link>
-          </div>
-        </div>
 
-        <Link href="/dashboard/reports" className={linkClass("/dashboard/reports")}>
-          <BarChart3 className="w-5 h-5" />
-          <span className="text-sm">Laporan</span>
-        </Link>
+            <Link href="/dashboard/customers" className={linkClass("/dashboard/customers")}>
+              <Users className="w-5 h-5" />
+              <span className="text-sm">Pelanggan</span>
+            </Link>
+
+            <Link href="/dashboard/suppliers" className={linkClass("/dashboard/suppliers")}>
+              <Truck className="w-5 h-5" />
+              <span className="text-sm">Supplier</span>
+            </Link>
+
+            <div>
+              <div
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm ${
+                  isHutangPiutangActive
+                    ? "text-primary font-medium"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <CreditCard className="w-5 h-5" />
+                <span className="text-sm flex-1 text-left">Hutang & Piutang</span>
+              </div>
+
+              <div className="ml-2 mt-1 flex flex-col gap-0.5 pl-6 border-l border-border/50">
+                <Link href="/dashboard/hutang" className={subLinkClass("/dashboard/hutang")}>
+                  <CreditCard className="w-4 h-4" />
+                  <span>Hutang Dagang</span>
+                </Link>
+                <Link href="/dashboard/piutang" className={subLinkClass("/dashboard/piutang")}>
+                  <CreditCard className="w-4 h-4" />
+                  <span>Piutang Dagang</span>
+                </Link>
+              </div>
+            </div>
+
+            <div>
+              <div
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm ${
+                  isInventoryActive
+                    ? "text-primary font-medium"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <Package className="w-5 h-5" />
+                <span className="text-sm flex-1 text-left">Inventaris</span>
+                {lowStockCount > 0 && (
+                  <span className="flex items-center gap-1 text-xs font-medium text-warning">
+                    <AlertTriangle className="w-3 h-3" />
+                    {lowStockCount}
+                  </span>
+                )}
+              </div>
+
+              <div className="ml-2 mt-1 flex flex-col gap-0.5 pl-6 border-l border-border/50">
+                <Link href="/dashboard/inventory" className={subLinkClass("/dashboard/inventory")}>
+                  <PackageOpen className="w-4 h-4" />
+                  <span>Produk</span>
+                </Link>
+                <Link href="/dashboard/inventory/stock-in" className={subLinkClass("/dashboard/inventory/stock-in")}>
+                  <PackagePlus className="w-4 h-4" />
+                  <span>Barang Masuk</span>
+                </Link>
+                <Link href="/dashboard/inventory/stock-in/history" className={subLinkClass("/dashboard/inventory/stock-in/history")}>
+                  <Receipt className="w-4 h-4" />
+                  <span>Riwayat Barang Masuk</span>
+                </Link>
+                <Link href="/dashboard/inventory/stock-opname" className={subLinkClass("/dashboard/inventory/stock-opname")}>
+                  <ClipboardList className="w-4 h-4" />
+                  <span>Stok Opname</span>
+                </Link>
+                <Link href="/dashboard/inventory/stock-opname/history" className={subLinkClass("/dashboard/inventory/stock-opname/history")}>
+                  <Receipt className="w-4 h-4" />
+                  <span>Riwayat Opname</span>
+                </Link>
+              </div>
+            </div>
+
+            <div>
+              <div
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm ${
+                  isLaporanActive
+                    ? "text-primary font-medium"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span className="text-sm flex-1 text-left">Laporan</span>
+              </div>
+
+              <div className="ml-2 mt-1 flex flex-col gap-0.5 pl-6 border-l border-border/50">
+                <Link href="/dashboard/reports" className={subLinkClass("/dashboard/reports")}>
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Ringkasan</span>
+                </Link>
+                <Link href="/dashboard/laporan/laba-rugi" className={subLinkClass("/dashboard/laporan/laba-rugi")}>
+                  <TrendingUp className="w-4 h-4" />
+                  <span>Laba Rugi</span>
+                </Link>
+                <Link href="/dashboard/laporan/neraca" className={subLinkClass("/dashboard/laporan/neraca")}>
+                  <Scale className="w-4 h-4" />
+                  <span>Neraca</span>
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Kasir & Keuangan
+              </div>
+              <div className="flex flex-col gap-1">
+                <Link href="/dashboard/tutup-kasir" className={linkClass("/dashboard/tutup-kasir")}>
+                  <Calculator className="w-5 h-5" />
+                  <span className="text-sm">Tutup Kasir</span>
+                </Link>
+                <Link href="/dashboard/laporan-kasir" className={linkClass("/dashboard/laporan-kasir")}>
+                  <FileText className="w-5 h-5" />
+                  <span className="text-sm">Riwayat Kas Harian</span>
+                </Link>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Attendance section for Staff (ADMIN/KASIR) */}
         {isStaff && (
@@ -189,7 +277,7 @@ export function DashboardSidebar({ role }: { role?: string }) {
       </nav>
 
       <div className="flex flex-col gap-2 mt-auto pt-6 border-t border-border">
-        {bottomLinks.map(({ href, label, icon: Icon }) => (
+        {!isKaryawan && bottomLinks.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} className={linkClass(href)}>
             <Icon className="w-5 h-5" />
             <span className="text-sm">{label}</span>

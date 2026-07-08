@@ -69,6 +69,8 @@ export function LoginForm() {
         router.refresh();
         if (role === "KASIR") {
           router.push("/pos");
+        } else if (role === "KARYAWAN") {
+          router.push("/attendance/scan");
         } else {
           router.push("/dashboard");
         }

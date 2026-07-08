@@ -72,11 +72,17 @@ interface ReportsClientProps {
 }
 
 export default function ReportsClient({ transactions, details, products }: ReportsClientProps) {
-  const [dateRange, setDateRange] = useState("30"); // "7", "30", "all"
+  const [dateRange, setDateRange] = useState("30"); // "1", "7", "30", "all"
 
   const filteredTransactions = useMemo(() => {
     if (dateRange === "all") return transactions;
     const now = new Date();
+    
+    if (dateRange === "1") {
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return transactions.filter(t => new Date(t.tgl_transaksi) >= startOfToday);
+    }
+    
     const days = parseInt(dateRange);
     const cutoff = new Date(now.setDate(now.getDate() - days));
     return transactions.filter(t => new Date(t.tgl_transaksi) >= cutoff);
@@ -158,46 +164,53 @@ export default function ReportsClient({ transactions, details, products }: Repor
   };
 
   return (
-    <div className="flex flex-col gap-8 pb-12">
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-1 sm:gap-2 bg-muted/50 p-1 rounded-lg border border-border w-full sm:w-auto">
-          <Button 
-            variant={dateRange === "7" ? "secondary" : "ghost"} 
-            size="sm" 
-            onClick={() => setDateRange("7")}
-            className="rounded-md h-8 text-xs font-medium flex-1 sm:flex-none"
-          >
-            7 Hari
-          </Button>
-          <Button 
-            variant={dateRange === "30" ? "secondary" : "ghost"} 
-            size="sm" 
-            onClick={() => setDateRange("30")}
-            className="rounded-md h-8 text-xs font-medium flex-1 sm:flex-none"
-          >
-            30 Hari
-          </Button>
-          <Button 
-            variant={dateRange === "all" ? "secondary" : "ghost"} 
-            size="sm" 
-            onClick={() => setDateRange("all")}
-            className="rounded-md h-8 text-xs font-medium flex-1 sm:flex-none"
-          >
-            Semua
-          </Button>
+    <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative w-full">
+      <div className="shrink-0 flex flex-col items-start md:flex-row md:items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4">
+        <div className="flex-1 flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full">
+          <div className="flex items-center gap-1 sm:gap-2 bg-muted/50 p-1 rounded-lg border border-border w-full md:w-auto">
+            <Button 
+              variant={dateRange === "1" ? "secondary" : "ghost"} 
+              onClick={() => setDateRange("1")}
+              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-4"
+            >
+              Hari Ini
+            </Button>
+            <Button 
+              variant={dateRange === "7" ? "secondary" : "ghost"} 
+              onClick={() => setDateRange("7")}
+              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-4"
+            >
+              7 Hari
+            </Button>
+            <Button 
+              variant={dateRange === "30" ? "secondary" : "ghost"} 
+              onClick={() => setDateRange("30")}
+              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-4"
+            >
+              30 Hari
+            </Button>
+            <Button 
+              variant={dateRange === "all" ? "secondary" : "ghost"} 
+              onClick={() => setDateRange("all")}
+              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-4"
+            >
+              Semua
+            </Button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-none gap-2 h-9 rounded-full border-border" onClick={handleExportCSV}>
-            <Download className="w-4 h-4" />
-            CSV
+        <div className="flex flex-wrap items-center gap-2 md:ml-4 shrink-0 w-full md:w-auto">
+          <Button variant="outline" className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none" onClick={handleExportCSV}>
+            <Download className="w-4 h-4" /> CSV
           </Button>
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-none gap-2 h-9 rounded-full border-border" onClick={handleExportPDF}>
-            <Download className="w-4 h-4" />
-            PDF
+          <Button variant="outline" className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none" onClick={handleExportPDF}>
+            <Download className="w-4 h-4" /> PDF
           </Button>
         </div>
       </div>
+
+      <div className="flex-1 overflow-y-auto min-h-0 relative p-4 lg:p-6 bg-muted/5">
+        <div className="flex flex-col gap-8 pb-12 max-w-7xl mx-auto w-full">
 
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -323,6 +336,8 @@ export default function ReportsClient({ transactions, details, products }: Repor
           </CardContent>
         </Card>
       </div>
+    </div>
+    </div>
     </div>
   );
 }

@@ -1,12 +1,14 @@
 import { getDashboardData } from "@/lib/dashboard";
-import { TrendingUp, TrendingDown, Package, Coffee, CupSoda, Croissant, Plus, User } from "lucide-react";
+import { TrendingUp, TrendingDown, CheckCircle2, Clock, CalendarDays } from "lucide-react";
+import { DashboardLowStock } from "@/components/dashboard-low-stock";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/logout-button";
 import { AttendanceWidget } from "@/components/attendance-widget";
 import { createClient } from "@/lib/supabase/server";
-import { getTodayAttendance } from "@/lib/attendance";
+import { getTodayAttendance, getMonthlyAttendanceStats } from "@/lib/attendance";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -25,36 +27,86 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
-const stockIcons: Record<number, { icon: typeof Package; bg: string; color: string }> = {};
-function getStockIcon(name: string) {
-  const lower = name.toLowerCase();
-  if (lower.includes("semen") || lower.includes("mortar"))
-    return { icon: Package, bg: "bg-amber-100/50", color: "text-amber-700" };
-  if (lower.includes("cat") || lower.includes("plamur"))
-    return { icon: CupSoda, bg: "bg-sky-100/50", color: "text-sky-700" };
-  if (lower.includes("besi") || lower.includes("baja") || lower.includes("paku"))
-    return { icon: Package, bg: "bg-slate-100", color: "text-slate-600" };
-  if (lower.includes("kayu") || lower.includes("triplek"))
-    return { icon: Package, bg: "bg-amber-100/50", color: "text-amber-800" };
-  if (lower.includes("pipa"))
-    return { icon: Package, bg: "bg-emerald-100/50", color: "text-emerald-700" };
-  if (lower.includes("keramik") || lower.includes("granit"))
-    return { icon: Package, bg: "bg-rose-100/50", color: "text-rose-700" };
-  if (lower.includes("kabel") || lower.includes("mcb"))
-    return { icon: Package, bg: "bg-indigo-100/50", color: "text-indigo-700" };
-  if (lower.includes("closet") || lower.includes("shower") || lower.includes("keran"))
-    return { icon: Croissant, bg: "bg-blue-100/50", color: "text-blue-700" };
-  return { icon: Package, bg: "bg-slate-100", color: "text-slate-600" };
-}
-
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const dashboardData = await getDashboardData();
   const attendanceData = await getTodayAttendance();
 
   const role = user?.user_metadata?.role;
   const isOwner = role === "OWNER";
+  const isKaryawan = role === "KARYAWAN";
+
+  if (isKaryawan) {
+    const stats = await getMonthlyAttendanceStats();
+    const monthName = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+
+    return (
+      <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <h1 className="text-4xl font-light tracking-tight text-foreground">
+              Ringkasan Absensi
+            </h1>
+            <p className="text-muted-foreground mt-1">Pantau kehadiran Anda</p>
+          </div>
+        </header>
+
+        <AttendanceWidget initialData={attendanceData} />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="border-none shadow-sm bg-emerald-50/50">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-6 h-6 text-emerald-700" />
+              </div>
+              <div>
+                <p className="text-2xl font-light tabular-nums text-emerald-800">{stats?.hadir ?? 0}</p>
+                <p className="text-sm text-emerald-600">Hadir</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm bg-amber-50/50">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <Clock className="w-6 h-6 text-amber-700" />
+              </div>
+              <div>
+                <p className="text-2xl font-light tabular-nums text-amber-800">{stats?.telat ?? 0}</p>
+                <p className="text-sm text-amber-600">Terlambat</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm bg-blue-50/50">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                <CalendarDays className="w-6 h-6 text-blue-700" />
+              </div>
+              <div>
+                <p className="text-2xl font-light tabular-nums text-blue-800">{stats?.total ?? 0}</p>
+                <p className="text-sm text-blue-600">Total Hari</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <p className="text-sm text-muted-foreground text-center">
+          Ringkasan absensi bulan {monthName}
+        </p>
+
+        <div className="flex justify-center mt-2">
+          <Button asChild variant="outline" className="rounded-full px-6">
+            <Link href="/dashboard/attendance/history">
+              Lihat Riwayat Lengkap
+            </Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const dashboardData = await getDashboardData();
 
   return (
     <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto">
@@ -119,30 +171,7 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        <section className="flex flex-col">
-          <div className="flex items-center gap-3 mb-6">
-            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Stok Menipis</h3>
-            <Badge variant="secondary" className="font-normal bg-muted">{dashboardData.productsLow} item</Badge>
-          </div>
-          <div className="flex flex-col gap-2">
-            {dashboardData.lowStockItems.length > 0 ? (
-              dashboardData.lowStockItems.slice(0, 5).map((item) => {
-                const { icon: Icon, bg, color } = getStockIcon(item.nama_produk);
-                return (
-                  <StockItem
-                    key={item.id}
-                    icon={<Icon className={`w-4 h-4 ${color}`} />}
-                    bg={bg}
-                    name={item.nama_produk}
-                    left={item.stock}
-                  />
-                );
-              })
-            ) : (
-              <p className="text-sm text-muted-foreground py-8 text-center">Semua stok masih aman</p>
-            )}
-          </div>
-        </section>
+        <DashboardLowStock />
       </div>
 
       <section>
@@ -175,28 +204,6 @@ export default async function DashboardPage() {
           </Table>
         </div>
       </section>
-    </div>
-  );
-}
-
-function StockItem({ icon, bg, name, left }: { icon: React.ReactNode; bg: string; name: string; left: number }) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3 rounded-md hover:bg-muted/50 transition-colors">
-      <div className="flex items-center gap-4">
-        <div className={`w-10 h-10 rounded-md flex items-center justify-center ${bg}`}>
-          {icon}
-        </div>
-        <div>
-          <p className="text-sm font-medium text-foreground">{name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{left} tersisa</p>
-        </div>
-      </div>
-      <Link
-        href="/dashboard/inventory"
-        className="text-xs text-primary hover:underline"
-      >
-        Stok Ulang
-      </Link>
     </div>
   );
 }

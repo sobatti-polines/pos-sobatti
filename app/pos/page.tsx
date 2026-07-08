@@ -17,6 +17,8 @@ import {
   Wifi,
   WifiOff,
   LogOut,
+  PackageSearch,
+  ScanLine,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePosStore } from "@/stores/pos-store";
+import { LowStockBanner } from "@/components/low-stock-banner";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -104,7 +107,7 @@ export default function PosPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const role = user.user_metadata?.role;
-        if (role === "ADMIN" || role === "OWNER") {
+        if (role === "ADMIN" || role === "OWNER" || role === "KARYAWAN") {
           router.push("/dashboard");
           return;
         }
@@ -143,6 +146,11 @@ export default function PosPage() {
   const [scanToasts, setScanToasts] = useState<ScanToast[]>([]);
   const toastIdRef = useRef(0);
 
+  // ── Stock Check State ─────────────────────────────────────────────────────
+  const stockCheckOpenRef = useRef(false);
+  const [stockCheckOpen, setStockCheckOpen] = useState(false);
+  const [scannedStockProduct, setScannedStockProduct] = useState<any>(null);
+
   const pushToast = useCallback((text: string, ok: boolean) => {
     const id = ++toastIdRef.current;
     setScanToasts((t) => [...t.slice(-2), { id, text, ok }]);
@@ -161,8 +169,12 @@ export default function PosPage() {
       if (res.ok) {
         const { product } = await res.json();
         if (product) {
-          addToCart(product);
-          pushToast(product.nama_produk, true);
+          if (stockCheckOpenRef.current) {
+            setScannedStockProduct(product);
+          } else {
+            addToCart(product);
+            pushToast(product.nama_produk, true);
+          }
         } else {
           pushToast(`Produk "${barcode}" tidak ditemukan`, false);
         }
@@ -238,9 +250,13 @@ export default function PosPage() {
           
           const product = products.find(p => p.barcode === barcode);
           if (product) {
-            addToCart(product);
-            pushToast(product.nama_produk, true);
-            setSearchQuery(""); // Clear search field if it got typed there
+            if (stockCheckOpenRef.current) {
+              setScannedStockProduct(product);
+            } else {
+              addToCart(product);
+              pushToast(product.nama_produk, true);
+              setSearchQuery(""); // Clear search field if it got typed there
+            }
           } else {
             pushToast(`Produk "${barcode}" tidak ditemukan`, false);
           }
@@ -336,6 +352,14 @@ export default function PosPage() {
               title="Absen"
             >
               Absen
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStockCheckOpen(true); stockCheckOpenRef.current = true; setScannedStockProduct(null); }}
+              className="flex items-center justify-center w-10 h-10 rounded-full border border-border bg-background hover:bg-muted/40 transition-colors text-muted-foreground"
+              title="Cek Stok"
+            >
+              <PackageSearch className="w-4 h-4" />
             </button>
             <button
               type="button"
@@ -437,6 +461,14 @@ export default function PosPage() {
           </button>
           <button
             type="button"
+            onClick={() => { setStockCheckOpen(true); stockCheckOpenRef.current = true; setScannedStockProduct(null); }}
+            className="flex items-center gap-2 h-10 px-4 rounded-full border border-border bg-background hover:bg-muted/40 transition-colors text-sm font-medium text-muted-foreground"
+          >
+            <PackageSearch className="w-4 h-4" />
+            Cek Stok
+          </button>
+          <button
+            type="button"
             id="scanner-btn"
             onClick={() => setScannerOpen(true)}
             className="flex items-center gap-2 h-10 px-4 rounded-full border border-border bg-background hover:bg-muted/40 transition-colors text-sm font-medium"
@@ -469,6 +501,8 @@ export default function PosPage() {
           </button>
         </div>
       </header>
+
+      <LowStockBanner />
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
         <div className="flex-1 flex flex-col min-w-0 bg-background shrink-0">
@@ -862,6 +896,77 @@ export default function PosPage() {
             <p className="text-xs text-muted-foreground text-center leading-relaxed">
               Gunakan Chrome di Android · Sesi aktif selama halaman ini terbuka
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Check Stock Modal ─────────────────────────────────────────────── */}
+      {stockCheckOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => { setStockCheckOpen(false); stockCheckOpenRef.current = false; }}
+        >
+          <div
+            className="relative bg-background border border-border shadow-xl rounded-[12px] p-6 flex flex-col items-center gap-4 w-[400px] max-w-[calc(100vw-32px)] animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => { setStockCheckOpen(false); stockCheckOpenRef.current = false; }}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex flex-col items-center gap-1 text-center w-full">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                <PackageSearch className="w-6 h-6" />
+              </div>
+              <p className="text-lg font-semibold text-foreground">Cek Stok Produk</p>
+              <p className="text-sm text-muted-foreground">Scan barcode produk untuk melihat sisa stok</p>
+            </div>
+
+            <div className="w-full mt-2 min-h-[160px] flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 bg-muted/20">
+              {scannedStockProduct ? (
+                <div className="text-center w-full animate-in fade-in zoom-in-95 duration-300">
+                  <div className="inline-block px-3 py-1 bg-muted rounded-full text-xs font-medium text-muted-foreground mb-3">
+                    {scannedStockProduct.kategori?.nama || scannedStockProduct.kategori || "Umum"}
+                  </div>
+                  <h3 className="text-lg font-medium text-foreground mb-1 leading-tight line-clamp-2">{scannedStockProduct.nama_produk}</h3>
+                  <p className="text-xs text-muted-foreground mb-4">Barcode: {scannedStockProduct.barcode}</p>
+                  
+                  <div className="flex gap-3">
+                    <div className="flex-1 bg-background rounded-lg border border-border p-3 shadow-sm">
+                      <p className="text-xs text-muted-foreground mb-1">Stok Display</p>
+                      <div className="text-2xl font-semibold tabular-nums text-primary tracking-tight">
+                        {scannedStockProduct.stok}
+                      </div>
+                    </div>
+                    <div className="flex-1 bg-background rounded-lg border border-border p-3 shadow-sm">
+                      <p className="text-xs text-muted-foreground mb-1">Stok Gudang</p>
+                      <div className="text-2xl font-semibold tabular-nums text-muted-foreground tracking-tight">
+                        {scannedStockProduct.stok_gudang ?? 0}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground flex flex-col items-center gap-3 opacity-60">
+                  <ScanLine className="w-10 h-10 animate-pulse" />
+                  <p className="text-sm">Menunggu scan barcode...</p>
+                </div>
+              )}
+            </div>
+            
+            {scannedStockProduct && (
+              <button
+                type="button"
+                onClick={() => setScannedStockProduct(null)}
+                className="w-full mt-2 h-10 rounded-lg border border-border bg-background hover:bg-muted/40 transition-colors text-sm font-medium text-muted-foreground"
+              >
+                Scan Produk Lain
+              </button>
+            )}
           </div>
         </div>
       )}

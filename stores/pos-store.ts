@@ -5,6 +5,8 @@ export interface Product {
   nama_produk: string;
   id_kategori: number;
   hitung_stok: boolean;
+  stok: number;
+  stok_gudang: number;
   barcode: string | null;
   harga_modal: number;
   harga_jual_satuan: number;

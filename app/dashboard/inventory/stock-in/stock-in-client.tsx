@@ -221,6 +221,12 @@ export default function StockInClient({
   ]);
   const [idSupplier, setIdSupplier] = useState<number | "">("");
   const [tglMasuk, setTglMasuk] = useState(today);
+  const [paymentType, setPaymentType] = useState<"Tunai" | "Kredit">("Tunai");
+  const [tanggalJatuhTempo, setTanggalJatuhTempo] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -289,7 +295,7 @@ export default function StockInClient({
       return;
     }
 
-    const res = await addStockIn(payload);
+    const res = await addStockIn(payload, paymentType, paymentType === "Kredit" ? tanggalJatuhTempo : null);
 
     if (res?.error) {
       setError(res.error);
@@ -374,6 +380,32 @@ export default function StockInClient({
               className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
             />
           </div>
+
+          <div className="flex flex-col gap-1.5 w-full md:w-auto">
+            <label htmlFor="payment_type" className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              Metode Bayar
+            </label>
+            <select id="payment_type" value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value as "Tunai" | "Kredit")}
+              className="h-9 w-full md:min-w-[150px] rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
+            >
+              <option value="Tunai">Tunai</option>
+              <option value="Kredit">Kredit / Tempo</option>
+            </select>
+          </div>
+
+          {paymentType === "Kredit" && (
+            <div className="flex flex-col gap-1.5 w-full md:w-auto">
+              <label htmlFor="tgl_jatuh_tempo" className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                Jatuh Tempo
+              </label>
+              <input id="tgl_jatuh_tempo" type="date"
+                value={tanggalJatuhTempo}
+                onChange={(e) => setTanggalJatuhTempo(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0">

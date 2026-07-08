@@ -172,7 +172,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
     });
   };
 
-  const roleOptions = ["KASIR", "ADMIN", "OWNER"];
+  const roleOptions = ["KARYAWAN", "KASIR", "ADMIN", "OWNER"];
 
   const handleExportCSV = () => {
     const headers = ["Nama", "Username", "Level", "Status", "Tanggal Dibuat"];
@@ -405,6 +405,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
                   <TableCell className="py-4">
                     <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${user.level === "OWNER" ? "bg-purple-100 text-purple-700" :
                         user.level === "ADMIN" ? "bg-blue-100 text-blue-700" :
+                          user.level === "KARYAWAN" ? "bg-slate-100 text-slate-700" :
                           "bg-emerald-100 text-emerald-700"
                       }`}>
                       {user.level}
