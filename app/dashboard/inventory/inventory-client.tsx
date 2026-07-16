@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Search, Plus, PackageOpen, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2, Trash2, Download, Warehouse } from "lucide-react";
+import { Search, Plus, PackageOpen, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2, Trash2, Download, Warehouse, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { addProduct, updateProduct, deleteProduct, restockDisplay } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import ProductDetailSheet from "@/components/product-detail-sheet";
 import React from "react";
 
 function formatIDR(n: number) {
@@ -41,6 +42,8 @@ interface Product {
   stock: number | null;
   stok_gudang: number;
   stok_minimum: number;
+  harga_pokok_avco: number;
+  nilai_persediaan: number;
   kategori: { nama: string } | null;
   satuan: { nama: string } | null;
 }
@@ -80,6 +83,9 @@ export default function InventoryClient({
     qty: "1",
     error: "",
   });
+
+  const [showAvcoCols, setShowAvcoCols] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const processedProducts = useMemo(() => {
     let result = [...initialProducts];
@@ -269,10 +275,11 @@ export default function InventoryClient({
 
   const renderInlineEditExpandedRow = () => (
     <TableRow className="bg-muted/10 border-t-0">
-      <TableCell colSpan={8} className="py-3 px-6 bg-muted/5 border-b">
+      <TableCell colSpan={10} className="py-3 px-6 bg-muted/5 border-b">
         <div className="flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground">Satuan:</span>
+
             <select aria-label="Satuan Produk"
               value={editForm.id_satuan || ""} 
               onChange={(e) => setEditForm(prev => ({ ...prev, id_satuan: Number(e.target.value) }))}
@@ -324,7 +331,7 @@ export default function InventoryClient({
   );
 
   const handleExportCSV = () => {
-    const headers = ["Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const headers = ["Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
     const data = processedProducts.map(p => [
       p.barcode || "-",
       p.nama_produk,
@@ -332,6 +339,8 @@ export default function InventoryClient({
       p.hitung_stok ? (p.stock || 0) : "Tidak dilacak",
       p.hitung_stok ? p.stok_gudang : "-",
       p.harga_modal,
+      p.harga_pokok_avco,
+      p.nilai_persediaan,
       p.harga_jual_satuan,
       p.harga_jual_grosir,
       p.harga_jual_promo || "-"
@@ -340,7 +349,7 @@ export default function InventoryClient({
   };
 
   const handleExportPDF = () => {
-    const headers = ["Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const headers = ["Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
     const data = processedProducts.map(p => [
       p.barcode || "-",
       p.nama_produk,
@@ -348,6 +357,8 @@ export default function InventoryClient({
       p.hitung_stok ? (p.stock || 0) : "Tidak dilacak",
       p.hitung_stok ? String(p.stok_gudang) : "-",
       formatIDR(p.harga_modal),
+      formatIDR(p.harga_pokok_avco),
+      formatIDR(p.nilai_persediaan),
       formatIDR(p.harga_jual_satuan),
       formatIDR(p.harga_jual_grosir),
       p.harga_jual_promo ? formatIDR(p.harga_jual_promo) : "-"
@@ -408,6 +419,14 @@ export default function InventoryClient({
           >
             <Download className="w-4 h-4" /> PDF
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShowAvcoCols((v) => !v)}
+            className="rounded-full px-3 h-10 gap-2 flex-1 md:flex-none"
+            title={showAvcoCols ? "Sembunyikan HPP" : "Tampilkan HPP"}
+          >
+            {showAvcoCols ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </Button>
           <Button 
             className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm font-normal shrink-0 w-full md:w-auto"
             disabled={editingId !== null}
@@ -459,6 +478,16 @@ export default function InventoryClient({
               <TableHead className="text-left w-[140px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_jual_promo')}>
                 Harga Promo {renderSortIcon("harga_jual_promo")}
               </TableHead>
+              {showAvcoCols && (
+                <>
+                  <TableHead className="text-right w-[120px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_pokok_avco')}>
+                    HPP (AVCO) {renderSortIcon("harga_pokok_avco")}
+                  </TableHead>
+                  <TableHead className="text-right w-[120px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('nilai_persediaan')}>
+                    Total Aset {renderSortIcon("nilai_persediaan")}
+                  </TableHead>
+                </>
+              )}
               <TableHead className="w-[80px] xl:pr-6"></TableHead>
             </TableRow>
           </TableHeader>
@@ -546,7 +575,7 @@ export default function InventoryClient({
 
             {paginatedData.length === 0 && editingId !== 'new' ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-32 hover:bg-transparent">
+                <TableCell colSpan={10} className="text-center py-32 hover:bg-transparent">
                   <div className="flex flex-col items-center justify-center text-muted-foreground">
                     <PackageOpen className="w-12 h-12 mb-4 opacity-20" />
                     <p className="text-base font-medium text-foreground">Tidak ada produk ditemukan</p>
@@ -642,7 +671,8 @@ export default function InventoryClient({
                 return (
                   <TableRow 
                     key={p.id} 
-                    className="group hover:bg-muted/30 transition-colors flex flex-col xl:table-row p-4 xl:p-0 border-b"
+                    className="group hover:bg-muted/30 transition-colors flex flex-col xl:table-row p-4 xl:p-0 border-b cursor-pointer"
+                    onClick={() => setSelectedProduct(p)}
                   >
                     <TableCell className="xl:pl-6 py-2 xl:py-4 block xl:table-cell">
                       <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Barcode</span>
@@ -679,10 +709,22 @@ export default function InventoryClient({
                     </TableCell>
                     <TableCell className="xl:text-left py-2 xl:py-4 tabular-nums block xl:table-cell">
                       <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Harga Promo</span>
-                      {p.harga_jual_promo != null ? formatIDR(p.harga_jual_promo) : "-"}
-                    </TableCell>
-                    <TableCell className="xl:pr-6 py-3 xl:py-4 text-right block xl:table-cell mt-2 xl:mt-0 border-t xl:border-t-0 border-border/50">
-                      <div className="flex justify-end gap-2 xl:gap-1 opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
+                    {p.harga_jual_promo != null ? formatIDR(p.harga_jual_promo) : "-"}
+                  </TableCell>
+                  {showAvcoCols && (
+                    <>
+                      <TableCell className="xl:text-right py-2 xl:py-4 tabular-nums block xl:table-cell">
+                        <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">HPP (AVCO)</span>
+                        {formatIDR(p.harga_pokok_avco)}
+                      </TableCell>
+                      <TableCell className="xl:text-right py-2 xl:py-4 tabular-nums block xl:table-cell">
+                        <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Total Aset</span>
+                        {formatIDR(p.nilai_persediaan)}
+                      </TableCell>
+                    </>
+                  )}
+                  <TableCell className="xl:pr-6 py-3 xl:py-4 text-right block xl:table-cell mt-2 xl:mt-0 border-t xl:border-t-0 border-border/50">
+                    <div className="flex justify-end gap-2 xl:gap-1 opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
                         {p.hitung_stok && p.stok_gudang > 0 && (
                           <Button variant="outline" size="icon" aria-label="Restok Display" title="Restok Display" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); setRestockModal({ open: true, product: p, qty: "1", error: "" }); }} disabled={editingId !== null}>
                             <Warehouse className="h-4 w-4" />
@@ -863,6 +905,14 @@ export default function InventoryClient({
           </div>
         </div>
       )}
+
+      <ProductDetailSheet
+        product={selectedProduct}
+        open={selectedProduct !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedProduct(null);
+        }}
+      />
     </div>
   );
 }

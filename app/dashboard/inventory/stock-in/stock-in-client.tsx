@@ -1,10 +1,63 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import {
+  useForm,
+  useFieldArray,
+  useFormContext,
+  FormProvider,
+} from "react-hook-form";
 import { Plus, Trash2, Check, AlertCircle, PackagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addStockIn } from "./actions";
+import { z } from "zod";
+
+/* ------------------------------------------------------------------ */
+/*  Zod schemas                                                        */
+/* ------------------------------------------------------------------ */
+
+const itemSchema = z.object({
+  id_produk: z.number().min(1, "Produk harus dipilih"),
+  jumlah: z.number().min(0.001, "Jumlah harus lebih dari 0"),
+  harga_beli: z.number().min(1, "Harga beli harus lebih dari 0"),
+  keterangan: z.string().optional(),
+});
+
+const formSchema = z.object({
+  id_supplier: z.string().min(1, "Supplier harus dipilih"),
+  tgl_masuk: z.string().min(1, "Tanggal harus diisi"),
+  paymentType: z.enum(["Tunai", "Kredit"]),
+  tanggalJatuhTempo: z.string().optional(),
+  items: z.array(itemSchema).min(1, "Minimal 1 item"),
+});
+
+type StockInFormValues = z.infer<typeof formSchema>;
+
+/* ------------------------------------------------------------------ */
+/*  Inline zodResolver (no @hookform/resolvers dependency)             */
+/* ------------------------------------------------------------------ */
+
+function makeResolver(schema: z.ZodType) {
+  return (values: unknown) => {
+    const result = schema.safeParse(values);
+    if (result.success) {
+      return { values: result.data, errors: {} };
+    }
+    const fieldErrors: Record<string, { type: string; message: string }> = {};
+    for (const issue of result.error.issues) {
+      const path = issue.path.join(".");
+      if (!fieldErrors[path]) {
+        fieldErrors[path] = { type: "validation", message: issue.message };
+      }
+    }
+    return { values: {} as Record<string, never>, errors: fieldErrors };
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 
 interface Product {
   id: number;
@@ -18,22 +71,12 @@ interface Supplier {
   nama_supplier: string;
 }
 
-interface RowState {
-  tempId: string;
-  selectedProduct: Product | null;
-  searchText: string;
-  jumlah: number;
-  hargaBeli: number;
-  keterangan: string;
-}
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
-let rowCounter = 0;
-function nextRowId() {
-  rowCounter += 1;
-  return `row-${rowCounter}`;
-}
-
-const inputBase = "w-full h-9 rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary disabled:opacity-50 disabled:cursor-not-allowed";
+const inputBase =
+  "w-full h-9 rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary disabled:opacity-50 disabled:cursor-not-allowed";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -44,33 +87,40 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
+/* ------------------------------------------------------------------ */
+/*  ProductCombo — search-and-select combobox                          */
+/* ------------------------------------------------------------------ */
+
 function ProductCombo({
-  row,
+  index,
   products,
-  onChange,
 }: {
-  row: RowState;
+  index: number;
   products: Product[];
-  onChange: (updates: Partial<RowState>) => void;
 }) {
+  const { watch, setValue } = useFormContext<StockInFormValues>();
+  const [searchText, setSearchText] = useState("");
   const [open, setOpen] = useState(false);
+  const [highlightIdx, setHighlightIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const [highlightIdx, setHighlightIdx] = useState(0);
 
-  const filtered = useMemo(() => {
-    if (!row.searchText.trim()) return products.slice(0, 50);
-    const q = row.searchText.toLowerCase();
-    return products.filter(
-      (p) =>
-        p.nama_produk.toLowerCase().includes(q) ||
-        p.barcode?.toLowerCase().includes(q)
-    ).slice(0, 80);
-  }, [row.searchText, products]);
+  const productId = watch(`items.${index}.id_produk`);
+  const selectedProduct = useMemo(
+    () => products.find((p) => p.id === productId),
+    [productId, products]
+  );
+
+  useEffect(() => {
+    if (selectedProduct) {
+      setSearchText(selectedProduct.nama_produk);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId]);
 
   useEffect(() => {
     if (!open) return;
-    function handleClickOutside(e: MouseEvent) {
+    const handleClickOutside = (e: MouseEvent) => {
       if (
         inputRef.current &&
         !inputRef.current.contains(e.target as Node) &&
@@ -79,36 +129,55 @@ function ProductCombo({
       ) {
         setOpen(false);
       }
-    }
+    };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  const filtered = useMemo(() => {
+    if (!searchText.trim()) return products.slice(0, 50);
+    const q = searchText.toLowerCase();
+    return products
+      .filter(
+        (p) =>
+          p.nama_produk.toLowerCase().includes(q) ||
+          p.barcode?.toLowerCase().includes(q)
+      )
+      .slice(0, 80);
+  }, [searchText, products]);
+
   const selectProduct = useCallback(
     (product: Product) => {
-      onChange({
-        selectedProduct: product,
-        searchText: product.nama_produk,
+      setValue(`items.${index}.id_produk`, product.id, {
+        shouldValidate: true,
       });
+      setSearchText(product.nama_produk);
       setOpen(false);
     },
-    [onChange]
+    [index, setValue]
   );
+
+  const handleInputChange = (value: string) => {
+    setSearchText(value);
+    setHighlightIdx(0);
+    setOpen(true);
+    const isSame = selectedProduct && value === selectedProduct.nama_produk;
+    if (!isSame) {
+      setValue(`items.${index}.id_produk`, 0, { shouldValidate: false });
+    }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      // Handle physical barcode scanner (which types fast and presses Enter)
-      // We check raw input value because React state (row.searchText) might be stale
       const rawValue = inputRef.current?.value;
       if (rawValue) {
-        const exactMatch = products.find(p => p.barcode === rawValue);
+        const exactMatch = products.find((p) => p.barcode === rawValue);
         if (exactMatch) {
           selectProduct(exactMatch);
           return;
         }
       }
-      
       if (!open) {
         setOpen(true);
         return;
@@ -118,7 +187,6 @@ function ProductCombo({
       }
       return;
     }
-
     if (!open) {
       if (e.key === "ArrowDown") {
         setOpen(true);
@@ -126,7 +194,6 @@ function ProductCombo({
       }
       return;
     }
-
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
@@ -142,16 +209,11 @@ function ProductCombo({
     }
   };
 
-  const handleInputChange = (value: string) => {
-    onChange({ searchText: value, selectedProduct: null });
-    setHighlightIdx(0);
-    setOpen(true);
-  };
-
   return (
     <div className="relative min-w-[200px]">
-      <input ref={inputRef}
-        value={row.searchText}
+      <input
+        ref={inputRef}
+        value={searchText}
         onChange={(e) => handleInputChange(e.target.value)}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
@@ -159,9 +221,9 @@ function ProductCombo({
         className={inputBase + " tabular-nums"}
         autoComplete="off"
       />
-      {row.selectedProduct && (
+      {selectedProduct && (
         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground uppercase tracking-widest">
-          {row.selectedProduct.satuan?.nama || "-"}
+          {selectedProduct.satuan?.nama || "-"}
         </span>
       )}
       {open && filtered.length > 0 && (
@@ -200,6 +262,386 @@ function ProductCombo({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Main Form Body (consumes FormProvider context)                     */
+/* ------------------------------------------------------------------ */
+
+function FormBody({
+  products,
+  suppliers,
+}: {
+  products: Product[];
+  suppliers: Supplier[];
+}) {
+  const {
+    register,
+    control,
+    watch,
+    setValue,
+    handleSubmit,
+    formState: { errors },
+  } = useFormContext<StockInFormValues>();
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "items",
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const paymentType = watch("paymentType");
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const computedTotal = useMemo(
+    () =>
+      fields.reduce((sum, _, i) => {
+        const qty = watch(`items.${i}.jumlah`) || 0;
+        const price = watch(`items.${i}.harga_beli`) || 0;
+        return sum + qty * price;
+      }, 0),
+    [fields, watch]
+  );
+
+  /* Flatten nested RHF errors into user-facing strings */
+  const validationErrors = useMemo(() => {
+    const list: string[] = [];
+    if (errors.id_supplier?.message) {
+      list.push(errors.id_supplier.message as string);
+    }
+    if (errors.items) {
+      const itemsErr = errors.items as any;
+      if (typeof itemsErr === "object") {
+        for (const key of Object.keys(itemsErr)) {
+          const item = itemsErr[key];
+          if (!item || typeof item !== "object") continue;
+          const idx = Number(key);
+          if (isNaN(idx)) continue;
+          if (item.id_produk?.message)
+            list.push(`Baris ${idx + 1}: ${item.id_produk.message}`);
+          if (item.jumlah?.message)
+            list.push(`Baris ${idx + 1}: ${item.jumlah.message}`);
+          if (item.harga_beli?.message)
+            list.push(`Baris ${idx + 1}: ${item.harga_beli.message}`);
+        }
+      }
+    }
+    return list;
+  }, [errors]);
+
+  const onValid = async (data: StockInFormValues) => {
+    setLoading(true);
+    setServerError("");
+    setSuccess(false);
+
+    const payload = data.items
+      .filter((item) => item.id_produk > 0 && item.jumlah > 0 && item.harga_beli > 0)
+      .map((item) => ({
+        id_produk: item.id_produk,
+        jumlah: item.jumlah,
+        harga_beli: item.harga_beli,
+        total: item.jumlah * item.harga_beli,
+        tgl_masuk: data.tgl_masuk,
+        id_supplier: Number(data.id_supplier),
+        keterangan: item.keterangan || "",
+      }));
+
+    if (payload.length === 0) {
+      setServerError("Tidak ada data valid untuk disimpan");
+      setLoading(false);
+      return;
+    }
+
+    const res = await addStockIn(
+      payload,
+      data.paymentType,
+      data.paymentType === "Kredit" ? data.tanggalJatuhTempo : null
+    );
+
+    if (res?.error) {
+      setServerError(res.error);
+      setLoading(false);
+      return;
+    }
+
+    setSuccess(true);
+    setLoading(false);
+
+    /* Reset form to defaults */
+    setValue("id_supplier", "");
+    setValue("tgl_masuk", today);
+    setValue("paymentType", "Tunai");
+    setValue("tanggalJatuhTempo", "");
+    setValue("items", [
+      { id_produk: 0, jumlah: 1, harga_beli: 0, keterangan: "" },
+    ]);
+
+    setTimeout(() => setSuccess(false), 4000);
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit(onValid)}
+      className="flex-1 flex flex-col min-h-0"
+    >
+      {/* Server error banner */}
+      {serverError && (
+        <div className="shrink-0 flex items-center gap-2 px-6 py-4 bg-destructive/10 text-destructive text-sm border-b border-border">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {serverError}
+        </div>
+      )}
+
+      {/* Validation error banner */}
+      {validationErrors.length > 0 && (
+        <div className="shrink-0 flex items-center gap-2 px-6 py-4 bg-destructive/10 text-destructive text-sm border-b border-border">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <ul className="list-disc list-inside">
+            {validationErrors.map((msg, i) => (
+              <li key={i}>{msg}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Success banner */}
+      {success && (
+        <div className="shrink-0 flex items-center gap-2 px-6 py-4 bg-emerald-50 text-emerald-700 text-sm border-b border-border">
+          <Check className="w-4 h-4 shrink-0" />
+          Barang masuk berhasil disimpan
+        </div>
+      )}
+
+      {/* Header fields */}
+      <div className="shrink-0 flex flex-col md:flex-row md:items-end gap-4 px-6 py-5 border-b border-border bg-transparent">
+        <div className="flex flex-col gap-1.5 w-full md:w-auto">
+          <label
+            htmlFor="id_supplier"
+            className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+          >
+            Supplier
+          </label>
+          <select
+            id="id_supplier"
+            {...register("id_supplier")}
+            className="h-9 w-full md:min-w-[200px] rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
+          >
+            <option value="">Pilih supplier</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.nama_supplier}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1.5 w-full md:w-auto">
+          <label
+            htmlFor="tgl_masuk"
+            className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+          >
+            Tanggal Masuk
+          </label>
+          <input
+            id="tgl_masuk"
+            type="date"
+            {...register("tgl_masuk")}
+            className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5 w-full md:w-auto">
+          <label
+            htmlFor="payment_type"
+            className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+          >
+            Metode Bayar
+          </label>
+          <select
+            id="payment_type"
+            {...register("paymentType")}
+            className="h-9 w-full md:min-w-[150px] rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
+          >
+            <option value="Tunai">Tunai</option>
+            <option value="Kredit">Kredit / Tempo</option>
+          </select>
+        </div>
+
+        {paymentType === "Kredit" && (
+          <div className="flex flex-col gap-1.5 w-full md:w-auto">
+            <label
+              htmlFor="tgl_jatuh_tempo"
+              className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+            >
+              Jatuh Tempo
+            </label>
+            <input
+              id="tgl_jatuh_tempo"
+              type="date"
+              {...register("tanggalJatuhTempo")}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <table className="w-full min-w-[800px]">
+          <thead>
+            <tr className="border-b border-border/60 bg-muted/80 backdrop-blur-md sticky top-0 z-10">
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 w-10 text-center px-2">
+                #
+              </th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left px-2">
+                Produk
+              </th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[100px] px-2">
+                Jumlah
+              </th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[140px] px-2">
+                Harga Beli
+              </th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-right w-[140px] px-2">
+                Total
+              </th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[160px] px-2">
+                Keterangan
+              </th>
+              <th className="w-10 px-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {fields.map((field, index) => {
+              const qty = watch(`items.${index}.jumlah`) || 0;
+              const price = watch(`items.${index}.harga_beli`) || 0;
+              return (
+                <tr
+                  key={field.id}
+                  className="border-b border-border/40 hover:bg-muted/20 transition-colors"
+                >
+                  <td className="text-center text-sm text-muted-foreground tabular-nums px-2 py-2">
+                    {index + 1}
+                  </td>
+                  <td className="px-2 py-2">
+                    <ProductCombo index={index} products={products} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      step="any"
+                      {...register(`items.${index}.jumlah`, {
+                        valueAsNumber: true,
+                      })}
+                      className="h-9 tabular-nums font-medium"
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      step="any"
+                      {...register(`items.${index}.harga_beli`, {
+                        valueAsNumber: true,
+                      })}
+                      className="h-9 tabular-nums font-medium"
+                    />
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums text-sm font-medium text-foreground">
+                    {formatIDR(qty * price)}
+                  </td>
+                  <td className="px-2 py-2">
+                    <input
+                      {...register(`items.${index}.keterangan`)}
+                      placeholder="Catatan opsional"
+                      className={inputBase}
+                    />
+                  </td>
+                  <td className="px-2 py-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => remove(index)}
+                      disabled={fields.length === 1}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="Hapus baris"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {fields.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <PackagePlus className="w-12 h-12 mb-4 opacity-20" />
+            <p className="text-base font-medium text-foreground">
+              Belum ada item
+            </p>
+            <p className="text-sm mt-1">
+              Tambah item untuk mencatat penerimaan stok
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-border bg-background gap-4 flex-wrap">
+        <Button
+          type="button"
+          variant="ghost"
+          className="rounded-full px-4 h-9 text-muted-foreground hover:text-foreground"
+          onClick={() =>
+            append({
+              id_produk: 0,
+              jumlah: 1,
+              harga_beli: 0,
+              keterangan: "",
+            })
+          }
+        >
+          <Plus className="w-4 h-4 mr-1.5" />
+          Tambah Baris
+        </Button>
+
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-[11px] text-muted-foreground uppercase tracking-wider">
+              Total Semua
+            </p>
+            <p className="text-lg font-light tabular-nums text-foreground">
+              {formatIDR(computedTotal)}
+            </p>
+          </div>
+          <Button
+            type="submit"
+            disabled={fields.length === 0 || loading}
+            className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Menyimpan...
+              </>
+            ) : (
+              "Simpan Barang Masuk"
+            )}
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Page-level Client Component — wraps everything in FormProvider     */
+/* ------------------------------------------------------------------ */
+
 export default function StockInClient({
   products,
   suppliers,
@@ -208,352 +650,40 @@ export default function StockInClient({
   suppliers: Supplier[];
 }) {
   const today = new Date().toISOString().slice(0, 10);
-
-  const [rows, setRows] = useState<RowState[]>([
-    {
-      tempId: nextRowId(),
-      selectedProduct: null,
-      searchText: "",
-      jumlah: 1,
-      hargaBeli: 0,
-      keterangan: "",
-    },
-  ]);
-  const [idSupplier, setIdSupplier] = useState<number | "">("");
-  const [tglMasuk, setTglMasuk] = useState(today);
-  const [paymentType, setPaymentType] = useState<"Tunai" | "Kredit">("Tunai");
-  const [tanggalJatuhTempo, setTanggalJatuhTempo] = useState(() => {
+  const defaultJatuhTempo = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
     return d.toISOString().slice(0, 10);
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  })();
 
-  const updateRow = useCallback(
-    (tempId: string, updates: Partial<RowState>) => {
-      setRows((prev) =>
-        prev.map((r) => (r.tempId === tempId ? { ...r, ...updates } : r))
-      );
+  const form = useForm<StockInFormValues>({
+    resolver: makeResolver(formSchema) as any,
+    mode: "onSubmit",
+    defaultValues: {
+      id_supplier: "",
+      tgl_masuk: today,
+      paymentType: "Tunai",
+      tanggalJatuhTempo: defaultJatuhTempo,
+      items: [{ id_produk: 0, jumlah: 1, harga_beli: 0, keterangan: "" }],
     },
-    []
-  );
-
-  const addRow = useCallback(() => {
-    setRows((prev) => [
-      ...prev,
-      {
-        tempId: nextRowId(),
-        selectedProduct: null,
-        searchText: "",
-        jumlah: 1,
-        hargaBeli: 0,
-        keterangan: "",
-      },
-    ]);
-  }, []);
-
-  const removeRow = useCallback((tempId: string) => {
-    setRows((prev) => prev.filter((r) => r.tempId !== tempId));
-  }, []);
-
-  const validationErrors = useMemo(() => {
-    const errs: string[] = [];
-    if (!idSupplier) errs.push("Pilih supplier");
-    rows.forEach((r, i) => {
-      if (!r.selectedProduct) errs.push(`Baris ${i + 1}: pilih produk`);
-      if (r.jumlah <= 0) errs.push(`Baris ${i + 1}: jumlah harus > 0`);
-      if (r.hargaBeli <= 0) errs.push(`Baris ${i + 1}: harga beli harus > 0`);
-    });
-    return errs;
-  }, [idSupplier, rows]);
-
-  const canSubmit = rows.length > 0 && validationErrors.length === 0 && !loading;
-
-  const handleSubmit = async () => {
-    if (!canSubmit || !idSupplier) return;
-    setLoading(true);
-    setError("");
-    setSuccess(false);
-
-    const payload = rows
-      .filter((r) => r.selectedProduct && r.jumlah > 0 && r.hargaBeli > 0)
-      .map((r) => ({
-        id_produk: r.selectedProduct!.id,
-        jumlah: r.jumlah,
-        harga_beli: r.hargaBeli,
-        total: r.jumlah * r.hargaBeli,
-        tgl_masuk: tglMasuk,
-        id_supplier: idSupplier,
-        keterangan: r.keterangan,
-      }));
-
-    if (payload.length === 0) {
-      setError("Tidak ada data valid untuk disimpan");
-      setLoading(false);
-      return;
-    }
-
-    const res = await addStockIn(payload, paymentType, paymentType === "Kredit" ? tanggalJatuhTempo : null);
-
-    if (res?.error) {
-      setError(res.error);
-      setLoading(false);
-      return;
-    }
-
-    setSuccess(true);
-    setRows([
-      {
-        tempId: nextRowId(),
-        selectedProduct: null,
-        searchText: "",
-        jumlah: 1,
-        hargaBeli: 0,
-        keterangan: "",
-      },
-    ]);
-    setIdSupplier("");
-    setTglMasuk(today);
-    setLoading(false);
-
-    setTimeout(() => setSuccess(false), 4000);
-  };
-
-  const totalSemua = useMemo(
-    () => rows.reduce((s, r) => s + r.jumlah * r.hargaBeli, 0),
-    [rows]
-  );
+  });
 
   return (
-    <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
-      <header className="shrink-0">
-        <h1 className="text-4xl font-light tracking-tighter text-foreground">
-          Barang Masuk
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Catat penerimaan stok baru dari supplier
-        </p>
-      </header>
+    <FormProvider {...form}>
+      <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
+        <header className="shrink-0">
+          <h1 className="text-4xl font-light tracking-tighter text-foreground">
+            Barang Masuk
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Catat penerimaan stok baru dari supplier
+          </p>
+        </header>
 
-      <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden">
-        {error && (
-          <div className="shrink-0 flex items-center gap-2 px-6 py-4 bg-destructive/10 text-destructive text-sm border-b border-border">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="shrink-0 flex items-center gap-2 px-6 py-4 bg-emerald-50 text-emerald-700 text-sm border-b border-border">
-            <Check className="w-4 h-4 shrink-0" />
-            Barang masuk berhasil disimpan
-          </div>
-        )}
-
-        <div className="shrink-0 flex flex-col md:flex-row md:items-end gap-4 px-6 py-5 border-b border-border bg-transparent">
-          <div className="flex flex-col gap-1.5 w-full md:w-auto">
-            <label htmlFor="id_supplier" className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-              Supplier
-            </label>
-            <select id="id_supplier" value={idSupplier}
-              onChange={(e) => setIdSupplier(Number(e.target.value) || "")}
-              className="h-9 w-full md:min-w-[200px] rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
-            >
-              <option value="">Pilih supplier</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nama_supplier}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5 w-full md:w-auto">
-            <label htmlFor="tgl_masuk" className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-              Tanggal Masuk
-            </label>
-            <input id="tgl_masuk" type="date"
-              value={tglMasuk}
-              onChange={(e) => setTglMasuk(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5 w-full md:w-auto">
-            <label htmlFor="payment_type" className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-              Metode Bayar
-            </label>
-            <select id="payment_type" value={paymentType}
-              onChange={(e) => setPaymentType(e.target.value as "Tunai" | "Kredit")}
-              className="h-9 w-full md:min-w-[150px] rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
-            >
-              <option value="Tunai">Tunai</option>
-              <option value="Kredit">Kredit / Tempo</option>
-            </select>
-          </div>
-
-          {paymentType === "Kredit" && (
-            <div className="flex flex-col gap-1.5 w-full md:w-auto">
-              <label htmlFor="tgl_jatuh_tempo" className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Jatuh Tempo
-              </label>
-              <input id="tgl_jatuh_tempo" type="date"
-                value={tanggalJatuhTempo}
-                onChange={(e) => setTanggalJatuhTempo(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <table className="w-full min-w-[800px]">
-            <thead>
-              <tr className="border-b border-border/60 bg-muted/80 backdrop-blur-md sticky top-0 z-10">
-                <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 w-10 text-center px-2">
-                  #
-                </th>
-                <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left px-2">
-                  Produk
-                </th>
-                <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[100px] px-2">
-                  Jumlah
-                </th>
-                <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[140px] px-2">
-                  Harga Beli
-                </th>
-                <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-right w-[140px] px-2">
-                  Total
-                </th>
-                <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[160px] px-2">
-                  Keterangan
-                </th>
-                <th className="w-10 px-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr
-                  key={row.tempId}
-                  className="border-b border-border/40 hover:bg-muted/20 transition-colors"
-                >
-                  <td className="text-center text-sm text-muted-foreground tabular-nums px-2 py-2">
-                    {i + 1}
-                  </td>
-                  <td className="px-2 py-2">
-                    <ProductCombo
-                      row={row}
-                      products={products}
-                      onChange={(updates) => updateRow(row.tempId, updates)}
-                    />
-                  </td>
-                  <td className="px-2 py-2">
-                    <Input
-                      type="number"
-                      min={1}
-                      value={row.jumlah || ""}
-                      onChange={(e) =>
-                        updateRow(row.tempId, {
-                          jumlah: Math.max(0, Number(e.target.value)),
-                        })
-                      }
-                      className="h-9 tabular-nums font-medium"
-                    />
-                  </td>
-                  <td className="px-2 py-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      value={row.hargaBeli || ""}
-                      onChange={(e) =>
-                        updateRow(row.tempId, {
-                          hargaBeli: Math.max(0, Number(e.target.value)),
-                        })
-                      }
-                      className="h-9 tabular-nums font-medium"
-                    />
-                  </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-sm font-medium text-foreground">
-                    {formatIDR(row.jumlah * row.hargaBeli)}
-                  </td>
-                  <td className="px-2 py-2">
-                    <input value={row.keterangan}
-                      onChange={(e) =>
-                        updateRow(row.tempId, { keterangan: e.target.value })
-                      }
-                      placeholder="Catatan opsional"
-                      className={inputBase}
-                    />
-                  </td>
-                  <td className="px-2 py-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => removeRow(row.tempId)}
-                      disabled={rows.length === 1}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                      title="Hapus baris"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {rows.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <PackagePlus className="w-12 h-12 mb-4 opacity-20" />
-              <p className="text-base font-medium text-foreground">
-                Belum ada item
-              </p>
-              <p className="text-sm mt-1">
-                Tambah item untuk mencatat penerimaan stok
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-border bg-background gap-4 flex-wrap">
-          <Button
-            type="button"
-            variant="ghost"
-            className="rounded-full px-4 h-9 text-muted-foreground hover:text-foreground"
-            onClick={addRow}
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            Tambah Baris
-          </Button>
-
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider">
-                Total Semua
-              </p>
-              <p className="text-lg font-light tabular-nums text-foreground">
-                {formatIDR(totalSemua)}
-              </p>
-            </div>
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Menyimpan...
-                </>
-              ) : (
-                "Simpan Barang Masuk"
-              )}
-            </Button>
-          </div>
+        <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden">
+          <FormBody products={products} suppliers={suppliers} />
         </div>
       </div>
-    </div>
+    </FormProvider>
   );
 }

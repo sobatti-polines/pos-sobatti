@@ -29,13 +29,22 @@ export default async function InventoryPage() {
     stok: number | null;
     stok_gudang: number | null;
     stok_minimum: number | null;
+    harga_pokok_avco: number | null;
+    nilai_persediaan: number | null;
     kategori: { nama: string } | null;
     satuan: { nama: string } | null;
   }
 
   const productsWithStock = (productsRes.data ?? []).map((p: RawProduct) => {
     const stock = p.hitung_stok ? (p.stok ?? 0) : null;
-    return { ...p, stock, stok_gudang: p.stok_gudang ?? 0, stok_minimum: p.stok_minimum ?? 5 };
+    return {
+      ...p,
+      stock,
+      stok_gudang: p.stok_gudang ?? 0,
+      stok_minimum: p.stok_minimum ?? 5,
+      harga_pokok_avco: p.harga_pokok_avco ?? 0,
+      nilai_persediaan: p.nilai_persediaan ?? 0,
+    };
   });
 
   return (

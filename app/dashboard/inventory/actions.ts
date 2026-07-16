@@ -71,3 +71,52 @@ export async function restockDisplay(productId: number, qty: number) {
   revalidatePath("/dashboard/inventory");
   return { success: true };
 }
+
+export async function getProductMutationHistory(productId: number) {
+  const supabase = await createClient();
+
+  // 1. Fetch riwayat_avco — oldest first for sequential price comparison
+  const { data: records, error } = await supabase
+    .from("riwayat_avco")
+    .select(
+      "id, tanggal, jenis_mutasi, qty_masuk, qty_keluar, harga_satuan_transaksi, avco_sebelum, avco_sesudah, stok_sebelum, stok_sesudah, nilai_persediaan_sesudah, id_referensi"
+    )
+    .eq("id_produk", productId)
+    .order("tanggal", { ascending: true })
+    .limit(100);
+
+  if (error) return { error: error.message };
+
+  // 2. Batch-fetch supplier info for pembelian records
+  const pembelianRefs = (records ?? [])
+    .filter((r) => r.jenis_mutasi === "pembelian" && r.id_referensi != null)
+    .map((r) => r.id_referensi)
+    .filter(Boolean);
+
+  const supplierMap: Record<number, { nama_supplier: string }> = {};
+
+  if (pembelianRefs.length > 0) {
+    const { data: barangMasuk } = await supabase
+      .from("barang_masuk")
+      .select("id, supplier!inner(nama_supplier)")
+      .in("id", pembelianRefs);
+
+    if (barangMasuk) {
+      for (const bm of barangMasuk) {
+        const s = (bm as any).supplier;
+        supplierMap[bm.id] = s ?? { nama_supplier: "Supplier dihapus" };
+      }
+    }
+  }
+
+  // 3. Attach supplier to each record
+  const enriched = (records ?? []).map((r) => ({
+    ...r,
+    supplier:
+      r.jenis_mutasi === "pembelian" && r.id_referensi != null
+        ? supplierMap[r.id_referensi] ?? null
+        : null,
+  }));
+
+  return { data: enriched };
+}
