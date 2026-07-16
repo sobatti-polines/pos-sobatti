@@ -90,6 +90,7 @@
 | `stok` | `numeric` |  Nullable |
 | `harga_pokok_avco` | `numeric` |  Nullable |
 | `nilai_persediaan` | `numeric` |  Nullable |
+| `stok_gudang` | `numeric` |  Nullable |
 
 ## Table `transaksi_keluar`
 

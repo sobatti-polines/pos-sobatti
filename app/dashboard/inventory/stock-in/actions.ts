@@ -79,8 +79,12 @@ export async function addStockIn(
         jumlah_awal: totalAmount,
         catatan: "Otomatis dari Barang Masuk",
       });
-    } catch {
-      // Goods already received; hutang can be created manually if needed
+    } catch (hutangErr) {
+      const msg = hutangErr instanceof Error ? hutangErr.message : String(hutangErr);
+      console.error("[addStockIn] Gagal membuat hutang dagang:", msg);
+      // Barang masuk sudah berhasil disimpan, tapi hutang gagal dicatat.
+      // Kembalikan peringatan agar pengguna mengetahui masalah ini.
+      return { success: true, warning: `Barang masuk berhasil, tapi hutang gagal dicatat: ${msg}` };
     }
   }
 

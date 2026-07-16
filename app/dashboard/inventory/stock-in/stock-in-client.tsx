@@ -290,6 +290,7 @@ function FormBody({
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [warning, setWarning] = useState("");
 
   const paymentType = watch("paymentType");
 
@@ -335,6 +336,7 @@ function FormBody({
     setLoading(true);
     setServerError("");
     setSuccess(false);
+    setWarning("");
 
     const payload = data.items
       .filter((item) => item.id_produk > 0 && item.jumlah > 0 && item.harga_beli > 0)
@@ -368,6 +370,10 @@ function FormBody({
 
     setSuccess(true);
     setLoading(false);
+
+    if ((res as { warning?: string })?.warning) {
+      setWarning((res as { warning?: string }).warning!);
+    }
 
     /* Reset form to defaults */
     setValue("id_supplier", "");
@@ -407,10 +413,18 @@ function FormBody({
       )}
 
       {/* Success banner */}
-      {success && (
+      {success && !warning && (
         <div className="shrink-0 flex items-center gap-2 px-6 py-4 bg-emerald-50 text-emerald-700 text-sm border-b border-border">
           <Check className="w-4 h-4 shrink-0" />
           Barang masuk berhasil disimpan
+        </div>
+      )}
+
+      {/* Warning banner (barang masuk OK tapi hutang gagal) */}
+      {warning && (
+        <div className="shrink-0 flex items-start gap-2 px-6 py-4 bg-amber-50 text-amber-800 text-sm border-b border-border">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{warning}</span>
         </div>
       )}
 

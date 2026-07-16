@@ -68,7 +68,7 @@ export function DashboardSidebar({ role }: { role?: string }) {
 
   const isInventoryActive = pathname.startsWith("/dashboard/inventory");
   const isHutangPiutangActive = pathname.startsWith("/dashboard/hutang") || pathname.startsWith("/dashboard/piutang");
-  const isLaporanActive = pathname.startsWith("/dashboard/reports") || pathname.startsWith("/dashboard/laporan");
+  const isLaporanActive = pathname.startsWith("/dashboard/reports") || pathname.startsWith("/dashboard/laporan/");
 
   const linkClass = (href: string) => {
     const active = href === "/dashboard"
