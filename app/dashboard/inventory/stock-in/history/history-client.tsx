@@ -40,6 +40,13 @@ interface StockInHistoryRecord {
   harga_beli: number;
   jumlah: number;
   total: number;
+  keterangan?: string;
+  supplied_unit: string | null;
+  supplied_qty: number | null;
+  applied_conversion_ratio: number | null;
+  base_qty_added: number | null;
+  total_cost: number | null;
+  base_cost_per_piece: number | null;
 }
 
 interface SupplierRecord {
@@ -64,7 +71,6 @@ export default function StockInHistoryClient({
   const filteredHistory = useMemo(() => {
     let result = [...initialHistory];
 
-    // Search filter (produk)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -72,12 +78,10 @@ export default function StockInHistoryClient({
       );
     }
 
-    // Supplier filter
     if (supplierFilter !== "all") {
       result = result.filter((h) => h.supplier?.id.toString() === supplierFilter);
     }
 
-    // Date range filter
     if (dateFilter.start) {
       const start = new Date(dateFilter.start);
       start.setHours(0, 0, 0, 0);
@@ -89,7 +93,6 @@ export default function StockInHistoryClient({
       result = result.filter((h) => new Date(h.tgl_masuk) <= end);
     }
 
-    // Sort
     if (sortConfig) {
       result.sort((a, b) => {
         let aVal: string | number = "";
@@ -116,7 +119,7 @@ export default function StockInHistoryClient({
   }, [initialHistory, searchQuery, supplierFilter, dateFilter, sortConfig]);
 
   const totalValue = useMemo(() => {
-    return filteredHistory.reduce((sum, h) => sum + Number(h.total), 0);
+    return filteredHistory.reduce((sum, h) => sum + Number(h.total_cost || h.total), 0);
   }, [filteredHistory]);
 
   const totalPages = Math.max(1, Math.ceil(filteredHistory.length / itemsPerPage));
@@ -142,27 +145,31 @@ export default function StockInHistoryClient({
   };
 
   const handleExportCSV = () => {
-    const headers = ["Tanggal", "Supplier", "Produk", "Harga Beli", "Jumlah", "Total"];
+    const headers = ["Tanggal", "Supplier", "Produk", "Satuan Suplai", "Qty Suplai", "Rasio", "Base Qty", "HPP/Pcs", "Total Biaya", "Keterangan"];
     const rows = filteredHistory.map(h => [
       formatDate(h.tgl_masuk),
       h.supplier?.nama_supplier || "Umum",
       h.produk?.nama_produk || "Produk dihapus",
-      h.harga_beli,
-      h.jumlah,
-      h.total
+      h.supplied_unit || "-",
+      h.supplied_qty ?? "-",
+      h.applied_conversion_ratio ?? "-",
+      h.base_qty_added ?? h.jumlah,
+      h.base_cost_per_piece ?? h.harga_beli,
+      h.total_cost ?? h.total,
+      h.keterangan || "",
     ]);
     exportToCSV(`Riwayat_Stok_Masuk_${new Date().toISOString().split("T")[0]}`, headers, rows);
   };
 
   const handleExportPDF = () => {
-    const headers = ["Tanggal", "Supplier", "Produk", "Harga Beli", "Jumlah", "Total"];
+    const headers = ["Tanggal", "Supplier", "Produk", "Base Qty", "HPP/Pcs", "Total Biaya"];
     const rows = filteredHistory.map(h => [
       formatDate(h.tgl_masuk),
       h.supplier?.nama_supplier || "Umum",
       h.produk?.nama_produk || "Produk dihapus",
-      formatIDR(h.harga_beli),
-      h.jumlah,
-      formatIDR(h.total)
+      String(h.base_qty_added ?? h.jumlah),
+      formatIDR(h.base_cost_per_piece ?? h.harga_beli),
+      formatIDR(h.total_cost ?? h.total),
     ]);
     exportToPDF(`Riwayat_Stok_Masuk_${new Date().toISOString().split("T")[0]}`, "Riwayat Stok Masuk", headers, rows);
   };
@@ -170,7 +177,6 @@ export default function StockInHistoryClient({
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
       <div className="shrink-0 flex flex-col p-4 lg:p-6 border-b border-border bg-transparent gap-6">
-        {/* Subtotals Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Total Nilai Pembelian</p>
@@ -182,7 +188,6 @@ export default function StockInHistoryClient({
           </div>
         </div>
 
-        {/* Filters Row */}
         <div className="flex flex-col items-start md:flex-row md:items-center justify-between gap-4">
           <div className="flex-1 flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full">
             <div className="relative w-full md:max-w-sm">
@@ -248,7 +253,7 @@ export default function StockInHistoryClient({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[140px] pl-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('tgl_masuk')}>
+              <TableHead className="w-[120px] pl-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('tgl_masuk')}>
                 Tanggal {renderSortIcon("tgl_masuk")}
               </TableHead>
               <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('supplier')}>
@@ -257,13 +262,19 @@ export default function StockInHistoryClient({
               <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('produk')}>
                 Produk {renderSortIcon("produk")}
               </TableHead>
-              <TableHead className="w-[140px] text-right cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_beli')}>
-                Harga Beli {renderSortIcon("harga_beli")}
+              <TableHead className="w-[100px] text-center">
+                Suplai
               </TableHead>
-              <TableHead className="w-[100px] text-center cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('jumlah')}>
-                Jumlah {renderSortIcon("jumlah")}
+              <TableHead className="w-[80px] text-center">
+                Rasio
               </TableHead>
-              <TableHead className="w-[160px] text-right pr-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('total')}>
+              <TableHead className="w-[100px] text-right">
+                Base Qty
+              </TableHead>
+              <TableHead className="w-[120px] text-right cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('harga_beli')}>
+                HPP/Pcs {renderSortIcon("harga_beli")}
+              </TableHead>
+              <TableHead className="w-[140px] text-right pr-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('total')}>
                 Total {renderSortIcon("total")}
               </TableHead>
             </TableRow>
@@ -271,7 +282,7 @@ export default function StockInHistoryClient({
           <TableBody>
             {paginatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-32">
+                <TableCell colSpan={8} className="text-center py-32">
                   <div className="flex flex-col items-center justify-center text-muted-foreground">
                     <PackagePlus className="w-12 h-12 mb-4 opacity-20" />
                     <p className="text-base font-medium text-foreground">Tidak ada riwayat barang masuk ditemukan</p>
@@ -280,28 +291,39 @@ export default function StockInHistoryClient({
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedData.map((h) => (
-                <TableRow key={h.id}>
-                  <TableCell className="pl-6">
-                    {formatDate(h.tgl_masuk)}
-                  </TableCell>
-                  <TableCell>
-                    {h.supplier?.nama_supplier || "Umum"}
-                  </TableCell>
-                  <TableCell>
-                    {h.produk?.nama_produk || "Produk dihapus"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatIDR(h.harga_beli)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {h.jumlah}
-                  </TableCell>
-                  <TableCell className="text-right pr-6">
-                    {formatIDR(h.total)}
-                  </TableCell>
-                </TableRow>
-              ))
+              paginatedData.map((h) => {
+                const isUom = h.supplied_qty != null;
+                return (
+                  <TableRow key={h.id}>
+                    <TableCell className="pl-6">
+                      {formatDate(h.tgl_masuk)}
+                    </TableCell>
+                    <TableCell>
+                      {h.supplier?.nama_supplier || "Umum"}
+                    </TableCell>
+                    <TableCell>
+                      {h.produk?.nama_produk || "Produk dihapus"}
+                    </TableCell>
+                    <TableCell className="text-center text-sm">
+                      {isUom
+                        ? `${h.supplied_qty} ${h.supplied_unit}`
+                        : `${h.jumlah} pcs`}
+                    </TableCell>
+                    <TableCell className="text-center text-sm text-muted-foreground">
+                      {isUom ? `1:${h.applied_conversion_ratio}` : "-"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {h.base_qty_added ?? h.jumlah}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatIDR(h.base_cost_per_piece ?? h.harga_beli)}
+                    </TableCell>
+                    <TableCell className="text-right pr-6 tabular-nums">
+                      {formatIDR(h.total_cost ?? h.total)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

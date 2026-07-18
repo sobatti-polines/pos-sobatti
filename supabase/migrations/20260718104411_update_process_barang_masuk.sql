@@ -1,3 +1,6 @@
+-- Replaces process_barang_masuk() with dual-format support (UoM + legacy)
+-- Updated separately because 20260710_process_barang_masuk.sql was already applied.
+
 CREATE OR REPLACE FUNCTION process_barang_masuk(
   p_items JSONB
 )

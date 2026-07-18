@@ -29,6 +29,7 @@ function formatIDR(n: number) {
 
 interface Product {
   id: number;
+  sku: string | null;
   nama_produk: string;
   id_kategori: number;
   id_satuan: number;
@@ -44,6 +45,9 @@ interface Product {
   stok_minimum: number;
   harga_pokok_avco: number;
   nilai_persediaan: number;
+  base_unit: string;
+  default_purchase_unit: string | null;
+  conversion_ratio: number;
   kategori: { nama: string } | null;
   satuan: { nama: string } | null;
 }
@@ -96,6 +100,7 @@ export default function InventoryClient({
         (p) =>
           p.nama_produk.toLowerCase().includes(q) ||
           p.barcode?.toLowerCase().includes(q) ||
+          p.sku?.toLowerCase().includes(q) ||
           p.kategori?.nama.toLowerCase().includes(q)
       );
     }
@@ -189,6 +194,9 @@ export default function InventoryClient({
       harga_jual_promo: editForm.harga_jual_promo ? Number(editForm.harga_jual_promo) : null,
       diskon: Number(editForm.diskon || 0),
       stok_minimum: Number(editForm.stok_minimum ?? 5),
+      base_unit: editForm.base_unit || "pcs",
+      default_purchase_unit: editForm.default_purchase_unit || null,
+      conversion_ratio: Number(editForm.conversion_ratio ?? 1),
     };
 
     startTransition(async () => {
@@ -320,6 +328,38 @@ export default function InventoryClient({
               Lacak Stok
             </label>
           </div>
+          {/* UoM fields */}
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] text-muted-foreground">Base Unit:</span>
+            <select
+              value={editForm.base_unit || "pcs"}
+              onChange={(e) => setEditForm(prev => ({ ...prev, base_unit: e.target.value }))}
+              className="h-8 rounded-md border border-input bg-background px-2 text-[13px] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20"
+            >
+              {units.map((u) => <option key={u.id} value={u.nama}>{u.nama}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] text-muted-foreground">Satuan Beli:</span>
+            <select
+              value={editForm.default_purchase_unit || ""}
+              onChange={(e) => setEditForm(prev => ({ ...prev, default_purchase_unit: e.target.value }))}
+              className="h-8 rounded-md border border-input bg-background px-2 text-[13px] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20"
+            >
+              <option value="">(sama dgn base unit)</option>
+              {units.map((u) => <option key={u.id} value={u.nama}>{u.nama}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] text-muted-foreground">Rasio:</span>
+            <Input 
+              type="number"
+              min={1}
+              value={editForm.conversion_ratio ?? 1}
+              onChange={(e) => setEditForm(prev => ({ ...prev, conversion_ratio: Number(e.target.value) }))}
+              className="h-8 w-20 text-[13px] tabular-nums"
+            />
+          </div>
           {errorMsg && (
             <div className="text-[13px] text-destructive flex items-center gap-1 ml-auto">
               <AlertCircle className="w-3 h-3" /> {errorMsg}
@@ -331,8 +371,9 @@ export default function InventoryClient({
   );
 
   const handleExportCSV = () => {
-    const headers = ["Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const headers = ["SKU", "Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
     const data = processedProducts.map(p => [
+      p.sku || "-",
       p.barcode || "-",
       p.nama_produk,
       p.kategori?.nama || "-",
@@ -349,8 +390,9 @@ export default function InventoryClient({
   };
 
   const handleExportPDF = () => {
-    const headers = ["Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const headers = ["SKU", "Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
     const data = processedProducts.map(p => [
+      p.sku || "-",
       p.barcode || "-",
       p.nama_produk,
       p.kategori?.nama || "-",
@@ -432,7 +474,7 @@ export default function InventoryClient({
             disabled={editingId !== null}
             onClick={() => {
               setEditingId('new');
-              setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5 });
+              setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5, base_unit: "pcs", default_purchase_unit: "", conversion_ratio: 1 });
               setCurrentPage(1);
               setErrorMsg("");
             }}
@@ -456,6 +498,9 @@ export default function InventoryClient({
             <TableRow>
               <TableHead className="w-[140px] xl:pl-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('barcode')}>
                 Barcode {renderSortIcon("barcode")}
+              </TableHead>
+              <TableHead className="w-[130px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('sku')}>
+                SKU {renderSortIcon("sku")}
               </TableHead>
               <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('nama_produk')}>
                 Item {renderSortIcon("nama_produk")}
@@ -677,6 +722,10 @@ export default function InventoryClient({
                     <TableCell className="xl:pl-6 py-2 xl:py-4 block xl:table-cell">
                       <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Barcode</span>
                       <span className="font-mono text-[14px]">{p.barcode || "-"}</span>
+                    </TableCell>
+                    <TableCell className="py-2 xl:py-4 block xl:table-cell">
+                      <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">SKU</span>
+                      <span className="font-mono text-[14px]">{p.sku || "-"}</span>
                     </TableCell>
                     <TableCell className="py-2 xl:py-4 block xl:table-cell">
                       <span className="xl:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">Item</span>

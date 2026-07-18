@@ -15,6 +15,9 @@ interface ProductData {
   harga_jual_promo: number | null;
   diskon: number;
   stok_minimum: number;
+  base_unit?: string;
+  default_purchase_unit?: string | null;
+  conversion_ratio?: number;
 }
 
 export async function addProduct(data: ProductData) {

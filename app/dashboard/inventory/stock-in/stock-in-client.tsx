@@ -7,7 +7,7 @@ import {
   useFormContext,
   FormProvider,
 } from "react-hook-form";
-import { Plus, Trash2, Check, AlertCircle, PackagePlus, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, AlertCircle, PackagePlus, Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addStockIn } from "./actions";
@@ -19,8 +19,9 @@ import { z } from "zod";
 
 const itemSchema = z.object({
   id_produk: z.number().min(1, "Produk harus dipilih"),
-  jumlah: z.number().min(0.001, "Jumlah harus lebih dari 0"),
-  harga_beli: z.number().min(1, "Harga beli harus lebih dari 0"),
+  supplied_qty: z.number().min(0.001, "Jumlah harus lebih dari 0"),
+  supplied_unit: z.string().min(1, "Satuan suplai harus diisi"),
+  total_cost: z.number().min(1, "Total harga harus lebih dari 0"),
   keterangan: z.string().optional(),
 });
 
@@ -63,6 +64,9 @@ interface Product {
   id: number;
   nama_produk: string;
   barcode: string | null;
+  base_unit: string;
+  default_purchase_unit: string | null;
+  conversion_ratio: number;
   satuan: { nama: string } | null;
 }
 
@@ -115,7 +119,6 @@ function ProductCombo({
     if (selectedProduct) {
       setSearchText(selectedProduct.nama_produk);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
   useEffect(() => {
@@ -153,6 +156,13 @@ function ProductCombo({
       });
       setSearchText(product.nama_produk);
       setOpen(false);
+
+      // Auto-fill supplied_unit from product's default_purchase_unit
+      if (product.default_purchase_unit) {
+        setValue(`items.${index}.supplied_unit`, product.default_purchase_unit, {
+          shouldValidate: true,
+        });
+      }
     },
     [index, setValue]
   );
@@ -164,6 +174,7 @@ function ProductCombo({
     const isSame = selectedProduct && value === selectedProduct.nama_produk;
     if (!isSame) {
       setValue(`items.${index}.id_produk`, 0, { shouldValidate: false });
+      setValue(`items.${index}.supplied_unit`, "", { shouldValidate: false });
     }
   };
 
@@ -223,7 +234,7 @@ function ProductCombo({
       />
       {selectedProduct && (
         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground uppercase tracking-widest">
-          {selectedProduct.satuan?.nama || "-"}
+          {selectedProduct.base_unit || "pcs"}
         </span>
       )}
       {open && filtered.length > 0 && (
@@ -263,15 +274,48 @@ function ProductCombo({
 }
 
 /* ------------------------------------------------------------------ */
+/*  UoM Conversion Indicator                                          */
+/* ------------------------------------------------------------------ */
+
+function ConversionIndicator({ index, products }: { index: number; products: Product[] }) {
+  const { watch } = useFormContext<StockInFormValues>();
+
+  const productId = watch(`items.${index}.id_produk`);
+  const suppliedQty = watch(`items.${index}.supplied_qty`) || 0;
+  const suppliedUnit = watch(`items.${index}.supplied_unit`) || "";
+
+  const selectedProduct = useMemo(
+    () => products.find((p) => p.id === productId),
+    [productId, products]
+  );
+
+  if (!selectedProduct || !suppliedQty || !suppliedUnit) return null;
+
+  const ratio = selectedProduct.conversion_ratio || 1;
+  const baseQty = suppliedQty * ratio;
+  const baseUnit = selectedProduct.base_unit || "pcs";
+  const unitLabel = suppliedUnit.charAt(0).toUpperCase() + suppliedUnit.slice(1);
+
+  return (
+    <div className="text-xs font-light text-foreground/70 tracking-tight mt-1 tabular-nums" style={{ fontFeatureSettings: '"tnum"' }}>
+      <Info className="w-3 h-3 inline-block mr-1 text-primary/60 -mt-0.5" />
+      {suppliedQty} {unitLabel} &times; {ratio} {baseUnit}/{suppliedUnit} = <strong className="font-medium text-foreground">{baseQty} {baseUnit}</strong>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main Form Body (consumes FormProvider context)                     */
 /* ------------------------------------------------------------------ */
 
 function FormBody({
   products,
   suppliers,
+  satuanOptions,
 }: {
   products: Product[];
   suppliers: Supplier[];
+  satuanOptions: { id: number; nama: string }[];
 }) {
   const {
     register,
@@ -299,9 +343,8 @@ function FormBody({
   const computedTotal = useMemo(
     () =>
       fields.reduce((sum, _, i) => {
-        const qty = watch(`items.${i}.jumlah`) || 0;
-        const price = watch(`items.${i}.harga_beli`) || 0;
-        return sum + qty * price;
+        const cost = watch(`items.${i}.total_cost`) || 0;
+        return sum + cost;
       }, 0),
     [fields, watch]
   );
@@ -322,10 +365,12 @@ function FormBody({
           if (isNaN(idx)) continue;
           if (item.id_produk?.message)
             list.push(`Baris ${idx + 1}: ${item.id_produk.message}`);
-          if (item.jumlah?.message)
-            list.push(`Baris ${idx + 1}: ${item.jumlah.message}`);
-          if (item.harga_beli?.message)
-            list.push(`Baris ${idx + 1}: ${item.harga_beli.message}`);
+          if (item.supplied_qty?.message)
+            list.push(`Baris ${idx + 1}: ${item.supplied_qty.message}`);
+          if (item.supplied_unit?.message)
+            list.push(`Baris ${idx + 1}: ${item.supplied_unit.message}`);
+          if (item.total_cost?.message)
+            list.push(`Baris ${idx + 1}: ${item.total_cost.message}`);
         }
       }
     }
@@ -339,12 +384,12 @@ function FormBody({
     setWarning("");
 
     const payload = data.items
-      .filter((item) => item.id_produk > 0 && item.jumlah > 0 && item.harga_beli > 0)
+      .filter((item) => item.id_produk > 0 && item.supplied_qty > 0 && item.total_cost > 0)
       .map((item) => ({
         id_produk: item.id_produk,
-        jumlah: item.jumlah,
-        harga_beli: item.harga_beli,
-        total: item.jumlah * item.harga_beli,
+        supplied_qty: item.supplied_qty,
+        supplied_unit: item.supplied_unit,
+        total_cost: item.total_cost,
         tgl_masuk: data.tgl_masuk,
         id_supplier: Number(data.id_supplier),
         keterangan: item.keterangan || "",
@@ -381,7 +426,7 @@ function FormBody({
     setValue("paymentType", "Tunai");
     setValue("tanggalJatuhTempo", "");
     setValue("items", [
-      { id_produk: 0, jumlah: 1, harga_beli: 0, keterangan: "" },
+      { id_produk: 0, supplied_qty: 1, supplied_unit: "", total_cost: 0, keterangan: "" },
     ]);
 
     setTimeout(() => setSuccess(false), 4000);
@@ -503,7 +548,7 @@ function FormBody({
 
       {/* Table */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        <table className="w-full min-w-[800px]">
+        <table className="w-full min-w-[900px]">
           <thead>
             <tr className="border-b border-border/60 bg-muted/80 backdrop-blur-md sticky top-0 z-10">
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 w-10 text-center px-2">
@@ -512,14 +557,20 @@ function FormBody({
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left px-2">
                 Produk
               </th>
-              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[100px] px-2">
-                Jumlah
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[110px] px-2">
+                Satuan Suplai
+              </th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[110px] px-2">
+                Qty Masuk
               </th>
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[140px] px-2">
-                Harga Beli
+                Total Harga
               </th>
-              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-right w-[140px] px-2">
-                Total
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-right w-[120px] px-2">
+                Harga/Pcs
+              </th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-right w-[110px] px-2">
+                Base Qty
               </th>
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[160px] px-2">
                 Keterangan
@@ -529,25 +580,44 @@ function FormBody({
           </thead>
           <tbody>
             {fields.map((field, index) => {
-              const qty = watch(`items.${index}.jumlah`) || 0;
-              const price = watch(`items.${index}.harga_beli`) || 0;
+              const productId = watch(`items.${index}.id_produk`);
+              const selectedProduct = products.find((p) => p.id === productId);
+              const suppliedQty = watch(`items.${index}.supplied_qty`) || 0;
+              const totalCost = watch(`items.${index}.total_cost`) || 0;
+
+              const ratio = selectedProduct?.conversion_ratio || 1;
+              const baseQty = suppliedQty * ratio;
+              const perPieceCost = baseQty > 0 ? totalCost / baseQty : 0;
+
               return (
                 <tr
                   key={field.id}
                   className="border-b border-border/40 hover:bg-muted/20 transition-colors"
                 >
-                  <td className="text-center text-sm text-muted-foreground tabular-nums px-2 py-2">
+                  <td className="text-center text-sm text-muted-foreground tabular-nums px-2 py-2 align-top pt-5">
                     {index + 1}
                   </td>
                   <td className="px-2 py-2">
                     <ProductCombo index={index} products={products} />
+                    <ConversionIndicator index={index} products={products} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <select
+                      {...register(`items.${index}.supplied_unit`)}
+                      className={inputBase}
+                    >
+                      <option value="">Pilih</option>
+                      {satuanOptions.map((u) => (
+                        <option key={u.id} value={u.nama}>{u.nama}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-2 py-2">
                     <Input
                       type="number"
                       min={0}
                       step="any"
-                      {...register(`items.${index}.jumlah`, {
+                      {...register(`items.${index}.supplied_qty`, {
                         valueAsNumber: true,
                       })}
                       className="h-9 tabular-nums font-medium"
@@ -558,14 +628,17 @@ function FormBody({
                       type="number"
                       min={0}
                       step="any"
-                      {...register(`items.${index}.harga_beli`, {
+                      {...register(`items.${index}.total_cost`, {
                         valueAsNumber: true,
                       })}
                       className="h-9 tabular-nums font-medium"
                     />
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-sm font-medium text-foreground">
-                    {formatIDR(qty * price)}
+                  <td className="px-2 py-2 text-right tabular-nums text-sm font-light text-foreground/70 align-top pt-5">
+                    {perPieceCost > 0 ? formatIDR(Math.round(perPieceCost)) : "-"}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums text-sm font-medium text-foreground align-top pt-5">
+                    {baseQty > 0 ? `${baseQty} ${selectedProduct?.base_unit || "pcs"}` : "-"}
                   </td>
                   <td className="px-2 py-2">
                     <input
@@ -574,7 +647,7 @@ function FormBody({
                       className={inputBase}
                     />
                   </td>
-                  <td className="px-2 py-2 text-center">
+                  <td className="px-2 py-2 text-center align-top pt-5">
                     <button
                       type="button"
                       onClick={() => remove(index)}
@@ -613,8 +686,9 @@ function FormBody({
           onClick={() =>
             append({
               id_produk: 0,
-              jumlah: 1,
-              harga_beli: 0,
+              supplied_qty: 1,
+              supplied_unit: "",
+              total_cost: 0,
               keterangan: "",
             })
           }
@@ -659,9 +733,11 @@ function FormBody({
 export default function StockInClient({
   products,
   suppliers,
+  satuanOptions,
 }: {
   products: Product[];
   suppliers: Supplier[];
+  satuanOptions: { id: number; nama: string }[];
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const defaultJatuhTempo = (() => {
@@ -678,7 +754,7 @@ export default function StockInClient({
       tgl_masuk: today,
       paymentType: "Tunai",
       tanggalJatuhTempo: defaultJatuhTempo,
-      items: [{ id_produk: 0, jumlah: 1, harga_beli: 0, keterangan: "" }],
+      items: [{ id_produk: 0, supplied_qty: 1, supplied_unit: "", total_cost: 0, keterangan: "" }],
     },
   });
 
@@ -695,7 +771,7 @@ export default function StockInClient({
         </header>
 
         <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden">
-          <FormBody products={products} suppliers={suppliers} />
+          <FormBody products={products} suppliers={suppliers} satuanOptions={satuanOptions} />
         </div>
       </div>
     </FormProvider>

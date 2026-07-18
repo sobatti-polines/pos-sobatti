@@ -14,6 +14,12 @@ export default async function StockInHistoryPage() {
         jumlah,
         total,
         keterangan,
+        supplied_unit,
+        supplied_qty,
+        applied_conversion_ratio,
+        base_qty_added,
+        total_cost,
+        base_cost_per_piece,
         produk(nama_produk),
         supplier(id, nama_supplier)
       `)

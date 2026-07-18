@@ -6,9 +6,9 @@ import { z } from "zod";
 
 const stockInRowSchema = z.object({
   id_produk: z.number().int().positive("ID produk tidak valid"),
-  jumlah: z.number().positive("Jumlah harus lebih dari 0"),
-  harga_beli: z.number().positive("Harga beli harus lebih dari 0"),
-  total: z.number().nonnegative(),
+  supplied_qty: z.number().positive("Jumlah suplai harus lebih dari 0"),
+  supplied_unit: z.string().min(1, "Satuan suplai harus diisi"),
+  total_cost: z.number().positive("Total harga harus lebih dari 0"),
   tgl_masuk: z.string().min(1, "Tanggal harus diisi"),
   id_supplier: z.number().int().positive("Supplier harus dipilih"),
   keterangan: z.string().optional(),
@@ -40,16 +40,38 @@ export async function addStockIn(
     return { error: "Minimal 1 item harus diisi" };
   }
 
-  // Call the atomic RPC — all inserts, AVCO calculation, and stock update
-  // happen in a single advisory-locked transaction
+  // Server-side: verify conversion_ratio for every product
+  const productIds = [...new Set(rows.map((r) => r.id_produk))];
+  const { data: products, error: prodError } = await supabase
+    .from("produk")
+    .select("id, conversion_ratio, default_purchase_unit, base_unit")
+    .in("id", productIds);
+
+  if (prodError) {
+    return { error: "Gagal memvalidasi data produk: " + prodError.message };
+  }
+
+  const productMap = new Map(products?.map((p) => [p.id, p]) ?? []);
+  for (const row of rows) {
+    const prod = productMap.get(row.id_produk);
+    if (!prod) {
+      return { error: `Produk dengan ID ${row.id_produk} tidak ditemukan` };
+    }
+    if (!prod.conversion_ratio || prod.conversion_ratio < 1) {
+      return { error: `Produk ID ${row.id_produk} belum memiliki rasio konversi yang valid` };
+    }
+  }
+
+  // Call the atomic RPC — all inserts, AVCO calculation, UoM conversion,
+  // and stock update happen in a single advisory-locked transaction
   const { data: rpcResult, error: rpcError } = await supabase.rpc(
     "process_barang_masuk",
     {
       p_items: rows.map((r) => ({
         id_produk: r.id_produk,
-        jumlah: r.jumlah,
-        harga_beli: r.harga_beli,
-        total: r.total,
+        supplied_qty: r.supplied_qty,
+        supplied_unit: r.supplied_unit,
+        total_cost: r.total_cost,
         tgl_masuk: r.tgl_masuk,
         id_supplier: r.id_supplier,
         keterangan: r.keterangan || null,
@@ -68,7 +90,7 @@ export async function addStockIn(
   // Handle hutang creation — soft-fail so the goods receipt is never rolled back
   if (inserted && inserted.length > 0 && paymentType === "Kredit") {
     const { createHutang } = await import("@/lib/hutang");
-    const totalAmount = rows.reduce((acc, r) => acc + r.total, 0);
+    const totalAmount = rows.reduce((acc, r) => acc + r.total_cost, 0);
 
     try {
       await createHutang(supabase, {
@@ -82,8 +104,6 @@ export async function addStockIn(
     } catch (hutangErr) {
       const msg = hutangErr instanceof Error ? hutangErr.message : String(hutangErr);
       console.error("[addStockIn] Gagal membuat hutang dagang:", msg);
-      // Barang masuk sudah berhasil disimpan, tapi hutang gagal dicatat.
-      // Kembalikan peringatan agar pengguna mengetahui masalah ini.
       return { success: true, warning: `Barang masuk berhasil, tapi hutang gagal dicatat: ${msg}` };
     }
   }
