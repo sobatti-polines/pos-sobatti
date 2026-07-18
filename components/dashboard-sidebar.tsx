@@ -22,7 +22,6 @@ import {
   UserCheck,
   Camera,
   LogOut,
-  CreditCard,
   Calculator,
   FileText,
   TrendingUp,
@@ -67,7 +66,6 @@ export function DashboardSidebar({ role }: { role?: string }) {
   if (!isMounted) return <aside className="w-64 shrink-0 border-r border-border bg-background hidden md:flex flex-col py-6 px-4" />;
 
   const isInventoryActive = pathname.startsWith("/dashboard/inventory");
-  const isHutangPiutangActive = pathname.startsWith("/dashboard/hutang") || pathname.startsWith("/dashboard/piutang");
   const isLaporanActive = pathname.startsWith("/dashboard/reports") || pathname.startsWith("/dashboard/laporan/");
 
   const linkClass = (href: string) => {
@@ -124,30 +122,6 @@ export function DashboardSidebar({ role }: { role?: string }) {
               <Truck className="w-5 h-5" />
               <span className="text-sm">Supplier</span>
             </Link>
-
-            <div>
-              <div
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm ${
-                  isHutangPiutangActive
-                    ? "text-primary font-medium"
-                    : "text-muted-foreground"
-                }`}
-              >
-                <CreditCard className="w-5 h-5" />
-                <span className="text-sm flex-1 text-left">Hutang & Piutang</span>
-              </div>
-
-              <div className="ml-2 mt-1 flex flex-col gap-0.5 pl-6 border-l border-border/50">
-                <Link href="/dashboard/hutang" className={subLinkClass("/dashboard/hutang")}>
-                  <CreditCard className="w-4 h-4" />
-                  <span>Hutang Dagang</span>
-                </Link>
-                <Link href="/dashboard/piutang" className={subLinkClass("/dashboard/piutang")}>
-                  <CreditCard className="w-4 h-4" />
-                  <span>Piutang Dagang</span>
-                </Link>
-              </div>
-            </div>
 
             <div>
               <div

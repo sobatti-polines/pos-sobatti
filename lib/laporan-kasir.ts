@@ -42,51 +42,19 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
     return acc + (Number(s.bayar) - Number(s.kembali));
   }, 0);
 
-  // 2b. Piutang Payments (Tunai)
-  const { data: piutangPayments } = await supabase
-    .from("pembayaran_piutang")
-    .select("jumlah_bayar")
-    .eq("metode_bayar", "Tunai")
-    .gte("tanggal_bayar", dateStr)
-    .lte("tanggal_bayar", dateStr);
-  
-  const piutangInflow = (piutangPayments || []).reduce((acc, p) => acc + Number(p.jumlah_bayar), 0);
-
-  const totalMasuk = salesInflow + piutangInflow;
+  const totalMasuk = salesInflow;
 
   // 3. Calculate Outflow (Total Keluar)
-  // 3a. Hutang Payments (Tunai)
-  const { data: hutangPayments } = await supabase
-    .from("pembayaran_hutang")
-    .select("jumlah_bayar")
-    .eq("metode_bayar", "Tunai")
-    .gte("tanggal_bayar", dateStr)
-    .lte("tanggal_bayar", dateStr);
-
-  const hutangOutflow = (hutangPayments || []).reduce((acc, p) => acc + Number(p.jumlah_bayar), 0);
-
-  // 3b. Cash Purchases (Barang Masuk without Hutang)
+  // All purchases are cash now (hutang feature removed)
   const { data: cashPurchases } = await supabase
     .from("barang_masuk")
-    .select("id, total")
+    .select("total")
     .gte("tgl_masuk", dateStr)
     .lte("tgl_masuk", dateStr);
   
-  let purchaseOutflow = 0;
-  if (cashPurchases && cashPurchases.length > 0) {
-    const ids = cashPurchases.map(cp => cp.id);
-    const { data: linkedHutang } = await supabase
-      .from("hutang_dagang")
-      .select("id_barang_masuk")
-      .in("id_barang_masuk", ids);
-    
-    const linkedIds = new Set((linkedHutang || []).map(lh => lh.id_barang_masuk));
-    purchaseOutflow = cashPurchases
-      .filter(cp => !linkedIds.has(cp.id))
-      .reduce((acc, cp) => acc + Number(cp.total), 0);
-  }
+  const purchaseOutflow = (cashPurchases || []).reduce((acc, cp) => acc + Number(cp.total), 0);
 
-  const totalKeluar = hutangOutflow + purchaseOutflow;
+  const totalKeluar = purchaseOutflow;
 
   const expectedSaldoAkhir = Number(saldoAwal) + totalMasuk - totalKeluar;
 
@@ -98,8 +66,8 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
     saldo_akhir_sistem: expectedSaldoAkhir,
     detail: {
       sales_tunai: salesInflow,
-      piutang_tunai: piutangInflow,
-      hutang_tunai: hutangOutflow,
+      piutang_tunai: 0,
+      hutang_tunai: 0,
       pembelian_tunai: purchaseOutflow
     }
   };

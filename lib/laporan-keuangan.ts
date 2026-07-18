@@ -82,19 +82,8 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
     if (config) totalKas = config.modal_awal;
   }
 
-  // 1b. Piutang Dagang (Total awal - Total bayar up to date)
-  const { data: piutangAwal } = await supabase
-    .from("piutang_dagang")
-    .select("jumlah_awal")
-    .lte("tanggal_piutang", dateStr);
-  
-  const { data: piutangBayar } = await supabase
-    .from("pembayaran_piutang")
-    .select("jumlah_bayar")
-    .lte("tanggal_bayar", dateStr);
-
-  const totalPiutang = (piutangAwal || []).reduce((acc, p) => acc + Number(p.jumlah_awal), 0) -
-                       (piutangBayar || []).reduce((acc, p) => acc + Number(p.jumlah_bayar), 0);
+  // 1b. Piutang Dagang — feature removed, set to 0
+  const totalPiutang = 0;
 
   // 1c. Persediaan Barang (Value from riwayat_avco latest snapshots per product)
   // This is a bit complex in SQL, so we'll approximate using current value 
@@ -105,19 +94,8 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
   const totalInventory = Number(inventoryValues || 0);
 
   // 2. Fetch Liabilities
-  // 2a. Hutang Dagang (Total awal - Total bayar up to date)
-  const { data: hutangAwal } = await supabase
-    .from("hutang_dagang")
-    .select("jumlah_awal")
-    .lte("tanggal_hutang", dateStr);
-  
-  const { data: hutangBayar } = await supabase
-    .from("pembayaran_hutang")
-    .select("jumlah_bayar")
-    .lte("tanggal_bayar", dateStr);
-
-  const totalHutang = (hutangAwal || []).reduce((acc, h) => acc + Number(h.jumlah_awal), 0) -
-                      (hutangBayar || []).reduce((acc, h) => acc + Number(h.jumlah_bayar), 0);
+  // 2a. Hutang Dagang — feature removed, set to 0
+  const totalHutang = 0;
 
   // 3. Fetch Equity
   const { data: config } = await supabase.from("pengaturan_keuangan").select("*").single();

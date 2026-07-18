@@ -65,7 +65,6 @@ export function DashboardMobileNav({ role }: { role?: string }) {
   }, [isOpen]);
 
   const isInventoryActive = pathname.startsWith("/dashboard/inventory");
-  const isHutangPiutangActive = pathname.startsWith("/dashboard/hutang") || pathname.startsWith("/dashboard/piutang");
   const isLaporanActive = pathname.startsWith("/dashboard/reports") || pathname.startsWith("/dashboard/laporan/");
 
   const linkClass = (href: string) => {
@@ -163,30 +162,6 @@ export function DashboardMobileNav({ role }: { role?: string }) {
                       <Truck className="w-5 h-5" />
                       <span>Supplier</span>
                     </Link>
-
-                    <div>
-                      <div
-                        className={`flex items-center gap-3 px-3 py-3 rounded-md transition-colors ${
-                          isHutangPiutangActive
-                            ? "text-primary font-medium"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        <CircleDollarSign className="w-5 h-5" />
-                        <span className="flex-1 text-left">Hutang & Piutang</span>
-                      </div>
-
-                      <div className="ml-2 mt-1 flex flex-col gap-1 pl-6 border-l border-border/50">
-                        <Link href="/dashboard/hutang" className={subLinkClass("/dashboard/hutang")} onClick={() => setIsOpen(false)}>
-                          <CircleDollarSign className="w-4 h-4" />
-                          <span>Hutang Dagang</span>
-                        </Link>
-                        <Link href="/dashboard/piutang" className={subLinkClass("/dashboard/piutang")} onClick={() => setIsOpen(false)}>
-                          <CircleDollarSign className="w-4 h-4" />
-                          <span>Piutang Dagang</span>
-                        </Link>
-                      </div>
-                    </div>
 
                     <div>
                       <div

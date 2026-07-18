@@ -15,9 +15,7 @@ const stockInRowSchema = z.object({
 });
 
 export async function addStockIn(
-  rows: z.infer<typeof stockInRowSchema>[],
-  paymentType?: "Tunai" | "Kredit",
-  tanggalJatuhTempo?: string | null
+  rows: z.infer<typeof stockInRowSchema>[]
 ) {
   const supabase = await createClient();
 
@@ -64,7 +62,7 @@ export async function addStockIn(
 
   // Call the atomic RPC — all inserts, AVCO calculation, UoM conversion,
   // and stock update happen in a single advisory-locked transaction
-  const { data: rpcResult, error: rpcError } = await supabase.rpc(
+  const { error: rpcError } = await supabase.rpc(
     "process_barang_masuk",
     {
       p_items: rows.map((r) => ({
@@ -81,31 +79,6 @@ export async function addStockIn(
 
   if (rpcError) {
     return { error: rpcError.message };
-  }
-
-  const inserted = (rpcResult as any)?.inserted as
-    | Array<{ id: number }>
-    | undefined;
-
-  // Handle hutang creation — soft-fail so the goods receipt is never rolled back
-  if (inserted && inserted.length > 0 && paymentType === "Kredit") {
-    const { createHutang } = await import("@/lib/hutang");
-    const totalAmount = rows.reduce((acc, r) => acc + r.total_cost, 0);
-
-    try {
-      await createHutang(supabase, {
-        id_supplier: rows[0].id_supplier,
-        id_barang_masuk: inserted[0].id,
-        tanggal_hutang: rows[0].tgl_masuk,
-        tanggal_jatuh_tempo: tanggalJatuhTempo || null,
-        jumlah_awal: totalAmount,
-        catatan: "Otomatis dari Barang Masuk",
-      });
-    } catch (hutangErr) {
-      const msg = hutangErr instanceof Error ? hutangErr.message : String(hutangErr);
-      console.error("[addStockIn] Gagal membuat hutang dagang:", msg);
-      return { success: true, warning: `Barang masuk berhasil, tapi hutang gagal dicatat: ${msg}` };
-    }
   }
 
   revalidatePath("/dashboard/inventory");

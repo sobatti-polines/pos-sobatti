@@ -26,8 +26,7 @@ export async function GET(
         total_hpp, laba_kotor,
         kasir:pengguna!id_kasir(id, nama),
         pelanggan(id, nama_pelanggan, no_hp),
-        metode_bayar(id, nama),
-        piutang_dagang(id, sisa_piutang, status, tanggal_jatuh_tempo)
+        metode_bayar(id, nama)
       `)
       .eq("id", transaksiId)
       .single();
@@ -59,7 +58,6 @@ export async function GET(
     const pel = header.pelanggan as any;
     const kas = header.kasir as any;
     const mb = header.metode_bayar as any;
-    const piutangArr = (header.piutang_dagang as any[]) ?? [];
 
     const items = (details ?? []).map((d: any) => {
       const prod: any = d.produk ?? {};
@@ -101,15 +99,7 @@ export async function GET(
       total_hpp: Number(header.total_hpp ?? 0),
       laba_kotor: Number(header.laba_kotor ?? 0),
       items,
-      piutang:
-        piutangArr.length > 0
-          ? {
-              id: piutangArr[0].id,
-              sisa_piutang: Number(piutangArr[0].sisa_piutang ?? 0),
-              status: piutangArr[0].status,
-              jatuh_tempo: piutangArr[0].tanggal_jatuh_tempo ?? null,
-            }
-          : null,
+      piutang: null,
     };
 
     return NextResponse.json({ data: result });

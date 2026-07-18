@@ -132,12 +132,8 @@ export default function TutupKasirClient({ initialSummary }: { initialSummary: a
                     <div className="grid grid-cols-2 gap-y-3 text-sm text-muted-foreground">
                       <span>Penjualan</span>
                       <span className="text-right tabular-nums">{formatIDR(summary.detail.sales_tunai)}</span>
-                      <span>Piutang</span>
-                      <span className="text-right tabular-nums">{formatIDR(summary.detail.piutang_tunai)}</span>
                       <span>Pembelian</span>
                       <span className="text-right tabular-nums">{formatIDR(summary.detail.pembelian_tunai)}</span>
-                      <span>Hutang</span>
-                      <span className="text-right tabular-nums">{formatIDR(summary.detail.hutang_tunai)}</span>
                     </div>
                   </div>
                 </div>

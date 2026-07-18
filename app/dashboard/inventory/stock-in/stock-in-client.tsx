@@ -28,8 +28,6 @@ const itemSchema = z.object({
 const formSchema = z.object({
   id_supplier: z.string().min(1, "Supplier harus dipilih"),
   tgl_masuk: z.string().min(1, "Tanggal harus diisi"),
-  paymentType: z.enum(["Tunai", "Kredit"]),
-  tanggalJatuhTempo: z.string().optional(),
   items: z.array(itemSchema).min(1, "Minimal 1 item"),
 });
 
@@ -336,8 +334,6 @@ function FormBody({
   const [success, setSuccess] = useState(false);
   const [warning, setWarning] = useState("");
 
-  const paymentType = watch("paymentType");
-
   const today = new Date().toISOString().slice(0, 10);
 
   const computedTotal = useMemo(
@@ -401,11 +397,7 @@ function FormBody({
       return;
     }
 
-    const res = await addStockIn(
-      payload,
-      data.paymentType,
-      data.paymentType === "Kredit" ? data.tanggalJatuhTempo : null
-    );
+    const res = await addStockIn(payload);
 
     if (res?.error) {
       setServerError(res.error);
@@ -423,8 +415,6 @@ function FormBody({
     /* Reset form to defaults */
     setValue("id_supplier", "");
     setValue("tgl_masuk", today);
-    setValue("paymentType", "Tunai");
-    setValue("tanggalJatuhTempo", "");
     setValue("items", [
       { id_produk: 0, supplied_qty: 1, supplied_unit: "", total_cost: 0, keterangan: "" },
     ]);
@@ -465,14 +455,6 @@ function FormBody({
         </div>
       )}
 
-      {/* Warning banner (barang masuk OK tapi hutang gagal) */}
-      {warning && (
-        <div className="shrink-0 flex items-start gap-2 px-6 py-4 bg-amber-50 text-amber-800 text-sm border-b border-border">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>{warning}</span>
-        </div>
-      )}
-
       {/* Header fields */}
       <div className="shrink-0 flex flex-col md:flex-row md:items-end gap-4 px-6 py-5 border-b border-border bg-transparent">
         <div className="flex flex-col gap-1.5 w-full md:w-auto">
@@ -510,40 +492,6 @@ function FormBody({
             className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
           />
         </div>
-
-        <div className="flex flex-col gap-1.5 w-full md:w-auto">
-          <label
-            htmlFor="payment_type"
-            className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
-          >
-            Metode Bayar
-          </label>
-          <select
-            id="payment_type"
-            {...register("paymentType")}
-            className="h-9 w-full md:min-w-[150px] rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
-          >
-            <option value="Tunai">Tunai</option>
-            <option value="Kredit">Kredit / Tempo</option>
-          </select>
-        </div>
-
-        {paymentType === "Kredit" && (
-          <div className="flex flex-col gap-1.5 w-full md:w-auto">
-            <label
-              htmlFor="tgl_jatuh_tempo"
-              className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
-            >
-              Jatuh Tempo
-            </label>
-            <input
-              id="tgl_jatuh_tempo"
-              type="date"
-              {...register("tanggalJatuhTempo")}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
-            />
-          </div>
-        )}
       </div>
 
       {/* Table */}
@@ -740,11 +688,6 @@ export default function StockInClient({
   satuanOptions: { id: number; nama: string }[];
 }) {
   const today = new Date().toISOString().slice(0, 10);
-  const defaultJatuhTempo = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    return d.toISOString().slice(0, 10);
-  })();
 
   const form = useForm<StockInFormValues>({
     resolver: makeResolver(formSchema) as any,
@@ -752,8 +695,6 @@ export default function StockInClient({
     defaultValues: {
       id_supplier: "",
       tgl_masuk: today,
-      paymentType: "Tunai",
-      tanggalJatuhTempo: defaultJatuhTempo,
       items: [{ id_produk: 0, supplied_qty: 1, supplied_unit: "", total_cost: 0, keterangan: "" }],
     },
   });

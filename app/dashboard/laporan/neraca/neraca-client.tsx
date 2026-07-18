@@ -42,11 +42,9 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
     const headers = ["Kategori", "Sub-Kategori", "Item", "Jumlah"];
     const rows = [
       ["ASET (AKTIVA)", "Aset Lancar", "Kas & Setara Kas", data.aset.kas],
-      ["ASET (AKTIVA)", "Aset Lancar", "Piutang Dagang", data.aset.piutang],
       ["ASET (AKTIVA)", "Aset Lancar", "Persediaan Barang", data.aset.persediaan],
       ["ASET (AKTIVA)", "", "TOTAL ASET", data.aset.total_aset],
-      ["KEWAJIBAN (PASIVA)", "Kewajiban", "Hutang Dagang", data.kewajiban.hutang],
-      ["KEWAJIBAN (PASIVA)", "", "Total Kewajiban", data.kewajiban.total_kewajiban],
+      ["KEWAJIBAN (PASIVA)", "Kewajiban", "Total Kewajiban", data.kewajiban.total_kewajiban],
       ["MODAL (EKUITAS)", "Ekuitas", "Modal Awal", data.ekuitas.modal_awal],
       ["MODAL (EKUITAS)", "Ekuitas", "Laba Ditahan", data.ekuitas.laba_ditahan],
       ["MODAL (EKUITAS)", "", "Total Modal", data.ekuitas.total_ekuitas],
@@ -132,10 +130,6 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
                     <span className="tabular-nums">{formatIDR(data.aset.kas)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span>Piutang Dagang</span>
-                    <span className="tabular-nums">{formatIDR(data.aset.piutang)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
                     <span>Persediaan Barang</span>
                     <span className="tabular-nums">{formatIDR(data.aset.persediaan)}</span>
                   </div>
@@ -157,10 +151,6 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
                 <h3 className="font-bold text-base uppercase border-b border-foreground pb-2">Kewajiban</h3>
                 
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span>Hutang Dagang</span>
-                    <span className="tabular-nums">{formatIDR(data.kewajiban.hutang)}</span>
-                  </div>
                   <div className="flex justify-between items-center pt-4 border-t border-border mt-2">
                     <span className="font-medium">Total Kewajiban</span>
                     <span className="font-medium tabular-nums">{formatIDR(data.kewajiban.total_kewajiban)}</span>

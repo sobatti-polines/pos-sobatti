@@ -82,8 +82,7 @@ export async function GET(req: NextRequest) {
         total_hpp, laba_kotor,
         kasir:pengguna!id_kasir(id, nama),
         pelanggan(id, nama_pelanggan, no_hp),
-        metode_bayar(id, nama),
-        piutang_dagang(id, sisa_piutang, status, tanggal_jatuh_tempo)
+        metode_bayar(id, nama)
       `)
       .gte("tgl_transaksi", startISO)
       .lte("tgl_transaksi", endISO);
@@ -188,7 +187,6 @@ export async function GET(req: NextRequest) {
       const pel = r.pelanggan as any;
       const kas = r.kasir as any;
       const mb = r.metode_bayar as any;
-      const piutangArr = (r.piutang_dagang as any[]) ?? [];
       return {
         id: r.id,
         no_transaksi: r.no_transaksi,
@@ -209,15 +207,7 @@ export async function GET(req: NextRequest) {
         total_hpp: Number(r.total_hpp ?? 0),
         laba_kotor: Number(r.laba_kotor ?? 0),
         items: p.include_items ? (itemsMap[r.id] ?? []) : undefined,
-        piutang:
-          piutangArr.length > 0
-            ? {
-                id: piutangArr[0].id,
-                sisa_piutang: Number(piutangArr[0].sisa_piutang ?? 0),
-                status: piutangArr[0].status,
-                jatuh_tempo: piutangArr[0].tanggal_jatuh_tempo ?? null,
-              }
-            : null,
+        piutang: null,
       };
     });
 
