@@ -1,15 +1,13 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Search, Plus, Trash2, Users, X, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Loader2, Edit2, Download } from "lucide-react";
+import { Plus, Trash2, Users, X, AlertCircle, Check, Loader2, Edit2, Download } from "lucide-react";
+import { useTable } from "@/hooks/use-table";
+import DataTable, { type Column, type DeleteModalConfig } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
-  TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { addCustomer, updateCustomer, deleteCustomer } from "./actions";
@@ -28,23 +26,16 @@ interface Customer {
 export default function CustomersClient({ initialCustomers }: { initialCustomers: Customer[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const [isPending, startTransition] = useTransition();
-  
-  // Inline editing state
+
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
   const [editForm, setEditForm] = useState<Partial<Customer>>({});
-  
-  const [deleteModal, setDeleteModal] = useState<{ open: boolean; data: Customer | null }>({
-    open: false,
-    data: null,
-  });
+
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const processedCustomers = useMemo(() => {
+  const filteredData = useMemo(() => {
     let result = [...initialCustomers];
 
     if (deferredSearchQuery.trim()) {
@@ -58,40 +49,10 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
       );
     }
 
-    if (sortConfig) {
-      result.sort((a, b) => {
-        const aVal = (a as unknown as Record<string, string>)[sortConfig.key] || "";
-        const bVal = (b as unknown as Record<string, string>)[sortConfig.key] || "";
-        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-
     return result;
-  }, [initialCustomers, searchQuery, sortConfig]);
+  }, [initialCustomers, deferredSearchQuery]);
 
-  const totalPages = Math.max(1, Math.ceil(processedCustomers.length / itemsPerPage));
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return processedCustomers.slice(start, start + itemsPerPage);
-  }, [processedCustomers, currentPage, itemsPerPage]);
-
-  const handleSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-    setCurrentPage(1);
-  };
-
-  const renderSortIcon = (columnKey: string) => {
-    if (sortConfig?.key !== columnKey) return <ChevronDown className="w-3 h-3 opacity-20 ml-1 inline-block" />;
-    return sortConfig.direction === "asc" 
-      ? <ChevronUp className="w-3 h-3 text-foreground ml-1 inline-block" /> 
-      : <ChevronDown className="w-3 h-3 text-foreground ml-1 inline-block" />;
-  };
+  const table = useTable({ data: filteredData, defaultItemsPerPage: 25 });
 
   const handleSaveInline = () => {
     if (!editForm.nama_pelanggan?.trim()) {
@@ -109,7 +70,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     };
 
     startTransition(async () => {
-      const result = editingId === "new" 
+      const result = editingId === "new"
         ? await addCustomer(data as Parameters<typeof addCustomer>[0])
         : await updateCustomer(editingId as number, data);
 
@@ -122,15 +83,15 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     });
   };
 
-  const handleDelete = async () => {
-    if (!deleteModal.data) return;
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
     setErrorMsg("");
     startTransition(async () => {
-      const result = await deleteCustomer(deleteModal.data!.id, deleteModal.data!.nama_pelanggan);
+      const result = await deleteCustomer(deleteTarget.id, deleteTarget.nama_pelanggan);
       if (result.error) {
         setErrorMsg(result.error);
       } else {
-        setDeleteModal({ open: false, data: null });
+        setDeleteTarget(null);
       }
     });
   };
@@ -151,7 +112,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
 
   const handleExportCSV = () => {
     const headers = ["Nama Pelanggan", "No. HP", "Email", "Alamat", "Keterangan"];
-    const data = processedCustomers.map(c => [
+    const data = filteredData.map(c => [
       c.nama_pelanggan,
       c.no_hp || "-",
       c.email || "-",
@@ -163,7 +124,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
 
   const handleExportPDF = () => {
     const headers = ["Nama Pelanggan", "No. HP", "Email", "Alamat", "Keterangan"];
-    const data = processedCustomers.map(c => [
+    const data = filteredData.map(c => [
       c.nama_pelanggan,
       c.no_hp || "-",
       c.email || "-",
@@ -173,316 +134,114 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     exportToPDF("Data_Pelanggan", "Laporan Data Pelanggan", headers, data);
   };
 
+  const editInput = (field: keyof Customer, placeholder: string, opts?: { tabular?: boolean }) => (
+    <Input
+      aria-label={placeholder}
+      placeholder={placeholder}
+      value={String(editForm[field] ?? "")}
+      onChange={(e) => setEditForm(prev => ({ ...prev, [field]: e.target.value }))}
+      className={`h-8 text-[13px] ${opts?.tabular ? "tabular-nums" : ""}`}
+    />
+  );
+
+  const columns: Column<Customer>[] = [
+    { key: "nama_pelanggan", header: "Nama", sortable: true, className: "pl-6", headerClassName: "pl-6" },
+    { key: "no_hp", header: "No. HP", sortable: true, render: (c) => <span className="tabular-nums">{c.no_hp || "-"}</span> },
+    { key: "email", header: "Email", sortable: true },
+    { key: "alamat", header: "Alamat", sortable: true, render: (c) => <span className="max-w-xs truncate block">{c.alamat || "-"}</span> },
+    { key: "keterangan", header: "Keterangan", sortable: true, render: (c) => <span className="max-w-xs truncate block">{c.keterangan || "-"}</span> },
+    {
+      key: "actions", header: "", className: "pr-6", headerClassName: "w-[100px] pr-6",
+      render: (customer) => {
+        const isUmum = customer.nama_pelanggan?.toUpperCase() === "UMUM";
+        if (isUmum) return null;
+        return (
+          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" aria-label="Edit customer" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, customer)} disabled={editingId !== null}>
+              <Edit2 className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Hapus customer" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); setDeleteTarget(customer); }} disabled={editingId !== null}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
+
+  const deleteModal: DeleteModalConfig | undefined = deleteTarget ? {
+    open: true,
+    title: "Hapus Pelanggan?",
+    itemName: deleteTarget.nama_pelanggan,
+    onConfirm: handleDeleteConfirm,
+    onCancel: () => { setDeleteTarget(null); setErrorMsg(""); },
+    isPending,
+    error: errorMsg,
+  } : undefined;
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
-      <div className="shrink-0 flex flex-col items-start md:flex-row md:items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4">
-        <div className="flex-1 flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full">
-          <div className="relative w-full md:max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input aria-label="Pencarian" placeholder="Cari nama, telp, atau alamat..."
-              className="pl-9 rounded-md w-full"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              disabled={editingId !== null}
-            />
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 md:ml-4 shrink-0 w-full md:w-auto">
-          <Button
-            variant="outline"
-            onClick={handleExportCSV}
-            className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none"
-          >
-            <Download className="w-4 h-4" /> CSV
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleExportPDF}
-            className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none"
-          >
-            <Download className="w-4 h-4" /> PDF
-          </Button>
-          <Button 
-            onClick={() => {
-              setEditingId('new');
-              setEditForm({});
-              setCurrentPage(1);
-              setErrorMsg("");
-            }}
-            disabled={editingId !== null}
-            className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm font-normal shrink-0 gap-2 w-full md:w-auto"
-          >
-            <Plus className="w-4 h-4" />
-            Tambah Pelanggan
-          </Button>
-        </div>
-      </div>
-
-      {errorMsg && editingId === 'new' && (
-        <div className="px-6 py-3 bg-destructive/10 border-b border-border text-destructive text-sm font-medium flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
-          {errorMsg}
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto min-h-0 relative">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead onClick={() => handleSort("nama_pelanggan")} className="cursor-pointer select-none hover:text-foreground transition-colors pl-6">
-                Nama {renderSortIcon("nama_pelanggan")}
-              </TableHead>
-              <TableHead onClick={() => handleSort("no_hp")} className="cursor-pointer select-none hover:text-foreground transition-colors">No. HP {renderSortIcon("no_hp")}</TableHead>
-              <TableHead onClick={() => handleSort("email")} className="cursor-pointer select-none hover:text-foreground transition-colors">Email {renderSortIcon("email")}</TableHead>
-              <TableHead onClick={() => handleSort("alamat")} className="cursor-pointer select-none hover:text-foreground transition-colors">Alamat {renderSortIcon("alamat")}</TableHead>
-              <TableHead onClick={() => handleSort("keterangan")} className="cursor-pointer select-none hover:text-foreground transition-colors">Keterangan {renderSortIcon("keterangan")}</TableHead>
-              <TableHead className="w-[100px] pr-6"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {editingId === 'new' && (
-              <TableRow className="bg-muted/30">
-                <TableCell className="pl-6 align-top pt-4">
-                  <Input autoFocus aria-label="Nama Pelanggan" placeholder="Nama Pelanggan"
-                    value={editForm.nama_pelanggan || ""}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, nama_pelanggan: e.target.value }))}
-                    className="h-8 text-[13px]"
-                  />
-                </TableCell>
-                <TableCell className="align-top pt-4">
-                  <Input aria-label="No. HP" placeholder="No. HP"
-                    value={editForm.no_hp || ""}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, no_hp: e.target.value }))}
-                    className="h-8 text-[13px] tabular-nums"
-                  />
-                </TableCell>
-                <TableCell className="align-top pt-4">
-                  <Input aria-label="Email" placeholder="Email"
-                    value={editForm.email || ""}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                    className="h-8 text-[13px]"
-                  />
-                </TableCell>
-                <TableCell className="align-top pt-4">
-                  <Input aria-label="Alamat" placeholder="Alamat"
-                    value={editForm.alamat || ""}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, alamat: e.target.value }))}
-                    className="h-8 text-[13px]"
-                  />
-                </TableCell>
-                <TableCell className="align-top pt-4">
-                  <Input aria-label="Keterangan" placeholder="Keterangan"
-                    value={editForm.keterangan || ""}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, keterangan: e.target.value }))}
-                    className="h-8 text-[13px]"
-                  />
-                </TableCell>
-                <TableCell className="pr-6 align-top pt-4 text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8 text-primary hover:text-primary hover:bg-primary/10" onClick={handleSaveInline} disabled={isPending}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-
-            {paginatedData.map((customer) => {
-              const isUmum = customer.nama_pelanggan?.toUpperCase() === "UMUM";
-              
-              if (editingId === customer.id) {
-                return (
-                  <TableRow key={customer.id} className="bg-muted/10">
-                    <TableCell className="pl-6 align-top pt-4">
-                      <Input autoFocus aria-label="Nama Pelanggan" placeholder="Nama Pelanggan"
-                        value={editForm.nama_pelanggan || ""}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, nama_pelanggan: e.target.value }))}
-                        className="h-8 text-[13px]"
-                      />
-                      {errorMsg && <p className="text-[11px] text-destructive mt-1">{errorMsg}</p>}
-                    </TableCell>
-                    <TableCell className="align-top pt-4">
-                      <Input aria-label="No. HP" placeholder="No. HP"
-                        value={editForm.no_hp || ""}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, no_hp: e.target.value }))}
-                        className="h-8 text-[13px] tabular-nums"
-                      />
-                    </TableCell>
-                    <TableCell className="align-top pt-4">
-                      <Input aria-label="Email" placeholder="Email"
-                        value={editForm.email || ""}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                        className="h-8 text-[13px]"
-                      />
-                    </TableCell>
-                    <TableCell className="align-top pt-4">
-                      <Input aria-label="Alamat" placeholder="Alamat"
-                        value={editForm.alamat || ""}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, alamat: e.target.value }))}
-                        className="h-8 text-[13px]"
-                      />
-                    </TableCell>
-                    <TableCell className="align-top pt-4">
-                      <Input aria-label="Keterangan" placeholder="Keterangan"
-                        value={editForm.keterangan || ""}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, keterangan: e.target.value }))}
-                        className="h-8 text-[13px]"
-                      />
-                    </TableCell>
-                    <TableCell className="pr-6 align-top pt-4 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8 text-primary hover:text-primary hover:bg-primary/10" onClick={handleSaveInline} disabled={isPending}>
-                          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              }
-
-              return (
-                <TableRow 
-                  key={customer.id} 
-                  className="group hover:bg-muted/30 transition-colors"
-                >
-                  <TableCell className="pl-6 py-4">{customer.nama_pelanggan}</TableCell>
-                  <TableCell className="py-4 tabular-nums">{customer.no_hp || "-"}</TableCell>
-                  <TableCell className="py-4">{customer.email || "-"}</TableCell>
-                  <TableCell className="py-4 max-w-xs truncate">{customer.alamat || "-"}</TableCell>
-                  <TableCell className="py-4 max-w-xs truncate">{customer.keterangan || "-"}</TableCell>
-                  <TableCell className="pr-6 py-4 text-right">
-                    {!isUmum && (
-                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" aria-label="Edit customer" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, customer)} disabled={editingId !== null}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" aria-label="Hapus customer" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, data: customer }); }} disabled={editingId !== null}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            
-            {paginatedData.length === 0 && editingId !== 'new' && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-32 hover:bg-transparent">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <Users className="w-12 h-12 mb-4 opacity-20" />
-                    <p className="text-base font-medium text-foreground">Tidak ada data pelanggan ditemukan</p>
-                    <p className="text-sm mt-1">Coba gunakan kata kunci pencarian atau filter yang lain.</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 lg:p-6 border-t border-border bg-background">
-        <p className="text-[13px] text-muted-foreground tabular-nums">
-          Menampilkan{" "}
-          <span className="font-medium text-foreground">
-            {processedCustomers.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}
-          </span>{" "}
-          hingga{" "}
-          <span className="font-medium text-foreground">
-            {Math.min(currentPage * itemsPerPage, processedCustomers.length)}
-          </span>{" "}
-          dari{" "}
-          <span className="font-medium text-foreground">{processedCustomers.length}</span>{" "}
-          pelanggan
-        </p>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] text-muted-foreground whitespace-nowrap">Baris per halaman</span>
-            <select aria-label="Baris per halaman" value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              disabled={editingId !== null}
-              className="h-8 rounded-md border border-border bg-background px-2 py-1 text-[13px] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 text-foreground disabled:opacity-50"
-            >
-              {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </div>
-
-          <span className="text-[13px] text-muted-foreground tabular-nums whitespace-nowrap">
-            Halaman{" "}
-            <span className="font-medium text-foreground">{currentPage}</span>
-            {" "}/{" "}
-            <span className="font-medium text-foreground">{totalPages}</span>
-          </span>
-
-          <div className="flex items-center gap-1">
-            <Button aria-label="Halaman Sebelumnya" variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1 || editingId !== null}
-              className="h-11 w-11 md:h-8 md:w-8 p-0 rounded-full bg-background disabled:opacity-50"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button aria-label="Halaman Selanjutnya" variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || editingId !== null}
-              className="h-11 w-11 md:h-8 md:w-8 p-0 rounded-full bg-background disabled:opacity-50"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Delete Confirmation */}
-      {deleteModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-background border border-border shadow-[0_8px_24px_rgba(0,55,112,0.08),0_2px_6px_rgba(0,55,112,0.04)] rounded-[12px] w-full max-w-md flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive mx-auto mb-4">
-                <Trash2 className="w-6 h-6" />
+    <DataTable
+      data={table.paginatedData}
+      total={table.total}
+      columns={columns}
+      rowKey={(c) => c.id}
+      search={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Cari nama, telp, atau alamat..."
+      sortConfig={table.sortConfig}
+      onSort={table.handleSort}
+      currentPage={table.currentPage}
+      onPageChange={table.setCurrentPage}
+      itemsPerPage={table.itemsPerPage}
+      onItemsPerPageChange={table.setItemsPerPage}
+      editingId={editingId as number | "new" | null}
+      renderEditRow={(customer) => {
+        const isNew = customer === null;
+        return (
+          <TableRow className="bg-muted/30">
+            <TableCell className="pl-6 align-top pt-4">
+              <Input autoFocus aria-label="Nama Pelanggan" placeholder="Nama Pelanggan"
+                value={editForm.nama_pelanggan || ""}
+                onChange={(e) => setEditForm(prev => ({ ...prev, nama_pelanggan: e.target.value }))}
+                className="h-8 text-[13px]"
+              />
+              {errorMsg && <p className="text-[11px] text-destructive mt-1">{errorMsg}</p>}
+            </TableCell>
+            <TableCell className="align-top pt-4">{editInput("no_hp", "No. HP", { tabular: true })}</TableCell>
+            <TableCell className="align-top pt-4">{editInput("email", "Email")}</TableCell>
+            <TableCell className="align-top pt-4">{editInput("alamat", "Alamat")}</TableCell>
+            <TableCell className="align-top pt-4">{editInput("keterangan", "Keterangan")}</TableCell>
+            <TableCell className="pr-6 align-top pt-4 text-right">
+              <div className="flex justify-end gap-1">
+                <Button variant="ghost" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
+                  <X className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8 text-primary hover:text-primary hover:bg-primary/10" onClick={handleSaveInline} disabled={isPending}>
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                </Button>
               </div>
-              <h2 className="text-[22px] font-light tracking-tight text-foreground mb-2">Hapus Pelanggan?</h2>
-              <p className="text-sm text-muted-foreground">
-                Apakah Anda yakin ingin menghapus data pelanggan <strong className="text-foreground">{deleteModal.data?.nama_pelanggan}</strong>? Tindakan ini tidak dapat dibatalkan.
-              </p>
-              {errorMsg && (
-                <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive text-sm text-left">
-                  <AlertCircle className="w-4 h-4" />
-                  {errorMsg}
-                </div>
-              )}
-            </div>
-            <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex justify-end gap-3">
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="rounded-full px-6 bg-background"
-                onClick={() => setDeleteModal({ open: false, data: null })}
-                disabled={isPending}
-              >
-                Batal
-              </Button>
-              <Button 
-                variant="destructive" 
-                className="rounded-full px-6 shadow-sm"
-                onClick={handleDelete} 
-                disabled={isPending}
-              >
-                {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Hapus Pelanggan
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+            </TableCell>
+          </TableRow>
+        );
+      }}
+      actions={[
+        { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
+        { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
+        {
+          label: "Tambah Pelanggan",
+          icon: <Plus className="w-4 h-4" />,
+          kind: "primary",
+          onClick: () => { setEditingId("new"); setEditForm({}); setErrorMsg(""); },
+          disabled: editingId !== null,
+        },
+      ]}
+      errorBanner={errorMsg && editingId && editingId === 'new' ? errorMsg : null}
+      deleteModal={deleteModal}
+      emptyState={{
+        icon: Users,
+        title: "Tidak ada data pelanggan ditemukan",
+        description: "Coba gunakan kata kunci pencarian atau filter yang lain.",
+      }}
+    />
   );
 }

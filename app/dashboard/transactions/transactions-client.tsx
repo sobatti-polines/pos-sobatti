@@ -1,30 +1,11 @@
 "use client";
 
 import { useState, useMemo, useDeferredValue } from "react";
-import { 
-  Search, 
-  ChevronLeft, 
-  ChevronRight, 
-  Receipt,
-  ChevronDown,
-  ChevronUp,
-  Trash2,
-  AlertTriangle,
-  Loader2,
-  X,
-  Download
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Search, Receipt, Trash2, AlertTriangle, Loader2, X, Download } from "lucide-react";
+import { useTable } from "@/hooks/use-table";
+import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { voidTransaction, getTransactionDetails } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
@@ -69,11 +50,11 @@ interface TransactionDetail {
   produk: { nama_produk: string } | null;
 }
 
-export default function TransactionsClient({ 
-  initialTransactions, 
+export default function TransactionsClient({
+  initialTransactions,
   paymentMethods,
   role
-}: { 
+}: {
   initialTransactions: Transaction[];
   paymentMethods: { id: number; nama: string }[];
   role?: string;
@@ -83,9 +64,6 @@ export default function TransactionsClient({
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState({ start: "", end: "" });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
 
   const [voidModal, setVoidModal] = useState<{ open: boolean; transaction: Transaction | null; items: TransactionDetail[]; loading: boolean }>({
     open: false,
@@ -99,7 +77,7 @@ export default function TransactionsClient({
   const handleOpenVoid = async (e: React.MouseEvent, t: Transaction) => {
     e.stopPropagation();
     setVoidModal({ open: true, transaction: t, items: [], loading: true });
-    
+
     const res = await getTransactionDetails(t.id);
     if (res.data) {
       setVoidModal(prev => ({ ...prev, items: res.data as unknown as TransactionDetail[], loading: false }));
@@ -111,7 +89,7 @@ export default function TransactionsClient({
   const handleConfirmVoid = async () => {
     if (!voidModal.transaction) return;
     setVoidModal(prev => ({ ...prev, loading: true }));
-    
+
     const res = await voidTransaction(voidModal.transaction.id);
     if (res.error) {
       alert("Gagal membatalkan transaksi: " + res.error);
@@ -121,10 +99,9 @@ export default function TransactionsClient({
     }
   };
 
-  const filteredTransactions = useMemo(() => {
+  const filteredData = useMemo(() => {
     let result = [...initialTransactions];
 
-    // Search filter (no transaksi, kasir, pelanggan)
     if (deferredSearchQuery.trim()) {
       const q = deferredSearchQuery.toLowerCase();
       result = result.filter(
@@ -136,12 +113,10 @@ export default function TransactionsClient({
       );
     }
 
-    // Payment method filter
     if (paymentFilter !== "all") {
       result = result.filter((t) => t.metode_bayar?.id.toString() === paymentFilter);
     }
 
-    // Date range filter
     if (dateFilter.start) {
       const start = new Date(dateFilter.start);
       start.setHours(0, 0, 0, 0);
@@ -153,60 +128,14 @@ export default function TransactionsClient({
       result = result.filter((t) => new Date(t.tgl_transaksi) <= end);
     }
 
-    // Sort
-    if (sortConfig) {
-      result.sort((a, b) => {
-        let aVal: string | number;
-        let bVal: string | number;
-        
-        if (sortConfig.key === "kasir") {
-          aVal = a.pengguna?.nama || a.pengguna?.username || "";
-          bVal = b.pengguna?.nama || b.pengguna?.username || "";
-        } else if (sortConfig.key === "pelanggan") {
-          aVal = a.pelanggan?.nama_pelanggan || "";
-          bVal = b.pelanggan?.nama_pelanggan || "";
-        } else if (sortConfig.key === "metode_bayar") {
-          aVal = a.metode_bayar?.nama || "";
-          bVal = b.metode_bayar?.nama || "";
-        } else {
-          aVal = (a as unknown as Record<string, string | number>)[sortConfig.key] ?? "";
-          bVal = (b as unknown as Record<string, string | number>)[sortConfig.key] ?? "";
-        }
-        
-        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-
     return result;
-  }, [initialTransactions, searchQuery, paymentFilter, dateFilter, sortConfig]);
+  }, [initialTransactions, deferredSearchQuery, paymentFilter, dateFilter]);
+
+  const table = useTable({ data: filteredData, defaultItemsPerPage: 25 });
 
   const totalSales = useMemo(() => {
-    return filteredTransactions.reduce((sum, t) => sum + Number(t.total), 0);
-  }, [filteredTransactions]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / itemsPerPage));
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredTransactions.slice(start, start + itemsPerPage);
-  }, [filteredTransactions, currentPage, itemsPerPage]);
-
-  const handleSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-    setCurrentPage(1);
-  };
-
-  const renderSortIcon = (columnKey: string) => {
-    if (sortConfig?.key !== columnKey) return <ChevronDown className="w-3 h-3 opacity-20 ml-1 inline-block" />;
-    return sortConfig.direction === "asc" 
-      ? <ChevronUp className="w-3 h-3 text-foreground ml-1 inline-block" /> 
-      : <ChevronDown className="w-3 h-3 text-foreground ml-1 inline-block" />;
-  };
+    return filteredData.reduce((sum, t) => sum + Number(t.total), 0);
+  }, [filteredData]);
 
   const getStatusBadge = (t: Transaction) => {
     if (t.bayar >= t.total) {
@@ -220,7 +149,7 @@ export default function TransactionsClient({
 
   const handleExportCSV = () => {
     const headers = ["No. Transaksi", "Tanggal", "Kasir", "Pelanggan", "Total", "Pembayaran", "Status"];
-    const data = filteredTransactions.map(t => [
+    const data = filteredData.map(t => [
       `#${t.no_transaksi}`,
       formatDate(t.tgl_transaksi),
       t.pengguna?.nama || t.pengguna?.username || "-",
@@ -234,7 +163,7 @@ export default function TransactionsClient({
 
   const handleExportPDF = () => {
     const headers = ["No. Transaksi", "Tanggal", "Kasir", "Pelanggan", "Total", "Pembayaran", "Status"];
-    const data = filteredTransactions.map(t => [
+    const data = filteredData.map(t => [
       `#${t.no_transaksi}`,
       formatDate(t.tgl_transaksi),
       t.pengguna?.nama || t.pengguna?.username || "-",
@@ -246,223 +175,97 @@ export default function TransactionsClient({
     exportToPDF("Data_Transaksi", "Laporan Data Transaksi", headers, data);
   };
 
+  const filters: FilterDef[] = [
+    {
+      type: "date-range",
+      start: dateFilter.start,
+      end: dateFilter.end,
+      onStartChange: (v) => setDateFilter(prev => ({ ...prev, start: v })),
+      onEndChange: (v) => setDateFilter(prev => ({ ...prev, end: v })),
+    },
+    {
+      type: "select",
+      label: "Pembayaran",
+      value: paymentFilter,
+      onChange: setPaymentFilter,
+      options: [
+        ...paymentMethods.map((pm) => ({ value: String(pm.id), label: pm.nama })),
+      ],
+    },
+  ];
+
+  const columns: Column<Transaction>[] = [
+    { key: "no_transaksi", header: "No. Transaksi", sortable: true, className: "pl-6", headerClassName: "pl-6 w-[180px]", render: (t) => <span>{`#${t.no_transaksi}`}</span> },
+    { key: "tgl_transaksi", header: "Tanggal", sortable: true, headerClassName: "w-[180px]", render: (t) => formatDate(t.tgl_transaksi) },
+    { key: "kasir", header: "Kasir", sortable: true, sortKey: "pengguna.nama", render: (t) => <p className="text-foreground text-[13px]">{t.pengguna?.nama || t.pengguna?.username || "-"}</p> },
+    { key: "pelanggan", header: "Pelanggan", sortable: true, sortKey: "pelanggan.nama_pelanggan", render: (t) => <p className="text-foreground text-[13px]">{t.pelanggan?.nama_pelanggan || "Umum"}</p> },
+    { key: "total", header: "Total", sortable: true, headerClassName: "w-[140px] text-right", render: (t) => <span className="tabular-nums">{formatIDR(t.total)}</span> },
+    { key: "metode_bayar", header: "Pembayaran", sortable: true, sortKey: "metode_bayar.nama", headerClassName: "w-[140px] text-center", render: (t) => <span className="text-muted-foreground text-[13px]">{t.metode_bayar?.nama || "-"}</span> },
+    {
+      key: "status", header: "Status", headerClassName: "w-[120px] text-center",
+      render: (t) => <div className="flex justify-center">{getStatusBadge(t)}</div>,
+    },
+    {
+      key: "actions", header: "", className: "pr-6", headerClassName: "w-[60px] pr-6",
+      render: (t) => (
+        <div className="flex justify-end">
+          {isOwnerOrAdmin && (
+            <Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => handleOpenVoid(e, t)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
-      <div className="shrink-0 flex flex-col p-4 lg:p-6 border-b border-border bg-transparent gap-6">
-        {/* Subtotals Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Total Penjualan</p>
-            <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{formatIDR(totalSales)}</p>
-          </div>
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Jumlah Transaksi</p>
-            <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{filteredTransactions.length}</p>
-          </div>
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Rata-rata Transaksi</p>
-            <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">
-              {filteredTransactions.length > 0 ? formatIDR(totalSales / filteredTransactions.length) : formatIDR(0)}
-            </p>
-          </div>
-        </div>
-
-        {/* Filters Row */}
-        <div className="flex flex-col items-start md:flex-row md:items-center justify-between gap-4">
-          <div className="flex-1 flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full">
-            <div className="relative w-full md:max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input aria-label="Cari No. Transaksi, Kasir, atau Pelanggan..." placeholder="Cari No. Transaksi, Kasir, atau Pelanggan..." 
-                className="pl-9 w-full rounded-md"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              />
+    <>
+      <DataTable
+        data={table.paginatedData}
+        total={table.total}
+        columns={columns}
+        rowKey={(t) => t.id}
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Cari No. Transaksi, Kasir, atau Pelanggan..."
+        sortConfig={table.sortConfig}
+        onSort={table.handleSort}
+        currentPage={table.currentPage}
+        onPageChange={table.setCurrentPage}
+        itemsPerPage={table.itemsPerPage}
+        onItemsPerPageChange={table.setItemsPerPage}
+        filters={filters}
+        onRowClick={(t) => router.push(`/pos/invoice/${t.id}`)}
+        actions={[
+          { label: "Reset", variant: "outline", onClick: () => { setSearchQuery(""); setPaymentFilter("all"); setDateFilter({ start: "", end: "" }); } },
+          { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
+          { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
+        ]}
+        topContent={
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-2">
+            <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Total Penjualan</p>
+              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{formatIDR(totalSales)}</p>
             </div>
-            
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <div className="relative flex-1">
-                <Input 
-                  type="date" 
-                  className="rounded-md border px-3 py-2 text-sm w-full md:w-40"
-                  value={dateFilter.start}
-                  onChange={(e) => { setDateFilter(prev => ({ ...prev, start: e.target.value })); setCurrentPage(1); }}
-                />
-              </div>
-              <span className="text-muted-foreground text-sm">s/d</span>
-              <div className="relative flex-1">
-                <Input 
-                  type="date" 
-                  className="rounded-md border px-3 py-2 text-sm w-full md:w-40"
-                  value={dateFilter.end}
-                  onChange={(e) => { setDateFilter(prev => ({ ...prev, end: e.target.value })); setCurrentPage(1); }}
-                />
-              </div>
+            <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Jumlah Transaksi</p>
+              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{filteredData.length}</p>
             </div>
-
-            <select aria-label="Filter Metode Pembayaran" value={paymentFilter}
-              onChange={(e) => { setPaymentFilter(e.target.value); setCurrentPage(1); }}
-              className="h-10 w-full md:w-auto rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 text-muted-foreground md:min-w-[160px]"
-            >
-              <option value="all">Semua Pembayaran</option>
-              {paymentMethods.map((pm) => (
-                <option key={pm.id} value={pm.id}>{pm.nama}</option>
-              ))}
-            </select>
+            <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Rata-rata Transaksi</p>
+              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">
+                {filteredData.length > 0 ? formatIDR(totalSales / filteredData.length) : formatIDR(0)}
+              </p>
+            </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <Button variant="outline" className="h-10 rounded-full gap-2 px-6 flex-1 md:flex-none" onClick={() => {
-              setSearchQuery("");
-              setPaymentFilter("all");
-              setDateFilter({ start: "", end: "" });
-            }}>
-              Reset
-            </Button>
-            <Button variant="outline" className="h-10 rounded-full gap-2 px-4 flex-1 md:flex-none" onClick={handleExportCSV}>
-              <Download className="w-4 h-4" /> CSV
-            </Button>
-            <Button variant="outline" className="h-10 rounded-full gap-2 px-4 flex-1 md:flex-none" onClick={handleExportPDF}>
-              <Download className="w-4 h-4" /> PDF
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto min-h-0 relative">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[180px] pl-6 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('no_transaksi')}>
-                No. Transaksi {renderSortIcon("no_transaksi")}
-              </TableHead>
-              <TableHead className="w-[180px] cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('tgl_transaksi')}>
-                Tanggal {renderSortIcon("tgl_transaksi")}
-              </TableHead>
-              <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('kasir')}>
-                Kasir {renderSortIcon("kasir")}
-              </TableHead>
-              <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('pelanggan')}>
-                Pelanggan {renderSortIcon("pelanggan")}
-              </TableHead>
-              <TableHead className="w-[140px] text-right cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('total')}>
-                Total {renderSortIcon("total")}
-              </TableHead>
-              <TableHead className="w-[140px] text-center cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('metode_bayar')}>
-                Pembayaran {renderSortIcon("metode_bayar")}
-              </TableHead>
-              <TableHead className="w-[120px] text-center">Status</TableHead>
-              <TableHead className="w-[60px] pr-6"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedData.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-32">
-                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                    <Receipt className="w-12 h-12 mb-4 opacity-20" />
-                    <p className="text-base font-medium text-foreground">Tidak ada transaksi ditemukan</p>
-                    <p className="text-sm mt-1">Coba gunakan kata kunci pencarian atau filter yang lain.</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedData.map((t) => (
-                <TableRow 
-                  key={t.id} 
-                  className="group cursor-pointer"
-                  onClick={() => router.push(`/pos/invoice/${t.id}`)}
-                >
-                  <TableCell className="pl-6">
-                    #{t.no_transaksi}
-                  </TableCell>
-                  <TableCell>
-                    {formatDate(t.tgl_transaksi)}
-                  </TableCell>
-                  <TableCell>
-                    <p className="text-foreground text-[13px]">{t.pengguna?.nama || t.pengguna?.username || "-"}</p>
-                  </TableCell>
-                  <TableCell>
-                    <p className="text-foreground text-[13px]">{t.pelanggan?.nama_pelanggan || "Umum"}</p>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatIDR(t.total)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <span className="text-muted-foreground text-[13px]">{t.metode_bayar?.nama || "-"}</span>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {getStatusBadge(t)}
-                  </TableCell>
-                  <TableCell className="pr-6 text-right">
-                    {isOwnerOrAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => handleOpenVoid(e, t)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 lg:p-6 border-t border-border bg-background">
-        <p className="text-[13px] text-muted-foreground tabular-nums">
-          Menampilkan{" "}
-          <span className="font-medium text-foreground">
-            {filteredTransactions.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}
-          </span>{" "}
-          hingga{" "}
-          <span className="font-medium text-foreground">
-            {Math.min(currentPage * itemsPerPage, filteredTransactions.length)}
-          </span>{" "}
-          dari{" "}
-          <span className="font-medium text-foreground">{filteredTransactions.length}</span>{" "}
-          transaksi
-        </p>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] text-muted-foreground whitespace-nowrap">Baris per halaman</span>
-            <select aria-label="Baris per halaman" value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="h-8 rounded-md border border-border bg-background px-2 py-1 text-[13px] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 text-foreground"
-            >
-              {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </div>
-
-          <span className="text-[13px] text-muted-foreground tabular-nums whitespace-nowrap">
-            Halaman{" "}
-            <span className="font-medium text-foreground">{currentPage}</span>
-            {" "}/{" "}
-            <span className="font-medium text-foreground">{totalPages}</span>
-          </span>
-
-          <div className="flex items-center gap-1">
-            <Button aria-label="Halaman Sebelumnya" variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="h-11 w-11 md:h-8 md:w-8 p-0 rounded-full bg-background"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button aria-label="Halaman Selanjutnya" variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="h-11 w-11 md:h-8 md:w-8 p-0 rounded-full bg-background"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
+        }
+        emptyState={{
+          icon: Receipt,
+          title: "Tidak ada transaksi ditemukan",
+          description: "Coba gunakan kata kunci pencarian atau filter yang lain.",
+        }}
+      />
 
       {/* Void Modal */}
       {voidModal.open && (
@@ -473,14 +276,14 @@ export default function TransactionsClient({
                 <AlertTriangle className="w-5 h-5 text-destructive" />
                 Batalkan Transaksi
               </h2>
-              <button 
+              <button
                 className="text-muted-foreground hover:text-foreground transition-colors p-1"
                 onClick={() => setVoidModal({ open: false, transaction: null, items: [], loading: false })}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
                 <div className="flex justify-between text-sm mb-1">
@@ -523,20 +326,10 @@ export default function TransactionsClient({
             </div>
 
             <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex justify-end gap-3">
-              <Button 
-                variant="outline" 
-                className="rounded-full px-6 bg-background"
-                onClick={() => setVoidModal({ open: false, transaction: null, items: [], loading: false })}
-                disabled={voidModal.loading}
-              >
+              <Button variant="outline" className="rounded-full px-6 bg-background" onClick={() => setVoidModal({ open: false, transaction: null, items: [], loading: false })} disabled={voidModal.loading}>
                 Batal
               </Button>
-              <Button 
-                variant="destructive" 
-                className="rounded-full px-6 shadow-sm"
-                onClick={handleConfirmVoid}
-                disabled={voidModal.loading}
-              >
+              <Button variant="destructive" className="rounded-full px-6 shadow-sm" onClick={handleConfirmVoid} disabled={voidModal.loading}>
                 {voidModal.loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Konfirmasi Hapus
               </Button>
@@ -544,6 +337,6 @@ export default function TransactionsClient({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
