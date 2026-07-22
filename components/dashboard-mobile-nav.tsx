@@ -25,6 +25,7 @@ import {
   TrendingUp,
   Scale,
   Tag,
+  ScanLine,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
