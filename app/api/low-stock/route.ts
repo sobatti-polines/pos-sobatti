@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
+export const revalidate = 30;
+
 export async function GET() {
   let supabase;
   try {
@@ -12,25 +14,17 @@ export async function GET() {
   const { data, error } = await supabase
     .from("produk")
     .select("id, nama_produk, stok, stok_minimum, satuan(nama)")
-    .eq("hitung_stok", true);
+    .eq("hitung_stok", true)
+    .gt("stok", 0);
 
   if (error || !data) return NextResponse.json([]);
 
-  const lowStock = [];
-  for (const p of data) {
-    const stok = p.stok ?? 0;
-    const min = p.stok_minimum ?? 5;
-    if (stok > 0 && stok <= min) {
-      lowStock.push({
-        id: p.id,
-        nama_produk: p.nama_produk,
-        stok,
-        stok_minimum: min,
-        satuan: p.satuan,
-      });
-    }
-  }
+  const lowStock = data.filter(
+    (p) => (p.stok ?? 0) <= (p.stok_minimum ?? 5)
+  );
+  lowStock.sort((a, b) => (a.stok ?? 0) - (b.stok ?? 0));
 
-  lowStock.sort((a: { stok: number }, b: { stok: number }) => a.stok - b.stok);
-  return NextResponse.json(lowStock);
+  const res = NextResponse.json(lowStock);
+  res.headers.set("Cache-Control", "public, max-age=30, s-maxage=60, stale-while-revalidate=120");
+  return res;
 }

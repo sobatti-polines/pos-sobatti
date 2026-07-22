@@ -216,7 +216,8 @@ export default function PosPage() {
         fetch("/api/pos/payment-methods"),
         supabase.from("pengaturan").select("pajak_persen").eq("id", 1).single()
       ]);
-      setProducts(await prodRes.json());
+      const prodJson = await prodRes.json();
+      setProducts(prodJson.data ?? prodJson ?? []);
       setCustomers(await custRes.json());
       setPaymentMethods(await pmRes.json());
       

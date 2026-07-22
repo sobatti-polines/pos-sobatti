@@ -14,7 +14,8 @@ export async function getLowStockItems(): Promise<LowStockItem[]> {
   const { data } = await supabase
     .from("produk")
     .select("id, nama_produk, stok, stok_minimum, satuan(nama)")
-    .eq("hitung_stok", true);
+    .eq("hitung_stok", true)
+    .gt("stok", 0);
 
   if (!data) return [];
 

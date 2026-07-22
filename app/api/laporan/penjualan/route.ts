@@ -150,7 +150,7 @@ export async function GET(req: NextRequest) {
     if (p.id_metode_bayar) aggQuery = aggQuery.eq("id_metode_bayar", p.id_metode_bayar);
     if (p.id_kasir) aggQuery = aggQuery.eq("id_kasir", p.id_kasir);
 
-    const { data: agg, error: aggErr } = await aggQuery;
+    const { data: agg, error: aggErr } = await aggQuery.limit(100000);
     if (aggErr) throw aggErr;
 
     const safe = (v: any) => Number(v ?? 0);

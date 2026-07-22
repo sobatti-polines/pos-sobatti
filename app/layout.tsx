@@ -40,6 +40,29 @@ export default function RootLayout({
       lang="id"
       className={cn("h-full", "antialiased", interSans.variable)}
     >
+      <head>
+        <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL!} />
+        <link
+          rel="preload"
+          href="/icon-192x192.png"
+          as="image"
+          type="image/png"
+        />
+        <script
+          type="speculationrules"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              prerender: [
+                {
+                  source: "document",
+                  where: { href_matches: "/pos" },
+                  eagerness: "moderate",
+                },
+              ],
+            }),
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col md:overflow-hidden">{children}</body>
     </html>
   );

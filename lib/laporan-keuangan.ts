@@ -14,7 +14,8 @@ export async function generateLabaRugi(
     .from("transaksi_keluar")
     .select("subtotal, diskon_nominal, pajak_nominal, total, total_hpp")
     .gte("tgl_transaksi", start)
-    .lte("tgl_transaksi", end);
+    .lte("tgl_transaksi", end)
+    .limit(100000);
 
   if (salesErr) {
     console.error("Failed to fetch sales for P&L:", salesErr);
@@ -108,7 +109,8 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
   const { data: allSales } = await supabase
     .from("transaksi_keluar")
     .select("total, pajak_nominal, total_hpp")
-    .lte("tgl_transaksi", endOfDay(new Date(date)).toISOString());
+    .lte("tgl_transaksi", endOfDay(new Date(date)).toISOString())
+    .limit(100000);
 
   const labaDitahan = (allSales || []).reduce((acc, s) => {
     const netRev = Number(s.total) - Number(s.pajak_nominal);

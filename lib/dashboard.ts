@@ -76,13 +76,16 @@ export async function getDashboardData(): Promise<DashboardData> {
       .limit(5),
     supabase
       .from("produk")
-      .select("id, nama_produk, hitung_stok, stok, stok_minimum"),
+      .select("id, nama_produk, hitung_stok, stok, stok_minimum")
+      .eq("hitung_stok", true)
+      .gt("stok", 0),
     supabase
       .from("transaksi_keluar")
       .select("tgl_transaksi, total")
       .gte("tgl_transaksi", fmt(new Date(todayStart.getTime() - 13 * 86400000)))
       .lte("tgl_transaksi", fmt(todayEnd))
-      .order("tgl_transaksi", { ascending: true }),
+      .order("tgl_transaksi", { ascending: true })
+      .limit(100000),
   ]);
 
   const todayRevenue =
@@ -100,10 +103,9 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const lowStockItems: LowStockItem[] = [];
   for (const p of allProductsRes.data ?? []) {
-    if (!p.hitung_stok) continue;
     const stok = p.stok ?? 0;
     const min = p.stok_minimum ?? 5;
-    if (stok > 0 && stok <= min) {
+    if (stok <= min) {
       lowStockItems.push({ id: p.id, nama_produk: p.nama_produk, stock: stok });
     }
   }

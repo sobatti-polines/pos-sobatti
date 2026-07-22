@@ -23,15 +23,27 @@ const getLocalIp = () => {
 };
 
 const nextConfig: NextConfig = {
-  /* config options here */
   experimental: {
     serverActions: {
       allowedOrigins: [getLocalIp(), 'localhost:3000'],
     },
+    optimizePackageImports: [
+      "lucide-react",
+      "date-fns",
+      "@tanstack/react-table",
+      "radix-ui",
+    ],
+    useCache: true,
   },
   turbopack: {},
-  // If allowedDevOrigins is a custom thing you are using:
   allowedDevOrigins: [getLocalIp()],
+  compress: true,
+  images: {
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 86400,
+  },
 } as NextConfig;
 
 export default withPWA(nextConfig);

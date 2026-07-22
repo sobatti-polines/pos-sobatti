@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   LayoutGrid, 
   CircleDollarSign, 
@@ -36,7 +36,7 @@ const bottomLinks = [
   { href: "/dashboard/support", label: "Bantuan", icon: HelpCircle },
 ];
 
-export function DashboardMobileNav({ role }: { role?: string }) {
+export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role }: { role?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -309,4 +309,4 @@ export function DashboardMobileNav({ role }: { role?: string }) {
       )}
     </>
   );
-}
+});

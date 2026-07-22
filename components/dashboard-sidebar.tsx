@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useLowStockRealtime } from "@/hooks/use-low-stock-realtime";
 import { 
@@ -39,7 +39,7 @@ const bottomLinks = [
   { href: "/dashboard/support", label: "Bantuan", icon: HelpCircle },
 ];
 
-export function DashboardSidebar({ role }: { role?: string }) {
+export const DashboardSidebar = React.memo(function DashboardSidebar({ role }: { role?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -291,4 +291,4 @@ export function DashboardSidebar({ role }: { role?: string }) {
       </div>
     </aside>
   );
-}
+});

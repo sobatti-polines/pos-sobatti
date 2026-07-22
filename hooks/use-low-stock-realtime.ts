@@ -11,40 +11,71 @@ export interface LowStockItem {
   satuan: { nama: string } | null;
 }
 
+let sharedItems: LowStockItem[] = [];
+const listeners = new Set<() => void>();
+let subscriptionCount = 0;
+let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null;
+
+function notifyAll() {
+  listeners.forEach((l) => l());
+}
+
+async function fetchItems() {
+  try {
+    const res = await fetch("/api/low-stock");
+    if (res.ok) {
+      sharedItems = await res.json();
+      notifyAll();
+    }
+  } catch {
+    // silent
+  }
+}
+
+function subscribeRealtime() {
+  const supabase = createClient();
+  channel = supabase
+    .channel("low-stock-global")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "produk" },
+      () => { fetchItems(); }
+    )
+    .subscribe();
+}
+
+function unsubscribeRealtime() {
+  if (channel) {
+    const supabase = createClient();
+    supabase.removeChannel(channel);
+    channel = null;
+  }
+}
+
 export function useLowStockRealtime() {
-  const [items, setItems] = useState<LowStockItem[]>([]);
+  const [items, setItems] = useState<LowStockItem[]>(() => [...sharedItems]);
 
   useEffect(() => {
-    let cancelled = false;
+    const listener = () => setItems([...sharedItems]);
+    listeners.add(listener);
 
-    const fetchItems = async () => {
-      try {
-        const res = await fetch("/api/low-stock");
-        if (res.ok && !cancelled) {
-          setItems(await res.json());
-        } else if (!res.ok && !cancelled) {
-          console.warn("Low-stock fetch failed:", res.status, await res.text().catch(() => ""));
-        }
-      } catch (err) {
-        console.warn("Low-stock fetch error:", err);
-      }
-    };
+    if (subscriptionCount === 0) {
+      fetchItems();
+      subscribeRealtime();
+    }
+    subscriptionCount++;
 
-    fetchItems();
-
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`low-stock-changes-${crypto.randomUUID()}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "produk" },
-        () => fetchItems()
-      )
-      .subscribe();
+    if (sharedItems.length > 0) {
+      setItems([...sharedItems]);
+    }
 
     return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
+      listeners.delete(listener);
+      subscriptionCount--;
+      if (subscriptionCount <= 0) {
+        unsubscribeRealtime();
+        sharedItems = [];
+      }
     };
   }, []);
 
