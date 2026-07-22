@@ -8,6 +8,7 @@ interface ProductData {
   id_kategori: number;
   id_satuan: number;
   hitung_stok: boolean;
+  sku: string | null;
   barcode: string | null;
   harga_modal: number;
   harga_jual_satuan: number;

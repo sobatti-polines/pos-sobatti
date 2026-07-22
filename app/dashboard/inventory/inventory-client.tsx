@@ -118,6 +118,7 @@ export default function InventoryClient({
     const data = {
       nama_produk: editForm.nama_produk, id_kategori: Number(editForm.id_kategori),
       id_satuan: Number(editForm.id_satuan), hitung_stok: Boolean(editForm.hitung_stok),
+      sku: editForm.sku || null,
       barcode: editForm.barcode || null, harga_modal: Number(editForm.harga_modal || 0),
       harga_jual_satuan: Number(editForm.harga_jual_satuan || 0),
       harga_jual_grosir: Number(editForm.harga_jual_grosir || 0),
@@ -195,8 +196,8 @@ export default function InventoryClient({
   };
 
   const baseColumns: Column<Product>[] = [
-    { key: "barcode", header: "Barcode", sortable: true, className: "xl:pl-6", headerClassName: "xl:pl-6 w-[140px]", mobileLabel: "Barcode", render: (p) => <span className="font-mono text-[14px]">{p.barcode || "-"}</span> },
-    { key: "sku", header: "SKU", sortable: true, headerClassName: "w-[130px]", mobileLabel: "SKU", render: (p) => <span className="font-mono text-[14px]">{p.sku || "-"}</span> },
+    { key: "sku", header: "SKU", sortable: true, className: "xl:pl-6", headerClassName: "xl:pl-6 w-[130px]", mobileLabel: "SKU", render: (p) => <span className="font-mono text-[14px]">{p.sku || "-"}</span> },
+    { key: "barcode", header: "Barcode", sortable: true, headerClassName: "w-[140px]", mobileLabel: "Barcode", render: (p) => <span className="font-mono text-[14px]">{p.barcode || "-"}</span> },
     { key: "nama_produk", header: "Item", sortable: true, mobileLabel: "Item", render: (p) => <p className="text-foreground text-[15px] xl:text-[14px] font-medium xl:font-normal line-clamp-2 xl:line-clamp-1">{p.nama_produk}</p> },
     { key: "kategori", header: "Kategori", sortable: true, sortKey: "kategori.nama", headerClassName: "w-[160px]", mobileLabel: "Kategori", render: (p) => p.kategori?.nama || "-" },
     {
@@ -263,6 +264,12 @@ export default function InventoryClient({
     return (
       <TableRow className="bg-muted/10 border-b-2 xl:border-b-0 hover:bg-muted/10 flex flex-col xl:table-row p-4 xl:p-0 gap-3 xl:gap-0">
         <TableCell className="xl:pl-6 align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
+          {ml("SKU")}
+          <Input aria-label="SKU" placeholder="SKU" value={editForm.sku || ""}
+            onChange={(e) => setEditForm(prev => ({ ...prev, sku: e.target.value }))}
+            className="h-10 xl:h-8 text-[15px] xl:text-[13px] font-mono" />
+        </TableCell>
+        <TableCell className="align-top xl:pt-4 p-0 xl:p-2 block xl:table-cell">
           {ml("Barcode")}
           <Input aria-label="Barcode" placeholder="Barcode" value={editForm.barcode || ""}
             onChange={(e) => setEditForm(prev => ({ ...prev, barcode: e.target.value }))}

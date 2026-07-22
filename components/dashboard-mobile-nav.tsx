@@ -23,7 +23,8 @@ import {
   QrCode,
   LogOut,
   TrendingUp,
-  Scale
+  Scale,
+  Tag,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -68,9 +69,14 @@ export function DashboardMobileNav({ role }: { role?: string }) {
   const isLaporanActive = pathname.startsWith("/dashboard/reports") || pathname.startsWith("/dashboard/laporan/");
 
   const linkClass = (href: string) => {
-    const active = href === "/dashboard"
-      ? pathname === "/dashboard"
-      : pathname.startsWith(href);
+    let active = false;
+    if (href === "/dashboard") {
+      active = pathname === "/dashboard";
+    } else if (href === "/dashboard/settings") {
+      active = pathname.startsWith("/dashboard/settings") && !pathname.startsWith("/dashboard/settings/keuangan");
+    } else {
+      active = pathname.startsWith(href);
+    }
     return active
       ? "flex items-center gap-3 px-3 py-3 rounded-md bg-primary/10 text-primary font-medium transition-colors"
       : "flex items-center gap-3 px-3 py-3 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors";
@@ -91,7 +97,7 @@ export function DashboardMobileNav({ role }: { role?: string }) {
   return (
     <>
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0 z-40 sticky top-0">
+      <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0 z-40 sticky top-0 print:hidden">
         <div className="flex items-center">
           <div className="h-8 w-8 rounded-md bg-primary mr-3 flex items-center justify-center">
             <span className="text-primary-foreground font-medium">S</span>
@@ -226,6 +232,18 @@ export function DashboardMobileNav({ role }: { role?: string }) {
                         </Link>
                       </div>
                     </div>
+
+                    <div className="mt-4 pt-4 border-t border-border/50">
+                      <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Tools
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Link href="/dashboard/label-generator" className={linkClass("/dashboard/label-generator")} onClick={() => setIsOpen(false)}>
+                          <Tag className="w-5 h-5" />
+                          <span>Pricetag Generator</span>
+                        </Link>
+                      </div>
+                    </div>
                   </>
                 )}
 
@@ -236,9 +254,9 @@ export function DashboardMobileNav({ role }: { role?: string }) {
                       Absensi Saya
                     </div>
                     <div className="flex flex-col gap-1">
-                      <Link href="/attendance/scan" className={linkClass("/attendance/scan")}>
-                        <Camera className="w-5 h-5" />
-                        <span>Scan QR Absensi</span>
+                      <Link href="/dashboard/attendance/scan" className={linkClass("/dashboard/attendance/scan")}>
+                        <ScanLine className="mr-3 h-5 w-5" />
+                        Scan Absen
                       </Link>
                       <Link href="/dashboard/attendance/history" className={linkClass("/dashboard/attendance/history")}>
                         <UserCheck className="w-5 h-5" />

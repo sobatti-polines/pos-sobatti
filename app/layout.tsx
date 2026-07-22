@@ -40,7 +40,7 @@ export default function RootLayout({
       lang="id"
       className={cn("h-full", "antialiased", interSans.variable)}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col md:overflow-hidden">{children}</body>
     </html>
   );
 }

@@ -347,7 +347,7 @@ export default function PosPage() {
           <div className="flex md:hidden items-center gap-2">
             <button
               type="button"
-              onClick={() => router.push("/attendance/scan")}
+              onClick={() => router.push("/dashboard/attendance/scan")}
               className="flex items-center justify-center w-auto px-3 h-10 rounded-full border border-border bg-background hover:bg-muted/40 transition-colors text-xs font-medium text-muted-foreground"
               title="Absen"
             >
@@ -454,7 +454,7 @@ export default function PosPage() {
         <div className="hidden md:flex items-center gap-3">
           <button
             type="button"
-            onClick={() => router.push("/attendance/scan")}
+            onClick={() => router.push("/dashboard/attendance/scan")}
             className="flex items-center gap-2 h-10 px-4 rounded-full border border-border bg-background hover:bg-muted/40 transition-colors text-sm font-medium text-muted-foreground"
           >
             Absen

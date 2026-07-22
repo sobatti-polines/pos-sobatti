@@ -74,7 +74,7 @@
 | Name | Type | Constraints |
 |------|------|-------------|
 | `id` | `int4` | Primary |
-| `nama_produk` | `varchar` |  Unique |
+| `nama_produk` | `varchar` |  |
 | `id_kategori` | `int4` |  Nullable |
 | `id_satuan` | `int4` |  Nullable |
 | `hitung_stok` | `bool` |  |
@@ -91,6 +91,11 @@
 | `harga_pokok_avco` | `numeric` |  Nullable |
 | `nilai_persediaan` | `numeric` |  Nullable |
 | `stok_gudang` | `numeric` |  Nullable |
+| `sku` | `varchar` |  Nullable Unique |
+| `id_merk` | `int4` |  Nullable |
+| `base_unit` | `varchar` |  |
+| `default_purchase_unit` | `varchar` |  Nullable |
+| `conversion_ratio` | `numeric` |  |
 
 ## Table `transaksi_keluar`
 
@@ -153,6 +158,12 @@
 | `total` | `numeric` |  |
 | `created_at` | `timestamp` |  |
 | `keterangan` | `text` |  Nullable |
+| `supplied_unit` | `varchar` |  Nullable |
+| `supplied_qty` | `numeric` |  Nullable |
+| `applied_conversion_ratio` | `numeric` |  Nullable |
+| `base_qty_added` | `numeric` |  Nullable |
+| `total_cost` | `numeric` |  Nullable |
+| `base_cost_per_piece` | `numeric` |  Nullable |
 
 ## Table `stok_opname`
 
@@ -354,3 +365,135 @@
 | `npwp` | `text` |  Nullable |
 | `updated_at` | `timestamptz` |  Nullable |
 
+## Table `merk`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `int4` | Primary |
+| `nama` | `varchar` |  Unique |
+| `kode` | `varchar` |  Unique |
+
+## RLS Policies
+
+### `barang_masuk`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `detail_transaksi_keluar`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `kategori`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `metode_bayar`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `pelanggan`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `pengaturan`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `pengguna`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `produk`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `satuan`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `stok_opname`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `supplier`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `transaksi_keluar`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `qr_session`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `absensi`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+
+### `riwayat_avco`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `Authenticated users can insert riwayat_avco` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `Authenticated users can select riwayat_avco` | SELECT | authenticated | PERMISSIVE | `true` | — |
+
+### `hutang_dagang`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select hutang_dagang` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert hutang_dagang` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update hutang_dagang` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+
+### `pembayaran_hutang`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select pembayaran_hutang` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert pembayaran_hutang` | INSERT | authenticated | PERMISSIVE | — | `true` |
+
+### `piutang_dagang`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select piutang_dagang` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert piutang_dagang` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update piutang_dagang` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+
+### `pembayaran_piutang`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select pembayaran_piutang` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert pembayaran_piutang` | INSERT | authenticated | PERMISSIVE | — | `true` |

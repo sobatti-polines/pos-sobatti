@@ -70,7 +70,7 @@ export function LoginForm() {
         if (role === "KASIR") {
           router.push("/pos");
         } else if (role === "KARYAWAN") {
-          router.push("/attendance/scan");
+          router.push("/dashboard/attendance/scan");
         } else {
           router.push("/dashboard");
         }

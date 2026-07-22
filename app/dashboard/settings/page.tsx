@@ -23,7 +23,7 @@ export default async function SettingsPage() {
     .single();
 
   return (
-    <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto h-full overflow-y-auto">
+    <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto">
       <header className="shrink-0">
         <h1 className="text-4xl font-light tracking-tighter text-foreground">
           Pengaturan
@@ -33,7 +33,8 @@ export default async function SettingsPage() {
         </p>
       </header>
 
-      <div className="w-full max-w-5xl flex flex-col">
+      <div className="w-full max-w-5xl mx-auto">
+        <div className="flex flex-col">
         {/* Account Section */}
         <section className="flex flex-col lg:flex-row gap-8 lg:gap-16">
           <div className="w-full lg:w-1/3 shrink-0">
@@ -154,6 +155,7 @@ export default async function SettingsPage() {
             </button>
           </div>
         </section>
+        </div>
       </div>
     </div>
   );

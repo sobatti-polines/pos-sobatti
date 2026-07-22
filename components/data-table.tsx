@@ -191,12 +191,34 @@ export default function DataTable<T>({
 
   const getRowBaseClass = () => {
     if (!mobileCards) return "group hover:bg-muted/30 transition-colors"
-    return `group hover:bg-muted/30 transition-colors flex flex-col ${bp}:table-row p-4 ${bp}:p-0 border-b hover:bg-muted/30`
+    if (bp === "md") return "group hover:bg-muted/30 transition-colors flex flex-col md:table-row p-4 md:p-0 border-b hover:bg-muted/30"
+    if (bp === "lg") return "group hover:bg-muted/30 transition-colors flex flex-col lg:table-row p-4 lg:p-0 border-b hover:bg-muted/30"
+    if (bp === "xl") return "group hover:bg-muted/30 transition-colors flex flex-col xl:table-row p-4 xl:p-0 border-b hover:bg-muted/30"
+    return ""
   }
 
   const getCellBaseClass = () => {
     if (!mobileCards) return "p-1.5 md:p-2"
-    return `p-0 ${bp}:p-1.5 ${bp}:md:p-2 py-2 ${bp}:py-4 block ${bp}:table-cell`
+    if (bp === "md") return "p-0 md:p-2 py-2 md:py-4 block md:table-cell"
+    if (bp === "lg") return "p-0 lg:p-2 py-2 lg:py-4 block lg:table-cell"
+    if (bp === "xl") return "p-0 xl:p-2 py-2 xl:py-4 block xl:table-cell"
+    return ""
+  }
+
+  const getHeaderVisibilityClass = () => {
+    if (!mobileCards) return ""
+    if (bp === "md") return "hidden md:table-header-group"
+    if (bp === "lg") return "hidden lg:table-header-group"
+    if (bp === "xl") return "hidden xl:table-header-group"
+    return ""
+  }
+
+  const getMobileHideClass = () => {
+    if (!mobileCards) return ""
+    if (bp === "md") return "hidden md:table-cell"
+    if (bp === "lg") return "hidden lg:table-cell"
+    if (bp === "xl") return "hidden xl:table-cell"
+    return ""
   }
 
   return (
@@ -329,7 +351,7 @@ export default function DataTable<T>({
       <div className="flex-1 overflow-y-auto min-h-0 relative">
         <Table>
           <TableHeader
-            className={cn(mobileCards && `hidden ${bp}:table-header-group`)}
+            className={cn(getHeaderVisibilityClass())}
           >
             <TableRow>
               {columns.map((col) => (
@@ -340,7 +362,7 @@ export default function DataTable<T>({
                       "cursor-pointer select-none hover:text-foreground transition-colors",
                     col.align === "right" && "text-right",
                     col.align === "center" && "text-center",
-                    mobileCards && col.mobileHide && `hidden ${bp}:table-cell`,
+                    col.mobileHide && getMobileHideClass(),
                     col.headerClassName
                   )}
                   onClick={() => col.sortable && onSort?.(col.sortKey || col.key)}
@@ -434,9 +456,7 @@ export default function DataTable<T>({
                             getCellBaseClass(),
                             col.align === "right" && "text-right",
                             col.align === "center" && "text-center",
-                            mobileCards &&
-                              col.mobileHide &&
-                              `hidden ${bp}:table-cell`,
+                            col.mobileHide && getMobileHideClass(),
                             col.className
                           )}
                         >
