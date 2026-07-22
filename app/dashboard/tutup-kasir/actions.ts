@@ -6,11 +6,20 @@ import { revalidatePath } from "next/cache";
 
 export async function fetchCashSummary(date: string) {
   const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Unauthorized" };
+
+  const role = user.user_metadata?.role;
+  if (role !== "OWNER" && role !== "ADMIN") {
+    return { error: "Forbidden" };
+  }
+
   try {
     const summary = await getDailyCashSummary(supabase, date);
     return { data: summary };
   } catch (err: any) {
-    return { error: err.message || "Gagal mengambil ringkasan kas" };
+    return { error: "Gagal mengambil ringkasan kas" };
   }
 }
 
@@ -43,6 +52,7 @@ export async function submitTutupKasir(params: {
     revalidatePath("/dashboard/tutup-kasir");
     return { success: true };
   } catch (err: any) {
-    return { error: err.message || "Gagal konfirmasi tutup kasir" };
+    console.error("Failed to confirm tutup kasir:", err);
+    return { error: "Gagal konfirmasi tutup kasir" };
   }
 }

@@ -11,7 +11,7 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal Server Error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Error fetching today attendance:", err);
+    return NextResponse.json({ error: "Gagal mengambil data absensi" }, { status: 500 });
   }
 }

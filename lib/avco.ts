@@ -34,7 +34,8 @@ export async function recordAVCOMutation(
     .single();
 
   if (prodErr || !prod) {
-    throw new Error(`Product not found for AVCO mutation: ${params.id_produk}`);
+    console.error("Product not found for AVCO mutation:", prodErr);
+    throw new Error("Gagal memproses mutasi AVCO: produk tidak ditemukan");
   }
 
   const currentDisplayStok = prod.stok ?? 0;
@@ -93,7 +94,8 @@ export async function recordAVCOMutation(
   });
 
   if (historyErr) {
-    throw new Error(`Failed to record AVCO history: ${historyErr.message}`);
+    console.error("Failed to record AVCO history:", historyErr);
+    throw new Error("Gagal menyimpan riwayat AVCO");
   }
 
   // Update produk
@@ -108,6 +110,7 @@ export async function recordAVCOMutation(
     .eq("id", params.id_produk);
 
   if (updateErr) {
-    throw new Error(`Failed to update product AVCO: ${updateErr.message}`);
+    console.error("Failed to update product AVCO:", updateErr);
+    throw new Error("Gagal memperbarui harga pokok AVCO");
   }
 }

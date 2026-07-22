@@ -108,8 +108,15 @@ export async function POST(request: Request) {
     });
 
     if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+      console.error("Check-in insert error:", insertError);
+      return NextResponse.json({ error: "Gagal mencatat check-in" }, { status: 500 });
     }
+
+    // 6. Mark QR token as used to prevent replay
+    await supabase
+      .from("qr_session")
+      .update({ is_active: false })
+      .eq("token", token);
 
     return NextResponse.json({
       success: true,

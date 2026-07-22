@@ -102,6 +102,9 @@ export async function confirmTutupKasir(
     .select()
     .single();
 
-  if (error) throw new Error(`Failed to confirm tutup kasir: ${error.message}`);
+  if (error) {
+    console.error("Failed to confirm tutup kasir:", error);
+    throw new Error("Gagal mengonfirmasi tutup kasir");
+  }
   return data;
 }

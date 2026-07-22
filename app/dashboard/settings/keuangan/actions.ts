@@ -11,6 +11,17 @@ export async function saveFinanceSettings(params: {
 }) {
   const supabase = await createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Unauthorized" };
+
+  const { data: pengguna } = await supabase
+    .from("pengguna")
+    .select("level")
+    .eq("username", user.email?.split("@")[0])
+    .single();
+  if (!pengguna || (pengguna.level !== "ADMIN" && pengguna.level !== "OWNER"))
+    return { error: "Forbidden" };
+
   const { data: existing } = await supabase.from("pengaturan_keuangan").select("id").maybeSingle();
 
   if (existing) {
@@ -25,7 +36,10 @@ export async function saveFinanceSettings(params: {
       })
       .eq("id", existing.id);
     
-    if (error) return { error: error.message };
+    if (error) {
+      console.error("Failed to save finance settings:", error);
+      return { error: "Gagal menyimpan pengaturan keuangan" };
+    }
   } else {
     const { error } = await supabase
       .from("pengaturan_keuangan")
@@ -36,7 +50,10 @@ export async function saveFinanceSettings(params: {
         npwp: params.npwp,
       });
     
-    if (error) return { error: error.message };
+    if (error) {
+      console.error("Failed to save finance settings:", error);
+      return { error: "Gagal menyimpan pengaturan keuangan" };
+    }
   }
 
   revalidatePath("/dashboard/settings/keuangan");

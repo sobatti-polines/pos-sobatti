@@ -10,7 +10,8 @@ export async function GET() {
     .order("id");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Failed to fetch payment methods:", error);
+    return NextResponse.json({ error: "Gagal mengambil metode bayar" }, { status: 500 });
   }
 
   return NextResponse.json(data ?? []);

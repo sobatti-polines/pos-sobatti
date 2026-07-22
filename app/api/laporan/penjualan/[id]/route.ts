@@ -1,12 +1,38 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+async function checkAuth() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const { data: pengguna } = await supabase
+    .from("pengguna")
+    .select("level")
+    .eq("username", user.email?.split("@")[0])
+    .single();
+  if (
+    !pengguna ||
+    (pengguna.level !== "ADMIN" && pengguna.level !== "OWNER")
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
+}
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authErr = await checkAuth();
+    if (authErr) return authErr;
+
     const { id } = await params;
     const transaksiId = Number(id);
     if (isNaN(transaksiId) || transaksiId < 1) {
@@ -105,6 +131,9 @@ export async function GET(
     return NextResponse.json({ data: result });
   } catch (err: any) {
     console.error(`GET /api/laporan/penjualan/[id] error:`, err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Terjadi kesalahan saat mengambil detail transaksi" },
+      { status: 500 }
+    );
   }
 }

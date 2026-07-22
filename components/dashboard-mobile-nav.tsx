@@ -101,9 +101,9 @@ export function DashboardMobileNav({ role }: { role?: string }) {
       <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0 z-40 sticky top-0 print:hidden">
         <div className="flex items-center">
           <div className="h-8 w-8 rounded-md bg-primary mr-3 flex items-center justify-center">
-            <span className="text-primary-foreground font-medium">S</span>
+            <span className="text-primary-foreground font-medium">P</span>
           </div>
-          <span className="text-xl font-light tracking-tight text-foreground">Sobatti POS</span>
+          <span className="text-xl font-light tracking-tight text-foreground">PLK POS</span>
         </div>
         <Button 
           variant="ghost" 

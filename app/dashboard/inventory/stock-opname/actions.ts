@@ -28,7 +28,10 @@ export async function saveStockOpname(data: StockOpnameData) {
       tgl_opname: new Date().toISOString().split('T')[0]
     });
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("Failed to save stock opname:", error);
+    return { error: "Gagal menyimpan stok opname" };
+  }
 
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/stock-opname");

@@ -44,7 +44,8 @@ export async function POST(_request: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Failed to generate QR session:", error);
+      return NextResponse.json({ error: "Gagal membuat QR" }, { status: 500 });
     }
 
     return NextResponse.json({

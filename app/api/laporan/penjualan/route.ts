@@ -1,6 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+async function checkAuth(req: NextRequest) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const { data: pengguna } = await supabase
+    .from("pengguna")
+    .select("level")
+    .eq("username", user.email?.split("@")[0])
+    .single();
+  if (
+    !pengguna ||
+    (pengguna.level !== "ADMIN" && pengguna.level !== "OWNER")
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -55,6 +78,9 @@ function parseParams(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const authErr = await checkAuth(req);
+    if (authErr) return authErr;
+
     const p = parseParams(req);
     if (p.errors.length) {
       return NextResponse.json({ error: p.errors.join("; ") }, { status: 400 });
@@ -235,6 +261,9 @@ export async function GET(req: NextRequest) {
     });
   } catch (err: any) {
     console.error("GET /api/laporan/penjualan error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Terjadi kesalahan saat mengambil data laporan" },
+      { status: 500 }
+    );
   }
 }

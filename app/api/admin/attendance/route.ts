@@ -50,7 +50,8 @@ export async function GET(request: Request) {
     .range(from, to);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Failed to fetch admin attendance:", error);
+    return NextResponse.json({ error: "Gagal mengambil data absensi" }, { status: 500 });
   }
 
   return NextResponse.json({

@@ -31,7 +31,8 @@ export async function GET(request: Request) {
     .limit(31); // Default to last 31 days
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Failed to fetch attendance history:", error);
+    return NextResponse.json({ error: "Gagal mengambil riwayat absensi" }, { status: 500 });
   }
 
   return NextResponse.json(history);

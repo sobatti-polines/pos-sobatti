@@ -1,11 +1,21 @@
+import { createClient } from "@/lib/supabase/server";
 import { addListener, ensureSession } from "@/lib/scanner-relay";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const { sessionId } = await params;
   ensureSession(sessionId);
 

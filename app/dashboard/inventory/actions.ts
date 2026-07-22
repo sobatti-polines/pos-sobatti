@@ -3,6 +3,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+async function requireAuth() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data: pengguna } = await supabase
+    .from("pengguna")
+    .select("level")
+    .eq("username", user.email?.split("@")[0])
+    .single();
+  return pengguna?.level === "ADMIN" || pengguna?.level === "OWNER";
+}
+
 interface ProductData {
   nama_produk: string;
   id_kategori: number;
@@ -22,30 +34,51 @@ interface ProductData {
 }
 
 export async function addProduct(data: ProductData) {
+  const ok = await requireAuth();
+  if (!ok) return { error: "Unauthorized" };
+
   const supabase = await createClient();
   const { error } = await supabase.from("produk").insert([data]);
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("Failed to add product:", error);
+    return { error: "Gagal menambah produk" };
+  }
   revalidatePath("/dashboard/inventory");
   return { success: true };
 }
 
 export async function updateProduct(id: number, data: ProductData) {
+  const ok = await requireAuth();
+  if (!ok) return { error: "Unauthorized" };
+
   const supabase = await createClient();
   const { error } = await supabase.from("produk").update(data).eq("id", id);
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("Failed to update product:", error);
+    return { error: "Gagal memperbarui produk" };
+  }
   revalidatePath("/dashboard/inventory");
   return { success: true };
 }
 
 export async function deleteProduct(id: number) {
+  const ok = await requireAuth();
+  if (!ok) return { error: "Unauthorized" };
+
   const supabase = await createClient();
   const { error } = await supabase.from("produk").delete().eq("id", id);
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("Failed to delete product:", error);
+    return { error: "Gagal menghapus produk" };
+  }
   revalidatePath("/dashboard/inventory");
   return { success: true };
 }
 
 export async function restockDisplay(productId: number, qty: number) {
+  const ok = await requireAuth();
+  if (!ok) return { error: "Unauthorized" };
+
   const supabase = await createClient();
 
   if (qty <= 0) return { error: "Jumlah harus lebih dari 0" };
@@ -56,7 +89,10 @@ export async function restockDisplay(productId: number, qty: number) {
     .eq("id", productId)
     .single();
 
-  if (fetchError || !product) return { error: "Produk tidak ditemukan" };
+  if (fetchError || !product) {
+    console.error("Failed to fetch product:", fetchError);
+    return { error: "Produk tidak ditemukan" };
+  }
 
   if (qty > product.stok_gudang) {
     return { error: `Stok gudang tidak mencukupi. Tersedia: ${product.stok_gudang}` };
@@ -70,7 +106,10 @@ export async function restockDisplay(productId: number, qty: number) {
     })
     .eq("id", productId);
 
-  if (updateError) return { error: updateError.message };
+  if (updateError) {
+    console.error("Failed to restock display:", updateError);
+    return { error: "Gagal memindahkan stok" };
+  }
 
   revalidatePath("/dashboard/inventory");
   return { success: true };

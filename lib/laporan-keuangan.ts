@@ -16,7 +16,10 @@ export async function generateLabaRugi(
     .gte("tgl_transaksi", start)
     .lte("tgl_transaksi", end);
 
-  if (salesErr) throw new Error(`Failed to fetch sales for P&L: ${salesErr.message}`);
+  if (salesErr) {
+    console.error("Failed to fetch sales for P&L:", salesErr);
+    throw new Error("Terjadi kesalahan saat mengambil data penjualan");
+  }
 
   const summary = (sales || []).reduce(
     (acc, s) => {

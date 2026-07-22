@@ -26,13 +26,20 @@ export async function POST(request: Request) {
 
   const { data: pengguna } = await supabase
     .from("pengguna")
-    .select("id")
+    .select("id, level")
     .eq("username", user.email?.split("@")[0])
     .maybeSingle();
 
   if (!pengguna) {
     return NextResponse.json(
       { error: "Staff profile not found. Cannot process checkout." },
+      { status: 403 }
+    );
+  }
+
+  if (pengguna.level === "KARYAWAN") {
+    return NextResponse.json(
+      { error: "Anda tidak memiliki izin untuk melakukan transaksi" },
       { status: 403 }
     );
   }
@@ -87,7 +94,8 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Checkout RPC error:", error);
+    return NextResponse.json({ error: "Gagal memproses checkout" }, { status: 500 });
   }
 
   return NextResponse.json(data);

@@ -95,9 +95,9 @@ export function DashboardSidebar({ role }: { role?: string }) {
     <aside className="w-64 shrink-0 border-r border-border bg-background hidden md:flex flex-col py-6 px-4 print:hidden">
       <div className="mb-10 flex items-center px-2">
         <div className="h-8 w-8 rounded-md bg-primary mr-3 flex items-center justify-center">
-          <span className="text-primary-foreground font-medium">S</span>
+          <span className="text-primary-foreground font-medium">P</span>
         </div>
-        <span className="text-xl font-light tracking-tight text-foreground">Sobatti POS</span>
+        <span className="text-xl font-light tracking-tight text-foreground">PLK POS</span>
       </div>
 
       <nav className="flex flex-col gap-1 flex-1 overflow-y-auto pr-2 custom-scrollbar">

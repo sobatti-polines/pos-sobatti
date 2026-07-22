@@ -35,7 +35,8 @@ export async function createReferenceData(
     if (dbError.code === "23505") { // Unique violation
       return { error: `Data dengan nama tersebut sudah ada` };
     }
-    return { error: `Gagal menambah data: ${dbError.message}` };
+    console.error("Failed to create reference data:", dbError);
+    return { error: `Gagal menambah data` };
   }
 
   revalidatePath("/dashboard/settings/reference-data");
@@ -70,7 +71,8 @@ export async function updateReferenceData(
     if (dbError.code === "23505") { // Unique violation
       return { error: `Data dengan nama tersebut sudah ada` };
     }
-    return { error: `Gagal memperbarui data: ${dbError.message}` };
+    console.error("Failed to update reference data:", dbError);
+    return { error: `Gagal memperbarui data` };
   }
 
   revalidatePath("/dashboard/settings/reference-data");
@@ -97,7 +99,8 @@ export async function deleteReferenceData(
     if (dbError.code === "23503") { // Foreign key violation
       return { error: `Data tidak dapat dihapus karena masih digunakan` };
     }
-    return { error: `Gagal menghapus data: ${dbError.message}` };
+    console.error("Failed to delete reference data:", dbError);
+    return { error: `Gagal menghapus data` };
   }
 
   revalidatePath("/dashboard/settings/reference-data");

@@ -46,7 +46,8 @@ export async function addStockIn(
     .in("id", productIds);
 
   if (prodError) {
-    return { error: "Gagal memvalidasi data produk: " + prodError.message };
+    console.error("Failed to validate products:", prodError);
+    return { error: "Gagal memvalidasi data produk" };
   }
 
   const productMap = new Map(products?.map((p) => [p.id, p]) ?? []);
@@ -78,7 +79,8 @@ export async function addStockIn(
   );
 
   if (rpcError) {
-    return { error: rpcError.message };
+    console.error("Stock-in RPC error:", rpcError);
+    return { error: "Gagal memproses barang masuk" };
   }
 
   revalidatePath("/dashboard/inventory");

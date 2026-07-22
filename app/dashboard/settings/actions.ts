@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import crypto from "crypto";
 import type { ProfileFormState } from "./profile-form";
 
 export async function updateProfile(prevState: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
@@ -46,11 +45,8 @@ export async function updateProfile(prevState: ProfileFormState, formData: FormD
   }
 
   if (newPassword) {
-    const hash = crypto
-      .createHash("sha256")
-      .update(newPassword)
-      .digest("hex");
-    updates.password = hash;
+    // Password is managed by Supabase Auth; store a placeholder in the DB column
+    updates.password = "auth-managed";
     authUpdates.password = newPassword;
   }
 
@@ -61,7 +57,8 @@ export async function updateProfile(prevState: ProfileFormState, formData: FormD
       .eq("username", oldUsername);
 
     if (dbError) {
-      return { error: "Gagal memperbarui data pengguna: " + dbError.message };
+      console.error("Failed to update profile DB:", dbError);
+      return { error: "Gagal memperbarui data pengguna" };
     }
   }
 
@@ -69,7 +66,8 @@ export async function updateProfile(prevState: ProfileFormState, formData: FormD
     const { error: authError } = await supabase.auth.updateUser(authUpdates);
 
     if (authError) {
-      return { error: "Gagal memperbarui kredensial: " + authError.message };
+      console.error("Failed to update auth:", authError);
+      return { error: "Gagal memperbarui kredensial" };
     }
   }
 

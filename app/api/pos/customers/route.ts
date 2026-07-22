@@ -10,7 +10,8 @@ export async function GET() {
     .order("nama_pelanggan");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Failed to fetch customers:", error);
+    return NextResponse.json({ error: "Gagal mengambil data pelanggan" }, { status: 500 });
   }
 
   return NextResponse.json(data ?? []);

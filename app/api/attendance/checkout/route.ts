@@ -80,8 +80,15 @@ export async function POST(request: Request) {
       .eq("id", attendance.id);
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      console.error("Check-out update error:", updateError);
+      return NextResponse.json({ error: "Gagal mencatat check-out" }, { status: 500 });
     }
+
+    // Mark QR token as used to prevent replay
+    await supabase
+      .from("qr_session")
+      .update({ is_active: false })
+      .eq("token", token);
 
     return NextResponse.json({
       success: true,
