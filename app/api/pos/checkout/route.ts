@@ -46,14 +46,15 @@ export async function POST(request: Request) {
 
   const id_kasir = pengguna.id;
 
-  // Fetch tax rate from settings
+  // Fetch tax rate & point settings
   const { data: pengaturan } = await supabase
     .from("pengaturan")
-    .select("pajak_persen")
+    .select("pajak_persen, poin_min_pembelian")
     .eq("id", 1)
     .single();
 
   const pajak_persen = pengaturan?.pajak_persen || 0;
+  const poinMinPembelian = pengaturan?.poin_min_pembelian || 100000;
 
   // Determine if payment method is DP
   const { data: mBayar } = await supabase
@@ -98,5 +99,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Gagal memproses checkout" }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  let poin_ditambahkan = 0;
+
+  if (data && data.total && id_pelanggan) {
+    poin_ditambahkan = Math.floor(Number(data.total) / poinMinPembelian);
+    if (poin_ditambahkan > 0) {
+      const { error: pointError } = await supabase.rpc("increment_point", {
+        row_id: id_pelanggan,
+        points: poin_ditambahkan,
+      });
+
+      if (pointError) {
+        console.error("Failed to update member points:", pointError);
+      }
+    }
+  }
+
+  return NextResponse.json({ ...data, poin_ditambahkan });
 }

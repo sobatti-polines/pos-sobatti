@@ -14,6 +14,7 @@ export interface LowStockItem {
 let sharedItems: LowStockItem[] = [];
 const listeners = new Set<() => void>();
 let subscriptionCount = 0;
+let supabaseClient: ReturnType<typeof createClient> | null = null;
 let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null;
 
 function notifyAll() {
@@ -33,8 +34,8 @@ async function fetchItems() {
 }
 
 function subscribeRealtime() {
-  const supabase = createClient();
-  channel = supabase
+  supabaseClient = createClient();
+  channel = supabaseClient
     .channel("low-stock-global")
     .on(
       "postgres_changes",
@@ -45,10 +46,10 @@ function subscribeRealtime() {
 }
 
 function unsubscribeRealtime() {
-  if (channel) {
-    const supabase = createClient();
-    supabase.removeChannel(channel);
+  if (channel && supabaseClient) {
+    supabaseClient.removeChannel(channel);
     channel = null;
+    supabaseClient = null;
   }
 }
 

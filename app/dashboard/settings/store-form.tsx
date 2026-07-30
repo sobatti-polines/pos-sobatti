@@ -46,6 +46,7 @@ export interface StoreSettings {
   telepon: string;
   metode_diskon: string;
   pajak_persen: number;
+  poin_min_pembelian: number;
   jenis_nota: string;
   metode_cetak: string;
   logo_nota: boolean;
@@ -128,6 +129,10 @@ export function StoreForm({ initialData }: StoreFormProps) {
           <div className="space-y-2">
             <label htmlFor="pajak_persen" className="text-sm font-medium">Pajak (%)</label>
             <Input id="pajak_persen" name="pajak_persen" type="number" step="0.01" defaultValue={initialData?.pajak_persen} className="tabular-nums" />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="poin_min_pembelian" className="text-sm font-medium">Min. Pembelian untuk 1 Poin (Rp)</label>
+            <Input id="poin_min_pembelian" name="poin_min_pembelian" type="number" step="1000" defaultValue={initialData?.poin_min_pembelian} className="tabular-nums" />
           </div>
           <div className="space-y-2">
             <label htmlFor="jenis_nota" className="text-sm font-medium">Jenis Nota Default</label>

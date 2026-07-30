@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
 const stockInRowSchema = z.object({
   id_produk: z.number().int().positive("ID produk tidak valid"),
@@ -82,6 +83,13 @@ export async function addStockIn(
     console.error("Stock-in RPC error:", rpcError);
     return { error: "Gagal memproses barang masuk" };
   }
+
+  await logActivity(supabase, {
+    aksi: "CREATE",
+    entitas: "barang_masuk",
+    deskripsi: buildDeskripsi({ aksi: "CREATE", entitas: "barang_masuk", data_baru: { jumlah_item: rows.length } as unknown as Record<string, unknown> }),
+    data_baru: { items: rows.map(r => ({ id_produk: r.id_produk, supplied_qty: r.supplied_qty, total_cost: r.total_cost })) } as unknown as Record<string, unknown>,
+  });
 
   revalidatePath("/dashboard/inventory");
   return { success: true };

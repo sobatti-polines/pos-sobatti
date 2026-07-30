@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
 export type ReferenceActionState = {
   success?: boolean;
@@ -39,6 +40,13 @@ export async function createReferenceData(
     return { error: `Gagal menambah data` };
   }
 
+  await logActivity(supabase, {
+    aksi: "CREATE",
+    entitas: tableName,
+    deskripsi: buildDeskripsi({ aksi: "CREATE", entitas: tableName, data_baru: { nama: nama.trim() } as unknown as Record<string, unknown> }),
+    data_baru: { nama: nama.trim() } as unknown as Record<string, unknown>,
+  });
+
   revalidatePath("/dashboard/settings/reference-data");
   return { success: true, message: "Data berhasil ditambahkan" };
 }
@@ -75,6 +83,14 @@ export async function updateReferenceData(
     return { error: `Gagal memperbarui data` };
   }
 
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: tableName,
+    id_entitas: id,
+    deskripsi: buildDeskripsi({ aksi: "UPDATE", entitas: tableName, id_entitas: id, data_baru: { nama: nama.trim() } as unknown as Record<string, unknown> }),
+    data_baru: { nama: nama.trim() } as unknown as Record<string, unknown>,
+  });
+
   revalidatePath("/dashboard/settings/reference-data");
   return { success: true, message: "Data berhasil diperbarui" };
 }
@@ -103,6 +119,70 @@ export async function deleteReferenceData(
     return { error: `Gagal menghapus data` };
   }
 
+  await logActivity(supabase, {
+    aksi: "DELETE",
+    entitas: tableName,
+    id_entitas: id,
+    deskripsi: buildDeskripsi({ aksi: "DELETE", entitas: tableName, id_entitas: id }),
+  });
+
   revalidatePath("/dashboard/settings/reference-data");
   return { success: true, message: "Data berhasil dihapus" };
+}
+
+export async function importReferenceData(
+  tableName: "kategori" | "satuan" | "merk" | "metode_bayar",
+  rows: Record<string, string>[]
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user || (user.user_metadata?.role !== "ADMIN" && user.user_metadata?.role !== "OWNER")) {
+    return { error: "Unauthorized" };
+  }
+
+  if (!rows || rows.length === 0) {
+    return { error: "Data impor kosong" };
+  }
+
+  const payload: any[] = [];
+
+  for (const r of rows) {
+    const nama = (r["Nama"] || r["nama"] || r["Nama Kategori"] || r["Nama Satuan"] || r["Nama Merk"] || r["Nama Metode Bayar"] || "").trim();
+    if (!nama) continue;
+
+    if (tableName === "merk") {
+      const kodeRaw = (r["Kode"] || r["kode"] || r["Kode Merk"] || "").trim();
+      const kode = kodeRaw || (nama.replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase() || "MRK");
+      payload.push({ nama, kode });
+    } else {
+      payload.push({ nama });
+    }
+  }
+
+  if (payload.length === 0) {
+    return { error: "Tidak ada baris data referensi yang valid" };
+  }
+
+  const { error: dbError } = await supabase
+    .from(tableName)
+    .insert(payload);
+
+  if (dbError) {
+    console.error(`Failed to import ${tableName}:`, dbError);
+    if (dbError.code === "23505") {
+      return { error: "Beberapa data dengan Nama/Kode tersebut sudah ada di database" };
+    }
+    return { error: `Gagal menyimpan data ${tableName}: ${dbError.message}` };
+  }
+
+  await logActivity(supabase, {
+    aksi: "CREATE",
+    entitas: tableName,
+    deskripsi: `Bulk import ${payload.length} ${tableName}`,
+    data_baru: { count: payload.length },
+  });
+
+  revalidatePath("/dashboard/settings/reference-data");
+  return { success: true, count: payload.length, message: `Berhasil mengimpor ${payload.length} data ${tableName}.` };
 }

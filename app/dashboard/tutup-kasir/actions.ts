@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { confirmTutupKasir, getDailyCashSummary } from "@/lib/laporan-kasir";
 import { revalidatePath } from "next/cache";
+import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
 export async function fetchCashSummary(date: string) {
   const supabase = await createClient();
@@ -48,6 +49,14 @@ export async function submitTutupKasir(params: {
       ...params,
       id_pengguna: pengguna.id,
     });
+
+    await logActivity(supabase, {
+      aksi: "CREATE",
+      entitas: "saldo_kas_harian",
+      deskripsi: buildDeskripsi({ aksi: "CREATE", entitas: "saldo_kas_harian", data_baru: { tanggal: params.tanggal } as unknown as Record<string, unknown> }),
+      data_baru: params as unknown as Record<string, unknown>,
+    });
+
     revalidatePath("/dashboard/laporan-kasir");
     revalidatePath("/dashboard/tutup-kasir");
     return { success: true };

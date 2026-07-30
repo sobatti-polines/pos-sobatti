@@ -93,12 +93,12 @@ export default function OpnameHistoryClient({ initialHistory }: { initialHistory
   ];
 
   const columns: Column<OpnameRecord>[] = [
-    { key: "tgl_opname", header: "Tanggal", className: "pl-6 md:pl-6", headerClassName: "pl-6 md:pl-6", render: (h) => formatDate(h.tgl_opname) },
-    { key: "produk", header: "Produk", render: (h) => h.produk?.nama_produk || "Produk dihapus" },
-    { key: "stok_sistem", header: "Stok Sistem", align: "center", headerClassName: "text-center" },
-    { key: "stok_fisik", header: "Stok Fisik", align: "center", headerClassName: "text-center" },
+    { key: "tgl_opname", header: "Tanggal", sortable: true, className: "pl-6 md:pl-6", headerClassName: "pl-6 md:pl-6", render: (h) => formatDate(h.tgl_opname) },
+    { key: "produk", header: "Produk", sortable: true, sortKey: "produk.nama_produk", render: (h) => h.produk?.nama_produk || "Produk dihapus" },
+    { key: "stok_sistem", header: "Stok Sistem", sortable: true, align: "center", headerClassName: "text-center" },
+    { key: "stok_fisik", header: "Stok Fisik", sortable: true, align: "center", headerClassName: "text-center" },
     {
-      key: "selisih", header: "Selisih", align: "center", headerClassName: "text-center",
+      key: "selisih", header: "Selisih", sortable: true, align: "center", headerClassName: "text-center",
       render: (h) => (
         <span className={`tabular-nums font-semibold px-2 py-0.5 rounded-full text-[12px] ${
           h.selisih > 0 ? "bg-success/10 text-success" : h.selisih < 0 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
@@ -107,7 +107,7 @@ export default function OpnameHistoryClient({ initialHistory }: { initialHistory
         </span>
       ),
     },
-    { key: "keterangan", header: "Keterangan", render: (h) => <span className="italic">{h.keterangan || "-"}</span> },
+    { key: "keterangan", header: "Keterangan", sortable: true, render: (h) => <span className="italic">{h.keterangan || "-"}</span> },
   ];
 
   return (

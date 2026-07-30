@@ -5,7 +5,7 @@ import Papa from "papaparse";
 export const exportToCSV = (filename: string, headers: string[], data: any[][]) => {
   const csvData = [headers, ...data];
   const csv = Papa.unparse(csvData);
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
   link.setAttribute("href", url);
@@ -14,6 +14,10 @@ export const exportToCSV = (filename: string, headers: string[], data: any[][]) 
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+};
+
+export const downloadCSVTemplate = (filename: string, headers: string[], sampleRows: any[][]) => {
+  exportToCSV(filename, headers, sampleRows);
 };
 
 export const exportToPDF = (filename: string, title: string, headers: string[], data: any[][]) => {

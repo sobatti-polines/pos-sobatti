@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { ProfileFormState } from "./profile-form";
+import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
 export async function updateProfile(prevState: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
   const supabase = await createClient();
@@ -70,6 +71,13 @@ export async function updateProfile(prevState: ProfileFormState, formData: FormD
       return { error: "Gagal memperbarui kredensial" };
     }
   }
+
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "pengguna",
+    deskripsi: buildDeskripsi({ aksi: "UPDATE", entitas: "pengguna", data_baru: { username: newUsername } as unknown as Record<string, unknown> }),
+    data_baru: { username: newUsername } as unknown as Record<string, unknown>,
+  });
 
   revalidatePath("/dashboard/settings");
   return { success: true, message: "Profil berhasil diperbarui" };

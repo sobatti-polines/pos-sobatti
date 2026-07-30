@@ -348,10 +348,10 @@ export default function DataTable<T>({
       )}
 
       {/* Table Area */}
-      <div className="flex-1 overflow-y-auto min-h-0 relative">
-        <Table>
+      <div className="flex-1 overflow-auto min-h-0 relative">
+        <Table wrapperClassName="overflow-visible min-w-max">
           <TableHeader
-            className={cn(getHeaderVisibilityClass())}
+            className={cn(getHeaderVisibilityClass(), "sticky top-0 z-10 bg-background shadow-sm")}
           >
             <TableRow>
               {columns.map((col) => (

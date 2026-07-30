@@ -11,8 +11,8 @@ interface PriceTagProps {
   price: number;
   className?: string;
   /**
-   * 'landscape' = 6x4 cm (60mm x 40mm)
-   * 'portrait' = 4x6 cm (40mm x 60mm)
+   * 'landscape' = 6x3.7 cm (60mm x 37mm)
+   * 'portrait' = 3.7x6 cm (37mm x 60mm)
    */
   orientation?: "landscape" | "portrait";
   
@@ -56,11 +56,11 @@ export function PriceTag({
   // Format price
   const formattedPrice = new Intl.NumberFormat("id-ID").format(price);
 
-  // Base dimensions (4x6 cm = 40mm x 60mm)
-  // Umumnya label diletakkan melebar (landscape 6x4 cm)
+  // Base dimensions (3.7x6 cm = 37mm x 60mm)
+  // Umumnya label diletakkan melebar (landscape 6x3.7 cm)
   const isLandscape = orientation === "landscape";
-  const width = isLandscape ? "60mm" : "40mm";
-  const height = isLandscape ? "40mm" : "60mm";
+  const width = isLandscape ? "60mm" : "37mm";
+  const height = isLandscape ? "37mm" : "60mm";
 
   return (
     <div

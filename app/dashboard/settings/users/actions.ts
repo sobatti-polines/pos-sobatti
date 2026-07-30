@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
 export type UserActionState = {
   success?: boolean;
@@ -72,6 +73,13 @@ export async function createUser(
     return { error: "Gagal menyimpan pengguna ke database: " + dbError.message };
   }
 
+  await logActivity(supabase, {
+    aksi: "CREATE",
+    entitas: "pengguna",
+    deskripsi: buildDeskripsi({ aksi: "CREATE", entitas: "pengguna", data_baru: { username, level, nama: nama || username, aktif } as unknown as Record<string, unknown> }),
+    data_baru: { username, level, nama: nama || username, aktif } as unknown as Record<string, unknown>,
+  });
+
   revalidatePath("/dashboard/settings/users");
   return { success: true, message: "Pengguna berhasil ditambahkan" };
 }
@@ -120,7 +128,14 @@ export async function updateUser(
     }
   }
 
-  // 2. Update pengguna table
+  // 2. Fetch old data for log
+  const { data: oldUser } = await supabase
+    .from("pengguna")
+    .select("username, level, aktif, nama")
+    .eq("id", id)
+    .single();
+
+  // 3. Update pengguna table
   const { error: dbError } = await supabase
     .from("pengguna")
     .update({
@@ -134,6 +149,15 @@ export async function updateUser(
   if (dbError) {
     return { error: "Gagal memperbarui pengguna: " + dbError.message };
   }
+
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "pengguna",
+    id_entitas: id,
+    deskripsi: buildDeskripsi({ aksi: "UPDATE", entitas: "pengguna", id_entitas: id, data_lama: oldUser ? (oldUser as unknown as Record<string, unknown>) : null, data_baru: { username, level, nama: nama || username, aktif } as unknown as Record<string, unknown> }),
+    data_lama: oldUser ? (oldUser as unknown as Record<string, unknown>) : null,
+    data_baru: { username, level, nama: nama || username, aktif } as unknown as Record<string, unknown>,
+  });
 
   revalidatePath("/dashboard/settings/users");
   return { success: true, message: "Pengguna berhasil diperbarui" };
@@ -151,6 +175,13 @@ export async function deleteUser(id: number, username: string): Promise<UserActi
   if (user.user_metadata?.username === username) {
     return { error: "Tidak dapat menghapus akun sendiri" };
   }
+
+  // Fetch user data for log
+  const { data: deletedUser } = await supabase
+    .from("pengguna")
+    .select("level, nama")
+    .eq("id", id)
+    .single();
 
   // 1. Delete from database
   const { error: dbError } = await supabase
@@ -172,6 +203,100 @@ export async function deleteUser(id: number, username: string): Promise<UserActi
     }
   }
 
+  await logActivity(supabase, {
+    aksi: "DELETE",
+    entitas: "pengguna",
+    id_entitas: id,
+    deskripsi: buildDeskripsi({ aksi: "DELETE", entitas: "pengguna", id_entitas: id, data_lama: { username, level: deletedUser?.level, nama: deletedUser?.nama } as unknown as Record<string, unknown> }),
+    data_lama: { username, level: deletedUser?.level, nama: deletedUser?.nama } as unknown as Record<string, unknown>,
+  });
+
   revalidatePath("/dashboard/settings/users");
   return { success: true, message: "Pengguna berhasil dihapus" };
+}
+
+export async function importUsers(
+  rows: Record<string, string>[]
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user || user.user_metadata?.role !== "OWNER") {
+    return { error: "Unauthorized: Hanya OWNER yang dapat mengimpor pengguna" };
+  }
+
+  if (!rows || rows.length === 0) {
+    return { error: "Data impor kosong" };
+  }
+
+  let count = 0;
+  const errors: string[] = [];
+
+  for (const [idx, r] of rows.entries()) {
+    const username = (r["Username"] || r["username"] || "").trim();
+    const password = (r["Password"] || r["password"] || "").trim();
+    const nama = (r["Nama Lengkap"] || r["Nama"] || r["nama"] || username).trim();
+    const rawLevel = (r["Level"] || r["Role"] || r["level"] || "KASIR").trim().toUpperCase();
+    const level = ["ADMIN", "KASIR", "OWNER", "KARYAWAN"].includes(rawLevel) ? rawLevel : "KASIR";
+    const statusRaw = (r["Status"] || r["status"] || "aktif").trim().toLowerCase();
+    const aktif = statusRaw === "aktif" || statusRaw === "true" || statusRaw === "1";
+
+    if (!username || !password) {
+      errors.push(`Baris ${idx + 1}: Username dan Password wajib diisi`);
+      continue;
+    }
+
+    const email = getAuthEmail(username);
+
+    // Create in Supabase Auth
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { role: level, username },
+    });
+
+    if (authError) {
+      errors.push(`Baris ${idx + 1} (${username}): ${authError.message}`);
+      continue;
+    }
+
+    // Insert into pengguna table
+    const { error: dbError } = await supabase.from("pengguna").insert({
+      username,
+      password: "auth-managed",
+      level,
+      aktif,
+      nama,
+    });
+
+    if (dbError) {
+      if (authData.user) {
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      }
+      errors.push(`Baris ${idx + 1} (${username}): DB error - ${dbError.message}`);
+      continue;
+    }
+
+    count++;
+  }
+
+  await logActivity(supabase, {
+    aksi: "CREATE",
+    entitas: "pengguna",
+    deskripsi: `Bulk import ${count} pengguna`,
+    data_baru: { count },
+  });
+
+  revalidatePath("/dashboard/settings/users");
+
+  if (count === 0 && errors.length > 0) {
+    return { error: `Gagal mengimpor pengguna: ${errors.join("; ")}` };
+  }
+
+  return {
+    success: true,
+    count,
+    message: `Berhasil mengimpor ${count} pengguna.${errors.length > 0 ? ` (${errors.length} gagal)` : ""}`,
+  };
 }

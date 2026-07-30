@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
 export async function voidTransaction(id: number) {
   const supabase = await createClient();
@@ -37,6 +38,13 @@ export async function voidTransaction(id: number) {
     console.error("Failed to void transaction:", txError);
     return { error: "Gagal menghapus transaksi" };
   }
+
+  await logActivity(supabase, {
+    aksi: "DELETE",
+    entitas: "transaksi_keluar",
+    id_entitas: id,
+    deskripsi: buildDeskripsi({ aksi: "DELETE", entitas: "transaksi_keluar", id_entitas: id }),
+  });
 
   revalidatePath("/dashboard/transactions");
   revalidatePath("/dashboard");

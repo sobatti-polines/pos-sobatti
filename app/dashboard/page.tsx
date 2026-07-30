@@ -1,6 +1,7 @@
 import { getDashboardData } from "@/lib/dashboard";
 import { TrendingUp, TrendingDown, CheckCircle2, Clock, CalendarDays } from "lucide-react";
 import { DashboardLowStock } from "@/components/dashboard-low-stock";
+import { DashboardRecentActivity } from "@/components/dashboard-recent-activity";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -204,6 +205,8 @@ export default async function DashboardPage() {
           </Table>
         </div>
       </section>
+
+      <DashboardRecentActivity activities={dashboardData.recentActivity} />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
 export type StoreSettingsState = {
   success?: boolean;
@@ -27,6 +28,7 @@ export async function updateStoreSettings(
     email: formData.get("email") as string,
     metode_diskon: formData.get("metode_diskon") as string,
     pajak_persen: parseFloat(formData.get("pajak_persen") as string) || 0,
+    poin_min_pembelian: parseFloat(formData.get("poin_min_pembelian") as string) || 100000,
     jenis_nota: formData.get("jenis_nota") as string,
     metode_cetak: formData.get("metode_cetak") as string,
     logo_nota: formData.get("logo_nota") === "true",
@@ -53,6 +55,13 @@ export async function updateStoreSettings(
   if (error) {
     return { error: "Gagal memperbarui pengaturan toko: " + error.message };
   }
+
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "pengaturan",
+    deskripsi: buildDeskripsi({ aksi: "UPDATE", entitas: "pengaturan", data_baru: updates as unknown as Record<string, unknown> }),
+    data_baru: updates as unknown as Record<string, unknown>,
+  });
 
   revalidatePath("/dashboard/settings");
   return { success: true, message: "Pengaturan toko berhasil diperbarui" };

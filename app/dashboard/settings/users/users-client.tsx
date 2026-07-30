@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useEffect, useDeferredValue } from "react";
-import { Plus, Trash2, Edit2, User as UserIcon, Loader2, Download, X } from "lucide-react";
+import { Plus, Trash2, Edit2, User as UserIcon, Loader2, Download, X, Upload } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type DeleteModalConfig } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,9 @@ import {
   TableCell,
   TableRow,
 } from "@/components/ui/table";
-import { createUser, updateUser, deleteUser } from "./actions";
+import { createUser, updateUser, deleteUser, importUsers } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import ImportCSVModal from "@/components/import-csv-modal";
 
 type User = {
   id: number;
@@ -31,6 +32,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const [isPending, startTransition] = useTransition();
 
@@ -217,7 +219,8 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
   } : undefined;
 
   return (
-    <DataTable
+    <>
+      <DataTable
       data={table.paginatedData}
       total={table.total}
       columns={columns}
@@ -288,6 +291,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
         );
       }}
       actions={[
+        { label: "Import CSV", icon: <Upload className="w-4 h-4" />, variant: "outline", onClick: () => setIsImportOpen(true) },
         { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
         { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
         {
@@ -306,5 +310,26 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
         description: "Coba gunakan kata kunci pencarian yang lain.",
       }}
     />
+    <ImportCSVModal
+      open={isImportOpen}
+      onOpenChange={setIsImportOpen}
+      title="Import Data Pengguna / Kasir"
+      description="Unggah file CSV dengan kolom Username, Password, Nama Lengkap, Level (ADMIN/KASIR/OWNER/KARYAWAN), dan Status (aktif/nonaktif)."
+      templateFilename="Template_Import_Pengguna"
+      templateHeaders={["Username", "Password", "Nama Lengkap", "Level", "Status"]}
+      sampleRows={[
+        ["kasir_budi", "password123", "Budi Raharjo", "KASIR", "aktif"],
+        ["admin_siti", "adminpass456", "Siti Aminah", "ADMIN", "aktif"],
+      ]}
+      validateRow={(row) => {
+        const username = row["Username"] || row["username"] || "";
+        const password = row["Password"] || row["password"] || "";
+        if (!username.trim()) return "Username wajib diisi";
+        if (!password.trim() || password.trim().length < 6) return "Password minimal 6 karakter";
+        return null;
+      }}
+      onImport={importUsers}
+    />
+  </>
   );
 }

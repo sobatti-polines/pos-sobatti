@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Plus, Trash2, Truck, X, AlertCircle, Check, Loader2, Edit2, Download } from "lucide-react";
+import { Plus, Trash2, Truck, X, AlertCircle, Check, Loader2, Edit2, Download, Upload } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type DeleteModalConfig } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,9 @@ import {
   TableCell,
   TableRow,
 } from "@/components/ui/table";
-import { addSupplier, updateSupplier, deleteSupplier } from "./actions";
+import { addSupplier, updateSupplier, deleteSupplier, importSuppliers } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import ImportCSVModal from "@/components/import-csv-modal";
 
 interface Supplier {
   id: number;
@@ -26,6 +27,7 @@ interface Supplier {
 export default function SuppliersClient({ initialSuppliers }: { initialSuppliers: Supplier[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const [isPending, startTransition] = useTransition();
 
@@ -195,15 +197,15 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   };
 
   const columns: Column<Supplier>[] = [
-    { key: "nama_supplier", header: "Nama Supplier", sortable: true, className: "md:pl-6", headerClassName: "md:pl-6", mobileLabel: "Nama Supplier" },
-    { key: "telepon", header: "Telepon", sortable: true, mobileLabel: "Telepon", render: (s) => <span className="tabular-nums">{s.telepon || "-"}</span> },
-    { key: "email", header: "Email", sortable: true, mobileLabel: "Email" },
-    { key: "alamat", header: "Alamat", sortable: true, mobileLabel: "Alamat", render: (s) => <span className="max-w-xs md:max-w-[200px] xl:max-w-xs truncate block whitespace-normal md:whitespace-nowrap md:truncate">{s.alamat || "-"}</span> },
-    { key: "keterangan", header: "Keterangan", sortable: true, mobileLabel: "Keterangan", render: (s) => <span className="max-w-xs md:max-w-[150px] xl:max-w-xs truncate block whitespace-normal md:whitespace-nowrap md:truncate">{s.keterangan || "-"}</span> },
+    { key: "nama_supplier", header: "Nama Supplier", sortable: true, className: "md:pl-6", headerClassName: "md:pl-6" },
+    { key: "telepon", header: "Telepon", sortable: true, render: (s) => <span className="tabular-nums">{s.telepon || "-"}</span> },
+    { key: "email", header: "Email", sortable: true },
+    { key: "alamat", header: "Alamat", sortable: true, render: (s) => <span className="max-w-xs md:max-w-[200px] xl:max-w-xs truncate block whitespace-normal md:whitespace-nowrap md:truncate">{s.alamat || "-"}</span> },
+    { key: "keterangan", header: "Keterangan", sortable: true, render: (s) => <span className="max-w-xs md:max-w-[150px] xl:max-w-xs truncate block whitespace-normal md:whitespace-nowrap md:truncate">{s.keterangan || "-"}</span> },
     {
       key: "actions", header: "", className: "md:pr-6", headerClassName: "w-[100px] md:pr-6", mobileHide: true,
       render: (supplier) => (
-        <div className="flex justify-end gap-2 md:gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+        <div className="flex justify-end gap-2 md:gap-1">
           <Button variant="outline" size="icon" aria-label="Edit supplier" className="h-11 w-11 md:h-8 md:w-8 md:border-transparent md:bg-transparent text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, supplier)} disabled={editingId !== null}>
             <Edit2 className="h-4 w-4" />
           </Button>
@@ -226,7 +228,8 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   } : undefined;
 
   return (
-    <DataTable
+    <>
+      <DataTable
       data={table.paginatedData}
       total={table.total}
       columns={columns}
@@ -242,9 +245,8 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
       onItemsPerPageChange={table.setItemsPerPage}
       editingId={editingId as number | "new" | null}
       renderEditRow={(customer) => renderEditRowContent(customer === null)}
-      mobileCards
-      mobileBreakpoint="md"
       actions={[
+        { label: "Import CSV", icon: <Upload className="w-4 h-4" />, variant: "outline", onClick: () => setIsImportOpen(true) },
         { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
         { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
         {
@@ -263,5 +265,26 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
         description: "Coba gunakan kata kunci pencarian atau filter yang lain.",
       }}
     />
+    <ImportCSVModal
+      open={isImportOpen}
+      onOpenChange={setIsImportOpen}
+      title="Import Data Supplier"
+      description="Unggah file CSV dengan kolom Nama Supplier, Alamat, No. Telepon, Email, dan Keterangan."
+      templateFilename="Template_Import_Supplier"
+      templateHeaders={["Nama Supplier", "Alamat", "No. Telepon", "Email", "Keterangan"]}
+      sampleRows={[
+        ["PT Semen Nusantara", "Jl. Industri No. 45, Gresik", "0318901234", "sales@semennusantara.co.id", "Pemasok Semen Utama"],
+        ["CV Bina Kayu", "Jl. Raya Kayu No. 8, Jepara", "081987654321", "info@binakayu.com", "Pemasok Kayu & Triplek"],
+      ]}
+      validateRow={(row) => {
+        const name = row["Nama Supplier"] || row["nama_supplier"] || "";
+        if (!name.trim()) {
+          return "Nama Supplier wajib diisi";
+        }
+        return null;
+      }}
+      onImport={importSuppliers}
+    />
+  </>
   );
 }

@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useMemo, useEffect, useTransition, useDeferredValue } from "react";
-import { Plus, Trash2, Database, Check, Loader2, Edit2, Download, X } from "lucide-react";
+import { Plus, Trash2, Database, Check, Loader2, Edit2, Download, X, Upload } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type DeleteModalConfig } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { createReferenceData, updateReferenceData, deleteReferenceData } from "./actions";
+import { createReferenceData, updateReferenceData, deleteReferenceData, importReferenceData } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import ImportCSVModal from "@/components/import-csv-modal";
 
 type ReferenceItem = { id: number; nama: string };
 type TabType = "kategori" | "satuan" | "metode_bayar";
@@ -29,6 +30,7 @@ export function ReferenceClient({
 
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const [isPending, startTransition] = useTransition();
 
@@ -251,6 +253,7 @@ export function ReferenceClient({
           );
         }}
         actions={[
+          { label: "Import CSV", icon: <Upload className="w-4 h-4" />, variant: "outline", onClick: () => setIsImportOpen(true) },
           { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
           { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
           {
@@ -268,6 +271,27 @@ export function ReferenceClient({
           title: "Tidak ada data ditemukan",
           description: "Coba gunakan kata kunci pencarian yang lain.",
         }}
+      />
+
+      <ImportCSVModal
+        open={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        title={`Import Data ${getTabLabel(activeTab)}`}
+        description={`Unggah file CSV dengan kolom Nama ${getTabLabel(activeTab)}.`}
+        templateFilename={`Template_Import_${getTabLabel(activeTab).replace(" ", "_")}`}
+        templateHeaders={[`Nama ${getTabLabel(activeTab)}`]}
+        sampleRows={[
+          [activeTab === "kategori" ? "Bahan Bangunan" : activeTab === "satuan" ? "Pcs" : "Transfer Bank"],
+          [activeTab === "kategori" ? "Alat Pertukangan" : activeTab === "satuan" ? "Dus" : "QRIS"],
+        ]}
+        validateRow={(row) => {
+          const name = row[`Nama ${getTabLabel(activeTab)}`] || row["Nama"] || row["nama"] || "";
+          if (!name.trim()) {
+            return `Nama ${getTabLabel(activeTab)} wajib diisi`;
+          }
+          return null;
+        }}
+        onImport={(rows) => importReferenceData(activeTab, rows)}
       />
     </div>
   );

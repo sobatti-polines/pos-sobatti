@@ -21,6 +21,7 @@ export interface Customer {
   nama_pelanggan: string;
   alamat: string | null;
   no_hp: string | null;
+  point: number;
 }
 
 export interface PaymentMethod {

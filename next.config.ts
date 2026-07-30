@@ -23,7 +23,10 @@ const getLocalIp = () => {
 };
 
 const nextConfig: NextConfig = {
+  productionBrowserSourceMaps: false,
   experimental: {
+    webpackMemoryOptimizations: true,
+    serverSourceMaps: false,
     serverActions: {
       allowedOrigins: [getLocalIp(), 'localhost:3000'],
     },

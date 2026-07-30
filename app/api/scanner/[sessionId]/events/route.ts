@@ -45,10 +45,10 @@ export async function GET(
       });
 
       // Cleanup when client disconnects
-      return () => {
+      req.signal.addEventListener("abort", () => {
         clearInterval(ping);
         remove();
-      };
+      });
     },
   });
 

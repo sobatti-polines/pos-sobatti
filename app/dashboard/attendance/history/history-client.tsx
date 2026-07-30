@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { CalendarDays, Download } from "lucide-react";
+import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
@@ -57,6 +58,8 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
     return { total, telat, totalTelatMenit };
   }, [filteredData]);
 
+  const table = useTable({ data: filteredData, defaultItemsPerPage: 15 });
+
   const handleExportCSV = () => {
     const headers = ["Tanggal", "Status", "Jam Masuk", "Jam Pulang", "Keterangan", "Informasi Perangkat"];
     const rows = filteredData.map(d => [
@@ -94,9 +97,9 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
   ];
 
   const columns: Column<AttendanceRecord>[] = [
-    { key: "tanggal", header: "Tanggal", className: "pl-6", headerClassName: "pl-6 w-[200px]", render: (d) => <span className="font-medium">{formatDate(d.tanggal)}</span> },
+    { key: "tanggal", header: "Tanggal", sortable: true, className: "pl-6", headerClassName: "pl-6 w-[200px]", render: (d) => <span className="font-medium">{formatDate(d.tanggal)}</span> },
     {
-      key: "status", header: "Status", headerClassName: "w-[150px]",
+      key: "status", header: "Status", sortable: true, headerClassName: "w-[150px]",
       render: (d) => (
         <Badge variant="secondary" className={`font-normal border-none rounded-full px-3 py-1 text-[11px] uppercase tracking-wider ${
           d.status === "HADIR" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"
@@ -105,10 +108,10 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
         </Badge>
       ),
     },
-    { key: "jam_masuk", header: "Jam Masuk", headerClassName: "w-[150px]", render: (d) => <span className="tabular-nums font-medium text-foreground">{formatTime(d.jam_masuk)}</span> },
-    { key: "jam_pulang", header: "Jam Pulang", headerClassName: "w-[150px]", render: (d) => <span className="tabular-nums text-muted-foreground">{formatTime(d.jam_pulang)}</span> },
+    { key: "jam_masuk", header: "Jam Masuk", sortable: true, headerClassName: "w-[150px]", render: (d) => <span className="tabular-nums font-medium text-foreground">{formatTime(d.jam_masuk)}</span> },
+    { key: "jam_pulang", header: "Jam Pulang", sortable: true, headerClassName: "w-[150px]", render: (d) => <span className="tabular-nums text-muted-foreground">{formatTime(d.jam_pulang)}</span> },
     {
-      key: "keterangan", header: "Keterangan", headerClassName: "w-[150px]",
+      key: "keterangan", header: "Keterangan", sortable: true, sortKey: "telat_menit", headerClassName: "w-[150px]",
       render: (d) => d.telat_menit > 0 ? (
         <span className="text-xs text-warning font-medium">Telat {d.telat_menit} menit</span>
       ) : (
@@ -116,17 +119,23 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
       ),
     },
     {
-      key: "device_info", header: "Informasi Perangkat", className: "pr-6",
+      key: "device_info", header: "Informasi Perangkat", sortable: true, className: "pr-6",
       render: (d) => <span className="text-xs text-muted-foreground truncate max-w-[200px] block" title={d.device_info ?? undefined}>{d.device_info || "-"}</span>,
     },
   ];
 
   return (
     <DataTable
-      data={filteredData}
-      total={filteredData.length}
+      data={table.paginatedData}
+      total={table.total}
       columns={columns}
       rowKey={(d) => d.id}
+      sortConfig={table.sortConfig}
+      onSort={table.handleSort}
+      currentPage={table.currentPage}
+      onPageChange={table.setCurrentPage}
+      itemsPerPage={table.itemsPerPage}
+      onItemsPerPageChange={table.setItemsPerPage}
       filters={filters}
       actions={[
         { label: "Reset", variant: "outline", onClick: () => setDateFilter({ start: "", end: "" }) },

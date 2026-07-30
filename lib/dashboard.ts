@@ -10,6 +10,16 @@ export interface DashboardData {
   recentTransactions: TransactionRow[];
   lowStockItems: LowStockItem[];
   sparklineData: number[];
+  recentActivity: ActivityRow[];
+}
+
+export interface ActivityRow {
+  id: string;
+  waktu: string;
+  pengguna: string;
+  aksi: string;
+  entitas: string;
+  deskripsi: string;
 }
 
 export interface TransactionRow {
@@ -49,6 +59,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     transactionsRes,
     allProductsRes,
     recentDaysRes,
+    activityRes,
   ] = await Promise.all([
     supabase
       .from("transaksi_keluar")
@@ -86,6 +97,14 @@ export async function getDashboardData(): Promise<DashboardData> {
       .lte("tgl_transaksi", fmt(todayEnd))
       .order("tgl_transaksi", { ascending: true })
       .limit(100000),
+    supabase
+      .from("log_aktivitas")
+      .select(`
+        id, aksi, entitas, deskripsi, created_at,
+        pengguna!inner(nama, username)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   const todayRevenue =
@@ -160,6 +179,37 @@ export async function getDashboardData(): Promise<DashboardData> {
   }
   const sparklineData = Array.from(dayTotals.values());
 
+  const now = Date.now();
+  const recentActivity: ActivityRow[] = (activityRes.data as unknown as Array<{
+    id: string;
+    aksi: string;
+    entitas: string;
+    deskripsi: string;
+    created_at: string;
+    pengguna: { nama: string; username: string } | null;
+  }> ?? []).map((a) => {
+    const ms = now - new Date(a.created_at).getTime();
+    const detik = Math.floor(ms / 1000);
+    const menit = Math.floor(detik / 60);
+    const jam = Math.floor(menit / 60);
+    const hari = Math.floor(jam / 24);
+    let waktu: string;
+    if (detik < 60) waktu = "Baru saja";
+    else if (menit < 60) waktu = `${menit} menit lalu`;
+    else if (jam < 24) waktu = `${jam} jam lalu`;
+    else if (hari < 7) waktu = `${hari} hari lalu`;
+    else waktu = new Date(a.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+
+    return {
+      id: a.id,
+      waktu,
+      pengguna: a.pengguna?.nama || a.pengguna?.username || `User #...`,
+      aksi: a.aksi,
+      entitas: a.entitas,
+      deskripsi: a.deskripsi.length > 90 ? a.deskripsi.slice(0, 87) + "..." : a.deskripsi,
+    };
+  });
+
   return {
     todayRevenue,
     yesterdayRevenue,
@@ -170,5 +220,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     recentTransactions,
     lowStockItems,
     sparklineData,
+    recentActivity,
   };
 }

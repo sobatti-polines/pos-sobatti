@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { CalendarDays, Download } from "lucide-react";
+import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
@@ -67,6 +68,8 @@ export function ReportClient({ initialData }: { initialData: AttendanceReportRec
     return { total, telat, uniqueEmployees };
   }, [filteredData]);
 
+  const table = useTable({ data: filteredData, defaultItemsPerPage: 15 });
+
   const handleExportCSV = () => {
     const headers = ["Tanggal", "Username", "Level", "Jam Masuk", "Jam Pulang", "Status", "Telat (Menit)", "Device"];
     const rows = filteredData.map(d => [
@@ -108,9 +111,9 @@ export function ReportClient({ initialData }: { initialData: AttendanceReportRec
   ];
 
   const columns: Column<AttendanceReportRecord>[] = [
-    { key: "tanggal", header: "Tanggal", className: "pl-6", headerClassName: "pl-6 w-[180px]", render: (d) => <span className="font-medium">{formatDate(d.tanggal)}</span> },
+    { key: "tanggal", header: "Tanggal", sortable: true, className: "pl-6", headerClassName: "pl-6 w-[180px]", render: (d) => <span className="font-medium">{formatDate(d.tanggal)}</span> },
     {
-      key: "pegawai", header: "Pegawai", headerClassName: "w-[180px]",
+      key: "pegawai", header: "Pegawai", sortable: true, sortKey: "pengguna.username", headerClassName: "w-[180px]",
       render: (d) => (
         <div className="flex flex-col">
           <span className="font-medium text-foreground">{d.pengguna?.username}</span>
@@ -119,7 +122,7 @@ export function ReportClient({ initialData }: { initialData: AttendanceReportRec
       ),
     },
     {
-      key: "status", header: "Status", headerClassName: "w-[120px]",
+      key: "status", header: "Status", sortable: true, headerClassName: "w-[120px]",
       render: (d) => (
         <Badge variant="secondary" className={`font-normal border-none rounded-full px-3 py-1 text-[11px] uppercase tracking-wider ${
           d.status === "HADIR" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"
@@ -128,10 +131,10 @@ export function ReportClient({ initialData }: { initialData: AttendanceReportRec
         </Badge>
       ),
     },
-    { key: "jam_masuk", header: "Jam Masuk", headerClassName: "w-[120px]", render: (d) => <span className="tabular-nums font-medium text-foreground">{formatTime(d.jam_masuk)}</span> },
-    { key: "jam_pulang", header: "Jam Pulang", headerClassName: "w-[120px]", render: (d) => <span className="tabular-nums text-muted-foreground">{formatTime(d.jam_pulang)}</span> },
+    { key: "jam_masuk", header: "Jam Masuk", sortable: true, headerClassName: "w-[120px]", render: (d) => <span className="tabular-nums font-medium text-foreground">{formatTime(d.jam_masuk)}</span> },
+    { key: "jam_pulang", header: "Jam Pulang", sortable: true, headerClassName: "w-[120px]", render: (d) => <span className="tabular-nums text-muted-foreground">{formatTime(d.jam_pulang)}</span> },
     {
-      key: "telat", header: "Terlambat", headerClassName: "w-[120px]",
+      key: "telat", header: "Terlambat", sortable: true, sortKey: "telat_menit", headerClassName: "w-[120px]",
       render: (d) => d.telat_menit > 0 ? (
         <span className="text-xs text-warning font-medium">{d.telat_menit} menit</span>
       ) : (
@@ -139,20 +142,26 @@ export function ReportClient({ initialData }: { initialData: AttendanceReportRec
       ),
     },
     {
-      key: "device_info", header: "Device", className: "pr-6",
+      key: "device_info", header: "Device", sortable: true, className: "pr-6",
       render: (d) => <span className="text-[10px] text-muted-foreground truncate max-w-[150px] block" title={d.device_info ?? undefined}>{d.device_info || "-"}</span>,
     },
   ];
 
   return (
     <DataTable
-      data={filteredData}
-      total={filteredData.length}
+      data={table.paginatedData}
+      total={table.total}
       columns={columns}
       rowKey={(d) => d.id}
       search={searchQuery}
       onSearchChange={setSearchQuery}
       searchPlaceholder="Cari username..."
+      sortConfig={table.sortConfig}
+      onSort={table.handleSort}
+      currentPage={table.currentPage}
+      onPageChange={table.setCurrentPage}
+      itemsPerPage={table.itemsPerPage}
+      onItemsPerPageChange={table.setItemsPerPage}
       filters={filters}
       actions={[
         { label: "Reset", variant: "outline", onClick: () => { setSearchQuery(""); setDateFilter({ start: "", end: "" }); } },

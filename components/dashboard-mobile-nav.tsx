@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect } from "react";
+import logoPerusahaan from "@/public/login-logo.jpeg";
 import { 
   LayoutGrid, 
   CircleDollarSign, 
@@ -26,6 +28,7 @@ import {
   Scale,
   Tag,
   ScanLine,
+  History,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -100,9 +103,13 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0 z-40 sticky top-0 print:hidden">
         <div className="flex items-center">
-          <div className="h-8 w-8 rounded-md bg-primary mr-3 flex items-center justify-center">
-            <span className="text-primary-foreground font-medium">P</span>
-          </div>
+          <Image
+            src={logoPerusahaan}
+            alt="Logo Perusahaan"
+            width={36}
+            height={36}
+            className="h-9 w-auto object-contain mr-3 rounded-md"
+          />
           <span className="text-xl font-light tracking-tight text-foreground">PLK POS</span>
         </div>
         <Button 
@@ -239,9 +246,13 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                         Tools
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Link href="/dashboard/label-generator" className={linkClass("/dashboard/label-generator")} onClick={() => setIsOpen(false)}>
+                         <Link href="/dashboard/label-generator" className={linkClass("/dashboard/label-generator")} onClick={() => setIsOpen(false)}>
                           <Tag className="w-5 h-5" />
                           <span>Pricetag Generator</span>
+                        </Link>
+                        <Link href="/dashboard/log-aktivitas" className={linkClass("/dashboard/log-aktivitas")} onClick={() => setIsOpen(false)}>
+                          <History className="w-5 h-5" />
+                          <span>Log Aktivitas</span>
                         </Link>
                       </div>
                     </div>

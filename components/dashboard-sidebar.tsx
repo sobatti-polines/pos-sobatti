@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
@@ -29,9 +30,11 @@ import {
   Landmark,
   Tag,
   Printer,
+  History,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import logoPerusahaan from "@/public/login-logo.jpeg";
 
 const bottomLinks = [
   { href: "/dashboard/settings", label: "Pengaturan", icon: Settings },
@@ -94,9 +97,13 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role }: {
   return (
     <aside className="w-64 shrink-0 border-r border-border bg-background hidden md:flex flex-col py-6 px-4 print:hidden">
       <div className="mb-10 flex items-center px-2">
-        <div className="h-8 w-8 rounded-md bg-primary mr-3 flex items-center justify-center">
-          <span className="text-primary-foreground font-medium">P</span>
-        </div>
+        <Image
+          src={logoPerusahaan}
+          alt="Logo Perusahaan"
+          width={36}
+          height={36}
+          className="h-9 w-auto object-contain mr-3 rounded-md"
+        />
         <span className="text-xl font-light tracking-tight text-foreground">PLK POS</span>
       </div>
 
@@ -228,6 +235,10 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role }: {
                 <Link href="/dashboard/product-label" className={linkClass("/dashboard/product-label")}>
                   <Printer className="w-5 h-5" />
                   <span className="text-sm">Cetak Label Produk</span>
+                </Link>
+                <Link href="/dashboard/log-aktivitas" className={linkClass("/dashboard/log-aktivitas")}>
+                  <History className="w-5 h-5" />
+                  <span className="text-sm">Log Aktivitas</span>
                 </Link>
               </div>
             </div>

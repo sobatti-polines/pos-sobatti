@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Plus, Trash2, Users, X, AlertCircle, Check, Loader2, Edit2, Download } from "lucide-react";
+import { Plus, Trash2, Users, X, AlertCircle, Check, Loader2, Edit2, Download, Upload } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type DeleteModalConfig } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,9 @@ import {
   TableCell,
   TableRow,
 } from "@/components/ui/table";
-import { addCustomer, updateCustomer, deleteCustomer } from "./actions";
+import { addCustomer, updateCustomer, deleteCustomer, importCustomers } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import ImportCSVModal from "@/components/import-csv-modal";
 
 interface Customer {
   id: number;
@@ -21,11 +22,13 @@ interface Customer {
   email: string | null;
   keterangan: string | null;
   created_at: string;
+  point: number;
 }
 
 export default function CustomersClient({ initialCustomers }: { initialCustomers: Customer[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const [isPending, startTransition] = useTransition();
 
@@ -45,7 +48,8 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
           c.nama_pelanggan.toLowerCase().includes(q) ||
           c.no_hp?.toLowerCase().includes(q) ||
           c.email?.toLowerCase().includes(q) ||
-          c.alamat?.toLowerCase().includes(q)
+          c.alamat?.toLowerCase().includes(q) ||
+          String(c.point ?? 0).includes(q)
       );
     }
 
@@ -111,25 +115,27 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
   };
 
   const handleExportCSV = () => {
-    const headers = ["Nama Pelanggan", "No. HP", "Email", "Alamat", "Keterangan"];
+    const headers = ["Nama Pelanggan", "No. HP", "Email", "Alamat", "Keterangan", "Poin"];
     const data = filteredData.map(c => [
       c.nama_pelanggan,
       c.no_hp || "-",
       c.email || "-",
       c.alamat || "-",
-      c.keterangan || "-"
+      c.keterangan || "-",
+      String(c.point ?? 0)
     ]);
     exportToCSV("Data_Pelanggan", headers, data);
   };
 
   const handleExportPDF = () => {
-    const headers = ["Nama Pelanggan", "No. HP", "Email", "Alamat", "Keterangan"];
+    const headers = ["Nama Pelanggan", "No. HP", "Email", "Alamat", "Keterangan", "Poin"];
     const data = filteredData.map(c => [
       c.nama_pelanggan,
       c.no_hp || "-",
       c.email || "-",
       c.alamat || "-",
-      c.keterangan || "-"
+      c.keterangan || "-",
+      String(c.point ?? 0)
     ]);
     exportToPDF("Data_Pelanggan", "Laporan Data Pelanggan", headers, data);
   };
@@ -147,6 +153,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
   const columns: Column<Customer>[] = [
     { key: "nama_pelanggan", header: "Nama", sortable: true, className: "pl-6", headerClassName: "pl-6" },
     { key: "no_hp", header: "No. HP", sortable: true, render: (c) => <span className="tabular-nums">{c.no_hp || "-"}</span> },
+    { key: "point", header: "Poin", sortable: true, className: "w-[80px]", headerClassName: "w-[80px]", render: (c) => <span className="tabular-nums font-medium">{c.point ?? 0}</span> },
     { key: "email", header: "Email", sortable: true },
     { key: "alamat", header: "Alamat", sortable: true, render: (c) => <span className="max-w-xs truncate block">{c.alamat || "-"}</span> },
     { key: "keterangan", header: "Keterangan", sortable: true, render: (c) => <span className="max-w-xs truncate block">{c.keterangan || "-"}</span> },
@@ -156,7 +163,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
         const isUmum = customer.nama_pelanggan?.toUpperCase() === "UMUM";
         if (isUmum) return null;
         return (
-          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex justify-end gap-1">
             <Button variant="ghost" size="icon" aria-label="Edit customer" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, customer)} disabled={editingId !== null}>
               <Edit2 className="h-4 w-4" />
             </Button>
@@ -180,7 +187,8 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
   } : undefined;
 
   return (
-    <DataTable
+    <>
+      <DataTable
       data={table.paginatedData}
       total={table.total}
       columns={columns}
@@ -225,6 +233,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
         );
       }}
       actions={[
+        { label: "Import CSV", icon: <Upload className="w-4 h-4" />, variant: "outline", onClick: () => setIsImportOpen(true) },
         { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
         { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
         {
@@ -243,5 +252,26 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
         description: "Coba gunakan kata kunci pencarian atau filter yang lain.",
       }}
     />
+    <ImportCSVModal
+      open={isImportOpen}
+      onOpenChange={setIsImportOpen}
+      title="Import Data Pelanggan"
+      description="Unggah file CSV dengan kolom Nama Pelanggan, Alamat, No. HP, Email, dan Keterangan."
+      templateFilename="Template_Import_Pelanggan"
+      templateHeaders={["Nama Pelanggan", "Alamat", "No. HP", "Email", "Keterangan"]}
+      sampleRows={[
+        ["Toko Jaya Abadi", "Jl. Merdeka No. 12, Jakarta", "081234567890", "jaya@gmail.com", "Pelanggan Grosir"],
+        ["Budi Santoso", "Jl. Melati No. 5, Bandung", "085678901234", "budi@yahoo.com", "Pelanggan Eceran"],
+      ]}
+      validateRow={(row) => {
+        const name = row["Nama Pelanggan"] || row["nama_pelanggan"] || "";
+        if (!name.trim()) {
+          return "Nama Pelanggan wajib diisi";
+        }
+        return null;
+      }}
+      onImport={importCustomers}
+    />
+  </>
   );
 }

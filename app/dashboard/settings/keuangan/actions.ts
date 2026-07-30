@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
 export async function saveFinanceSettings(params: {
   modal_awal: number;
@@ -55,6 +56,13 @@ export async function saveFinanceSettings(params: {
       return { error: "Gagal menyimpan pengaturan keuangan" };
     }
   }
+
+  await logActivity(supabase, {
+    aksi: existing ? "UPDATE" : "CREATE",
+    entitas: "pengaturan_keuangan",
+    deskripsi: buildDeskripsi({ aksi: existing ? "UPDATE" : "CREATE", entitas: "pengaturan_keuangan", data_baru: params as unknown as Record<string, unknown> }),
+    data_baru: params as unknown as Record<string, unknown>,
+  });
 
   revalidatePath("/dashboard/settings/keuangan");
   return { success: true };
