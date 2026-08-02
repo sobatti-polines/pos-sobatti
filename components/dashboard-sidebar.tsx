@@ -52,7 +52,6 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role }: {
   const isOwner = role === "OWNER";
   const isStaff = role === "ADMIN" || role === "KASIR" || role === "KARYAWAN";
   const isManagement = role === "OWNER" || role === "ADMIN";
-  const isKaryawan = role === "KARYAWAN";
 
   const lowStockItems = useLowStockRealtime();
   const lowStockCount = isManagement ? lowStockItems.length : 0;
@@ -108,10 +107,12 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role }: {
       </div>
 
       <nav className="flex flex-col gap-1 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-        <Link href="/dashboard" className={linkClass("/dashboard")}>
-          <LayoutGrid className="w-5 h-5" />
-          <span className="text-sm">Ringkasan</span>
-        </Link>
+        {role !== "KASIR" && (
+          <Link href="/dashboard" className={linkClass("/dashboard")}>
+            <LayoutGrid className="w-5 h-5" />
+            <span className="text-sm">Ringkasan</span>
+          </Link>
+        )}
 
         {role === "KASIR" && (
           <Link href="/pos" className={linkClass("/pos")}>
@@ -285,7 +286,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role }: {
       </nav>
 
       <div className="flex flex-col gap-2 mt-auto pt-6 border-t border-border">
-        {!isKaryawan && bottomLinks.map(({ href, label, icon: Icon }) => (
+        {role !== "KASIR" && role !== "KARYAWAN" && bottomLinks.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} className={linkClass(href)}>
             <Icon className="w-5 h-5" />
             <span className="text-sm">{label}</span>

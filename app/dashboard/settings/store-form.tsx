@@ -21,7 +21,7 @@ function SubmitButton() {
   return (
     <Button
       type="submit"
-      className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-normal shadow-sm shrink-0"
+      className="rounded-full px-6 h-10 w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-normal shadow-sm shrink-0"
       disabled={pending}
     >
       {pending ? (

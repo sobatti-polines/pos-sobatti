@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { CalendarDays, Download } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 function formatTime(isoString: string | null) {
   if (!isoString) return "--:--";
@@ -139,8 +140,16 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
       filters={filters}
       actions={[
         { label: "Reset", variant: "outline", onClick: () => setDateFilter({ start: "", end: "" }) },
-        { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
-        { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
+        {
+          label: "Export",
+          customRender: () => (
+            <ExportDropdown
+              onExportCSV={handleExportCSV}
+              onExportPDF={handleExportPDF}
+              className="flex-1 md:flex-none"
+            />
+          ),
+        },
       ]}
       topContent={
         <div className="flex flex-col sm:flex-row gap-8 md:gap-16 pb-2">

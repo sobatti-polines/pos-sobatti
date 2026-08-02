@@ -2,10 +2,11 @@
 
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { FileText, Search, Printer, Download } from "lucide-react";
+import { FileText, Search, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { exportToCSV } from "@/lib/export-utils";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -39,12 +40,9 @@ export default function LaporanKasirClient({ data }: { data: any[] }) {
           <h1 className="text-3xl font-light tracking-tighter">Laporan Kasir Harian</h1>
           <p className="text-muted-foreground">Riwayat penutupan kas dan rekonsiliasi harian.</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
+          <ExportDropdown onExportCSV={handleExport} className="flex-1 md:flex-none" />
+          <Button variant="outline" className="flex-1 md:flex-none" onClick={() => window.print()}>
             <Printer className="w-4 h-4 mr-2" />
             Cetak
           </Button>
@@ -53,7 +51,7 @@ export default function LaporanKasirClient({ data }: { data: any[] }) {
 
       <div className="bg-background border border-border rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[680px] text-sm">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider text-[11px]">Tanggal</th>

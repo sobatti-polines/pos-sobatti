@@ -80,8 +80,8 @@ export default function ProductLabelPage() {
       `}} />
 
       <div className="flex-1 flex flex-col min-h-0 print:hidden">
-        <div className="px-6 pt-6 pb-4 border-b border-border">
-          <div className="flex items-center justify-between">
+        <div className="px-4 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-border">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Printer className="w-5 h-5 text-primary" />
@@ -157,9 +157,9 @@ export default function ProductLabelPage() {
                       <div key={item.id} className="flex items-center gap-3 p-3 border rounded-lg bg-background shadow-sm">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-sm truncate">{item.nama_produk}</h3>
-                          <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                            <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{item.barcode}</span>
-                            <span>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(item.harga_jual_satuan)}</span>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1 min-w-0">
+                            <span className="font-mono bg-muted px-1.5 py-0.5 rounded truncate min-w-0">{item.barcode}</span>
+                            <span className="shrink-0">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(item.harga_jual_satuan)}</span>
                           </div>
                         </div>
                         <div className="flex flex-col w-20 shrink-0">
@@ -198,7 +198,7 @@ export default function ProductLabelPage() {
 
           {/* Right Panel — Preview */}
           <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-            <div className="p-6 flex items-center justify-between border-b border-border bg-background sticky top-0 z-10">
+            <div className="px-4 py-4 sm:px-6 flex items-center justify-between border-b border-border bg-background sticky top-0 z-10">
               <div>
                 <h2 className="text-sm font-medium text-foreground">Live Preview</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">Tampilan simulasi cetak di kertas 3-up (33x15mm)</p>
@@ -211,9 +211,9 @@ export default function ProductLabelPage() {
               )}
             </div>
 
-            <div className="flex-1 flex items-center justify-center p-8 bg-muted/20 min-h-[400px]">
+            <div className="flex-1 flex items-center justify-start sm:justify-center overflow-x-auto sm:overflow-x-visible p-4 sm:p-8 bg-muted/20 min-h-[300px] sm:min-h-[400px]">
               {queue.length === 0 ? (
-                <div className="text-center text-muted-foreground flex flex-col items-center">
+                <div className="text-center text-muted-foreground flex flex-col items-center w-full">
                   <p className="text-sm">Preview akan muncul setelah Anda memilih produk.</p>
                 </div>
               ) : (

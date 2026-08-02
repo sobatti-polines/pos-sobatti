@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PrintButton } from "./print-button";
 import { terbilangRupiah } from "@/lib/terbilang";
 import Link from "next/link";
+import { ArrowLeft, Receipt } from "lucide-react";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -39,6 +40,9 @@ export default async function InvoicePage({
   if (!user) {
     redirect("/");
   }
+
+  const role = user.user_metadata?.role;
+  const isKasir = role === "KASIR";
 
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
@@ -102,56 +106,55 @@ export default async function InvoicePage({
     <div className="min-h-screen bg-muted/20 py-8 print:p-0 print:bg-white flex flex-col items-center">
       {/* Sticky action bar — always visible, hidden in print */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-sm border-b border-border print:hidden">
-        <div className="w-full max-w-[210mm] mx-auto px-4 py-2 flex items-center justify-between gap-2">
+        <div className="w-full max-w-[210mm] mx-auto px-4 py-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Link
-              href="/pos"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-foreground bg-muted hover:bg-muted/80 transition-colors border border-border"
+              href={isKasir ? "/pos" : "/dashboard/transactions"}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 h-9 rounded-full text-sm font-medium text-foreground bg-muted hover:bg-muted/80 transition-colors border border-border"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-              </svg>
-              Kembali ke Kasir
+              <ArrowLeft className="w-4 h-4" />
+              {isKasir ? "Kembali ke Kasir" : "Kembali ke Riwayat"}
             </Link>
-            <Link 
+            <Link
               href={`/pos/invoice/${id}?type=invoice`}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
-                headerLabel === "INVOICE" 
-                ? "bg-primary text-primary-foreground border-primary" 
-                : "bg-background text-muted-foreground border-border hover:bg-muted"
+              className={`inline-flex items-center justify-center px-4 h-9 rounded-full text-sm font-medium transition-colors border ${
+                headerLabel === "INVOICE"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground border-border hover:bg-muted"
               }`}
             >
               Invoice
             </Link>
-            <Link 
+            <Link
               href={`/pos/invoice/${id}?type=faktur`}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
-                headerLabel === "FAKTUR PENJUALAN" 
-                ? "bg-primary text-primary-foreground border-primary" 
-                : "bg-background text-muted-foreground border-border hover:bg-muted"
+              className={`inline-flex items-center justify-center px-4 h-9 rounded-full text-sm font-medium transition-colors border ${
+                headerLabel === "FAKTUR PENJUALAN"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground border-border hover:bg-muted"
               }`}
             >
               Faktur
             </Link>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
             <PrintButton />
-            <a 
+            <a
               href={`/pos/invoice/${id}/receipt`}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-muted text-muted-foreground text-sm h-9 rounded-full px-4 hover:bg-muted/80 transition-colors font-normal inline-flex items-center justify-center border border-border"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 h-9 rounded-full text-sm font-medium text-muted-foreground bg-muted hover:bg-muted/80 transition-colors border border-border"
             >
+              <Receipt className="w-4 h-4" />
               Struk Thermal
             </a>
           </div>
         </div>
       </div>
 
-      {/* Spacer to offset sticky bar height */}
-      <div className="h-14 print:hidden" />
+      {/* Spacer to offset sticky bar height (bar stacks to 2 rows on mobile) */}
+      <div className="h-[96px] sm:h-14 print:hidden" />
 
-      <div className="invoice-print-area w-full max-w-[210mm] bg-white shadow-level-2 print:shadow-none p-10 md:p-16 print:p-0 flex flex-col mx-auto text-[#0d253d]">
+      <div className="invoice-print-area w-full max-w-[210mm] bg-white shadow-level-2 print:shadow-none p-6 sm:p-10 md:p-16 print:p-0 flex flex-col mx-auto text-[#0d253d]">
         {/* Header */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-border/60 pb-8 mb-8">
           <div>
@@ -196,7 +199,7 @@ export default async function InvoicePage({
         </div>
 
         {/* Table */}
-        <div className="invoice-table-wrap mb-12">
+        <div className="invoice-table-wrap mb-12 overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b-2 border-border/60">

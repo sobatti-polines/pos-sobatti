@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo, useDeferredValue } from "react";
-import { PackagePlus, Download } from "lucide-react";
+import { PackagePlus } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -180,8 +181,16 @@ export default function StockInHistoryClient({
       filters={filters}
       actions={[
         { label: "Reset", variant: "outline", onClick: () => { setSearchQuery(""); setSupplierFilter("all"); setDateFilter({ start: "", end: "" }); } },
-        { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
-        { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
+        {
+          label: "Export",
+          customRender: () => (
+            <ExportDropdown
+              onExportCSV={handleExportCSV}
+              onExportPDF={handleExportPDF}
+              className="flex-1 md:flex-none"
+            />
+          ),
+        },
       ]}
       topContent={
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

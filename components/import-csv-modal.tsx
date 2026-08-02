@@ -194,7 +194,7 @@ export default function ImportCSVModal({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-6 overflow-hidden sm:rounded-2xl">
-        <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b space-y-0">
+        <DialogHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3 border-b space-y-0">
           <div>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-primary" />
@@ -209,7 +209,7 @@ export default function ImportCSVModal({
             variant="outline"
             size="sm"
             onClick={handleDownloadTemplate}
-            className="gap-2 text-xs rounded-full border-primary/30 text-primary hover:bg-primary/5"
+            className="gap-2 text-xs rounded-full border-primary/30 text-primary hover:bg-primary/5 w-full sm:w-auto justify-center"
           >
             <Download className="w-3.5 h-3.5" />
             Unduh Templat CSV
@@ -313,7 +313,7 @@ export default function ImportCSVModal({
               </div>
 
               {/* Table Wrapper */}
-              <div className="border rounded-xl overflow-hidden max-h-60 overflow-y-auto">
+              <div className="border rounded-xl overflow-x-auto max-h-60 overflow-y-auto">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-muted/50 text-muted-foreground sticky top-0 font-medium">
                     <tr>

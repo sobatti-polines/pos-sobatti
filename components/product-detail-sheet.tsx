@@ -224,7 +224,7 @@ export default function ProductDetailSheet({
 
           {/* ── Tab 1: Basic Info ── */}
           <TabsContent value="info" className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
               {infoFields.map((f) => (
                 <div key={f.label} className={f.full ? "col-span-2" : ""}>
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">

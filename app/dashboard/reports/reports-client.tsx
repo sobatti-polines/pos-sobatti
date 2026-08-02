@@ -7,8 +7,7 @@ import {
   TrendingUp, 
   ShoppingCart, 
   DollarSign, 
-  ArrowUpRight, 
-  Download
+  ArrowUpRight
 } from "lucide-react";
 import { 
   Card, 
@@ -28,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -171,28 +171,28 @@ export default function ReportsClient({ transactions, details, products }: Repor
             <Button 
               variant={dateRange === "1" ? "secondary" : "ghost"} 
               onClick={() => setDateRange("1")}
-              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-4"
+              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-2 sm:px-4"
             >
               Hari Ini
             </Button>
             <Button 
               variant={dateRange === "7" ? "secondary" : "ghost"} 
               onClick={() => setDateRange("7")}
-              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-4"
+              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-2 sm:px-4"
             >
               7 Hari
             </Button>
             <Button 
               variant={dateRange === "30" ? "secondary" : "ghost"} 
               onClick={() => setDateRange("30")}
-              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-4"
+              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-2 sm:px-4"
             >
               30 Hari
             </Button>
             <Button 
               variant={dateRange === "all" ? "secondary" : "ghost"} 
               onClick={() => setDateRange("all")}
-              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-4"
+              className="rounded-md h-9 text-sm font-medium flex-1 sm:flex-none px-2 sm:px-4"
             >
               Semua
             </Button>
@@ -200,12 +200,11 @@ export default function ReportsClient({ transactions, details, products }: Repor
         </div>
 
         <div className="flex flex-wrap items-center gap-2 md:ml-4 shrink-0 w-full md:w-auto">
-          <Button variant="outline" className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none" onClick={handleExportCSV}>
-            <Download className="w-4 h-4" /> CSV
-          </Button>
-          <Button variant="outline" className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none" onClick={handleExportPDF}>
-            <Download className="w-4 h-4" /> PDF
-          </Button>
+          <ExportDropdown
+            onExportCSV={handleExportCSV}
+            onExportPDF={handleExportPDF}
+            className="flex-1 md:flex-none"
+          />
         </div>
       </div>
 

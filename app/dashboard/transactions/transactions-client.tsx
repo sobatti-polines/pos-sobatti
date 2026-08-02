@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useDeferredValue } from "react";
-import { Search, Receipt, Trash2, AlertTriangle, Loader2, X, Download } from "lucide-react";
+import { Search, Receipt, Trash2, AlertTriangle, Loader2, X } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { voidTransaction, getTransactionDetails } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -239,8 +240,16 @@ export default function TransactionsClient({
         onRowClick={(t) => router.push(`/pos/invoice/${t.id}`)}
         actions={[
           { label: "Reset", variant: "outline", onClick: () => { setSearchQuery(""); setPaymentFilter("all"); setDateFilter({ start: "", end: "" }); } },
-          { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
-          { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
+          {
+            label: "Export",
+            customRender: () => (
+              <ExportDropdown
+                onExportCSV={handleExportCSV}
+                onExportPDF={handleExportPDF}
+                className="flex-1 md:flex-none"
+              />
+            ),
+          },
         ]}
         topContent={
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-2">
@@ -325,11 +334,11 @@ export default function TransactionsClient({
               </div>
             </div>
 
-            <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex justify-end gap-3">
-              <Button variant="outline" className="rounded-full px-6 bg-background" onClick={() => setVoidModal({ open: false, transaction: null, items: [], loading: false })} disabled={voidModal.loading}>
+            <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex flex-col-reverse sm:flex-row justify-end gap-3">
+              <Button variant="outline" className="rounded-full px-6 bg-background w-full sm:w-auto" onClick={() => setVoidModal({ open: false, transaction: null, items: [], loading: false })} disabled={voidModal.loading}>
                 Batal
               </Button>
-              <Button variant="destructive" className="rounded-full px-6 shadow-sm" onClick={handleConfirmVoid} disabled={voidModal.loading}>
+              <Button variant="destructive" className="rounded-full px-6 shadow-sm w-full sm:w-auto" onClick={handleConfirmVoid} disabled={voidModal.loading}>
                 {voidModal.loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Konfirmasi Hapus
               </Button>

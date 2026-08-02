@@ -51,7 +51,7 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        <div className="w-full h-px bg-border my-16" />
+        <div className="w-full h-px bg-border my-10 md:my-16" />
 
         {/* User Management Section (Owner only) */}
         {role === "OWNER" && (
@@ -76,7 +76,7 @@ export default async function SettingsPage() {
                   </div>
                   <Link 
                     href="/dashboard/settings/users" 
-                    className="shrink-0 flex items-center justify-center h-10 px-5 rounded-full bg-primary text-primary-foreground font-medium text-[15px] transition-colors hover:bg-primary/90 shadow-sm"
+                    className="w-full sm:w-auto shrink-0 flex items-center justify-center h-10 px-5 rounded-full bg-primary text-primary-foreground font-medium text-[15px] transition-colors hover:bg-primary/90 shadow-sm"
                   >
                     Kelola Pengguna
                   </Link>
@@ -84,7 +84,7 @@ export default async function SettingsPage() {
               </div>
             </section>
             
-            <div className="w-full h-px bg-border my-16" />
+            <div className="w-full h-px bg-border my-10 md:my-16" />
           </>
         )}
 
@@ -111,7 +111,7 @@ export default async function SettingsPage() {
                   </div>
                   <Link 
                     href="/dashboard/settings/reference-data" 
-                    className="shrink-0 flex items-center justify-center h-10 px-5 rounded-full bg-primary text-primary-foreground font-medium text-[15px] transition-colors hover:bg-primary/90 shadow-sm"
+                    className="w-full sm:w-auto shrink-0 flex items-center justify-center h-10 px-5 rounded-full bg-primary text-primary-foreground font-medium text-[15px] transition-colors hover:bg-primary/90 shadow-sm"
                   >
                     Kelola Referensi
                   </Link>
@@ -119,7 +119,7 @@ export default async function SettingsPage() {
               </div>
             </section>
             
-            <div className="w-full h-px bg-border my-16" />
+            <div className="w-full h-px bg-border my-10 md:my-16" />
           </>
         )}
 
@@ -139,18 +139,18 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        <div className="w-full h-px bg-border my-16" />
+        <div className="w-full h-px bg-border my-10 md:my-16" />
 
         {/* Info Card - Cream Band Pattern */}
         <section className="mb-12">
-          <div className="p-10 bg-[#f5e9d4] text-[#0d253d] dark:bg-[#f5e9d4]/10 dark:text-[#f5e9d4] border-none rounded-[16px] flex flex-col md:flex-row md:items-center justify-between gap-8 shadow-sm">
+          <div className="p-6 md:p-10 bg-[#f5e9d4] text-[#0d253d] dark:bg-[#f5e9d4]/10 dark:text-[#f5e9d4] border-none rounded-[16px] flex flex-col md:flex-row md:items-center justify-between gap-8 shadow-sm">
             <div className="max-w-xl">
               <h3 className="text-[26px] font-light tracking-[-0.26px]">Butuh Bantuan?</h3>
               <p className="text-[16px] font-light opacity-80 mt-3 leading-relaxed">
                 Jika Anda mengalami kesulitan dalam mengonfigurasi sistem, silakan hubungi tim dukungan kami.
               </p>
             </div>
-            <button className="h-10 px-6 rounded-full bg-transparent border-2 border-[#0d253d] text-[#0d253d] dark:border-[#f5e9d4] dark:text-[#f5e9d4] text-[15px] font-medium hover:bg-[#0d253d]/5 dark:hover:bg-[#f5e9d4]/10 transition-colors shrink-0 flex items-center gap-2">
+            <button className="w-full md:w-auto h-10 px-6 rounded-full bg-transparent border-2 border-[#0d253d] text-[#0d253d] dark:border-[#f5e9d4] dark:text-[#f5e9d4] text-[15px] font-medium hover:bg-[#0d253d]/5 dark:hover:bg-[#f5e9d4]/10 transition-colors shrink-0 flex items-center justify-center gap-2">
               Pusat Bantuan <ArrowRight className="w-4 h-4" />
             </button>
           </div>

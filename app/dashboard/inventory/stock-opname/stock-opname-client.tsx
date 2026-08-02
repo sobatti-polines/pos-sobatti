@@ -431,7 +431,7 @@ function FormBody({ products }: { products: Product[] }) {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-auto min-h-0">
         <table className="w-full min-w-[700px]">
           <thead>
             <tr className="border-b border-border/60 bg-muted/80 backdrop-blur-md sticky top-0 z-10">
@@ -553,12 +553,12 @@ function FormBody({ products }: { products: Product[] }) {
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-border bg-background gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
+      <div className="shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 px-6 py-4 border-t border-border bg-background">
+        <div className="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-max">
           <Button
             type="button"
             variant="ghost"
-            className="rounded-full px-4 h-9 text-muted-foreground hover:text-foreground"
+            className="rounded-full px-4 h-9 w-full md:w-auto text-muted-foreground hover:text-foreground"
             onClick={() =>
               append({
                 id_produk: 0,
@@ -573,7 +573,7 @@ function FormBody({ products }: { products: Product[] }) {
           <Button
             type="button"
             variant="outline"
-            className="rounded-full px-4 h-9 text-xs gap-1.5"
+            className="rounded-full px-4 h-9 w-full md:w-auto text-xs gap-1.5"
             onClick={() => setIsImportOpen(true)}
           >
             <Upload className="w-3.5 h-3.5" />
@@ -581,7 +581,7 @@ function FormBody({ products }: { products: Product[] }) {
           </Button>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 md:justify-end">
           <div className="text-right">
             <p className="text-[11px] text-muted-foreground uppercase tracking-wider">
               Total Item
@@ -593,7 +593,7 @@ function FormBody({ products }: { products: Product[] }) {
           <Button
             type="submit"
             disabled={fields.length === 0 || loading}
-            className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-full px-6 h-10 w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>

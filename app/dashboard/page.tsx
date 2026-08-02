@@ -42,10 +42,10 @@ export default async function DashboardPage() {
     const monthName = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
 
     return (
-      <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto">
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-6 md:gap-8 mx-auto">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
           <div>
-            <h1 className="text-4xl font-light tracking-tight text-foreground">
+            <h1 className="text-3xl md:text-4xl font-light tracking-tight text-foreground">
               Ringkasan Absensi
             </h1>
             <p className="text-muted-foreground mt-1">Pantau kehadiran Anda</p>
@@ -54,7 +54,7 @@ export default async function DashboardPage() {
 
         <AttendanceWidget initialData={attendanceData} />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           <Card className="border-none shadow-sm bg-emerald-50/50">
             <CardContent className="p-6 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
@@ -110,10 +110,10 @@ export default async function DashboardPage() {
   const dashboardData = await getDashboardData();
 
   return (
-    <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-6 md:gap-8 mx-auto">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
         <div>
-          <h1 className="text-4xl font-light tracking-tight text-foreground">
+          <h1 className="text-3xl md:text-4xl font-light tracking-tight text-foreground">
             Ringkasan
           </h1>
         </div>
@@ -121,11 +121,11 @@ export default async function DashboardPage() {
 
       {!isOwner && <AttendanceWidget initialData={attendanceData} />}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
         <section className="flex flex-col">
-          <h3 className="text-sm font-medium text-muted-foreground mb-6 uppercase tracking-widest">Pendapatan Hari Ini</h3>
-          <div className="mb-8">
-            <h2 className="text-7xl font-light tracking-tight tabular-nums text-foreground mb-4">
+          <h3 className="text-sm font-medium text-muted-foreground mb-4 md:mb-6 uppercase tracking-widest">Pendapatan Hari Ini</h3>
+          <div className="mb-6 md:mb-8">
+            <h2 className="text-4xl sm:text-5xl md:text-7xl font-light tracking-tight tabular-nums text-foreground mb-2 md:mb-4 truncate">
               {formatIDR(dashboardData.todayRevenue)}
             </h2>
             <div className="flex items-center text-sm">
@@ -148,7 +148,7 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
             <div>
               <p className="text-3xl font-light tabular-nums text-foreground">{dashboardData.todayOrders}</p>
               <p className="text-sm text-muted-foreground mt-1">Pesanan</p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Plus, Trash2, Truck, X, AlertCircle, Check, Loader2, Edit2, Download, Upload } from "lucide-react";
+import { Plus, Trash2, Truck, X, AlertCircle, Check, Loader2, Edit2, Upload } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type DeleteModalConfig } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
 import { addSupplier, updateSupplier, deleteSupplier, importSuppliers } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 interface Supplier {
   id: number;
@@ -135,77 +136,26 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
     exportToPDF("Data_Supplier", "Laporan Data Supplier", headers, data);
   };
 
-  const renderEditRowContent = (isNew: boolean) => {
-    const mobileLabel = (label: string) => (
-      <span className="md:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block">{label}</span>
-    );
-    return (
-      <TableRow className={`bg-muted/30 flex flex-col md:table-row p-3 md:p-0 gap-3 md:gap-0 border-b-2 md:border-b`}>
-        <TableCell className="md:pl-6 align-top md:pt-4 p-0 md:p-2 block md:table-cell">
-          {mobileLabel("Nama Supplier")}
-          <Input autoFocus aria-label="Nama Supplier" placeholder="Nama Supplier"
-            value={editForm.nama_supplier || ""}
-            onChange={(e) => setEditForm(prev => ({ ...prev, nama_supplier: e.target.value }))}
-            className="h-10 md:h-8 text-[15px] md:text-[13px]"
-          />
-          {errorMsg && <p className="text-[11px] text-destructive mt-1">{errorMsg}</p>}
-        </TableCell>
-        <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
-          {mobileLabel("Telepon")}
-          <Input aria-label="Telepon" placeholder="Telepon"
-            value={editForm.telepon || ""}
-            onChange={(e) => setEditForm(prev => ({ ...prev, telepon: e.target.value }))}
-            className="h-10 md:h-8 text-[15px] md:text-[13px] tabular-nums"
-          />
-        </TableCell>
-        <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
-          {mobileLabel("Email")}
-          <Input aria-label="Email" placeholder="Email"
-            value={editForm.email || ""}
-            onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-            className="h-10 md:h-8 text-[15px] md:text-[13px]"
-          />
-        </TableCell>
-        <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
-          {mobileLabel("Alamat")}
-          <Input aria-label="Alamat" placeholder="Alamat"
-            value={editForm.alamat || ""}
-            onChange={(e) => setEditForm(prev => ({ ...prev, alamat: e.target.value }))}
-            className="h-10 md:h-8 text-[15px] md:text-[13px]"
-          />
-        </TableCell>
-        <TableCell className="align-top md:pt-4 p-0 md:p-2 block md:table-cell">
-          {mobileLabel("Keterangan")}
-          <Input aria-label="Keterangan" placeholder="Keterangan"
-            value={editForm.keterangan || ""}
-            onChange={(e) => setEditForm(prev => ({ ...prev, keterangan: e.target.value }))}
-            className="h-10 md:h-8 text-[15px] md:text-[13px]"
-          />
-        </TableCell>
-        <TableCell className="md:pr-6 align-top pt-2 md:pt-4 text-right p-0 md:p-2 block md:table-cell mt-2 md:mt-0">
-          <div className="flex justify-end gap-2 md:gap-1">
-            <Button variant="outline" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
-              <X className="h-4 w-4" />
-            </Button>
-            <Button variant="default" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8" onClick={handleSaveInline} disabled={isPending}>
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  };
+  const editInput = (field: keyof Supplier, placeholder: string, opts?: { tabular?: boolean }) => (
+    <Input
+      aria-label={placeholder}
+      placeholder={placeholder}
+      value={String(editForm[field] ?? "")}
+      onChange={(e) => setEditForm(prev => ({ ...prev, [field]: e.target.value }))}
+      className={`h-8 text-[13px] ${opts?.tabular ? "tabular-nums" : ""}`}
+    />
+  );
 
   const columns: Column<Supplier>[] = [
-    { key: "nama_supplier", header: "Nama Supplier", sortable: true, className: "md:pl-6", headerClassName: "md:pl-6" },
+    { key: "nama_supplier", header: "Nama Supplier", sortable: true, className: "pl-6", headerClassName: "pl-6" },
     { key: "telepon", header: "Telepon", sortable: true, render: (s) => <span className="tabular-nums">{s.telepon || "-"}</span> },
     { key: "email", header: "Email", sortable: true },
-    { key: "alamat", header: "Alamat", sortable: true, render: (s) => <span className="max-w-xs md:max-w-[200px] xl:max-w-xs truncate block whitespace-normal md:whitespace-nowrap md:truncate">{s.alamat || "-"}</span> },
-    { key: "keterangan", header: "Keterangan", sortable: true, render: (s) => <span className="max-w-xs md:max-w-[150px] xl:max-w-xs truncate block whitespace-normal md:whitespace-nowrap md:truncate">{s.keterangan || "-"}</span> },
+    { key: "alamat", header: "Alamat", sortable: true, render: (s) => <span className="max-w-xs truncate block">{s.alamat || "-"}</span> },
+    { key: "keterangan", header: "Keterangan", sortable: true, render: (s) => <span className="max-w-xs truncate block">{s.keterangan || "-"}</span> },
     {
-      key: "actions", header: "", className: "md:pr-6", headerClassName: "w-[100px] md:pr-6", mobileHide: true,
+      key: "actions", header: "", className: "pr-6", headerClassName: "w-[100px] pr-6",
       render: (supplier) => (
-        <div className="flex justify-end gap-2 md:gap-1">
+        <div className="flex justify-end gap-1">
           <Button variant="outline" size="icon" aria-label="Edit supplier" className="h-11 w-11 md:h-8 md:w-8 md:border-transparent md:bg-transparent text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, supplier)} disabled={editingId !== null}>
             <Edit2 className="h-4 w-4" />
           </Button>
@@ -244,11 +194,46 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
       itemsPerPage={table.itemsPerPage}
       onItemsPerPageChange={table.setItemsPerPage}
       editingId={editingId as number | "new" | null}
-      renderEditRow={(customer) => renderEditRowContent(customer === null)}
+      renderEditRow={() => {
+        return (
+          <TableRow className="bg-muted/30">
+            <TableCell className="pl-6 align-top pt-4">
+              <Input autoFocus aria-label="Nama Supplier" placeholder="Nama Supplier"
+                value={editForm.nama_supplier || ""}
+                onChange={(e) => setEditForm(prev => ({ ...prev, nama_supplier: e.target.value }))}
+                className="h-8 text-[13px]"
+              />
+              {errorMsg && <p className="text-[11px] text-destructive mt-1">{errorMsg}</p>}
+            </TableCell>
+            <TableCell className="align-top pt-4">{editInput("telepon", "Telepon", { tabular: true })}</TableCell>
+            <TableCell className="align-top pt-4">{editInput("email", "Email")}</TableCell>
+            <TableCell className="align-top pt-4">{editInput("alamat", "Alamat")}</TableCell>
+            <TableCell className="align-top pt-4">{editInput("keterangan", "Keterangan")}</TableCell>
+            <TableCell className="pr-6 align-top pt-4 text-right">
+              <div className="flex justify-end gap-1">
+                <Button variant="outline" size="icon" aria-label="Batal Edit" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={handleCancelInline} disabled={isPending}>
+                  <X className="h-4 w-4" />
+                </Button>
+                <Button variant="default" size="icon" aria-label="Simpan Edit" className="h-11 w-11 md:h-8 md:w-8" onClick={handleSaveInline} disabled={isPending}>
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        );
+      }}
       actions={[
         { label: "Import CSV", icon: <Upload className="w-4 h-4" />, variant: "outline", onClick: () => setIsImportOpen(true) },
-        { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
-        { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
+        {
+          label: "Export",
+          customRender: () => (
+            <ExportDropdown
+              onExportCSV={handleExportCSV}
+              onExportPDF={handleExportPDF}
+              className="flex-1 md:flex-none"
+            />
+          ),
+        },
         {
           label: "Tambah Supplier",
           icon: <Plus className="w-4 h-4" />,

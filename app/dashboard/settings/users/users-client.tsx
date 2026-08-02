@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useEffect, useDeferredValue } from "react";
-import { Plus, Trash2, Edit2, User as UserIcon, Loader2, Download, X, Upload } from "lucide-react";
+import { Plus, Trash2, Edit2, User as UserIcon, Loader2, X, Upload } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type DeleteModalConfig } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
 import { createUser, updateUser, deleteUser, importUsers } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 type User = {
   id: number;
@@ -292,8 +293,16 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
       }}
       actions={[
         { label: "Import CSV", icon: <Upload className="w-4 h-4" />, variant: "outline", onClick: () => setIsImportOpen(true) },
-        { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
-        { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
+        {
+          label: "Export",
+          customRender: () => (
+            <ExportDropdown
+              onExportCSV={handleExportCSV}
+              onExportPDF={handleExportPDF}
+              className="flex-1 md:flex-none"
+            />
+          ),
+        },
         {
           label: "Pengguna Baru",
           icon: <Plus className="w-4 h-4" />,

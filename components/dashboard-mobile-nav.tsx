@@ -29,6 +29,10 @@ import {
   Tag,
   ScanLine,
   History,
+  Calculator,
+  FileText,
+  Landmark,
+  Printer,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -36,6 +40,7 @@ import { Button } from "@/components/ui/button";
 
 const bottomLinks = [
   { href: "/dashboard/settings", label: "Pengaturan", icon: Settings },
+  { href: "/dashboard/settings/keuangan", label: "Keuangan", icon: Landmark },
   { href: "/dashboard/support", label: "Bantuan", icon: HelpCircle },
 ];
 
@@ -96,7 +101,6 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
   const isOwner = role === "OWNER";
   const isStaff = role === "ADMIN" || role === "KASIR" || role === "KARYAWAN";
   const isManagement = role === "OWNER" || role === "ADMIN";
-  const isKaryawan = role === "KARYAWAN";
 
   return (
     <>
@@ -133,7 +137,7 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
           />
           
           {/* Menu Panel */}
-          <div className="fixed inset-y-0 right-0 w-4/5 max-w-sm bg-background border-l border-border shadow-2xl flex flex-col transform transition-transform duration-300 ease-out sm:w-80">
+          <div className="fixed inset-y-0 left-0 w-4/5 max-w-sm bg-background border-r border-border shadow-2xl flex flex-col transform transition-transform duration-300 ease-out sm:w-80">
             <div className="flex items-center justify-between px-4 py-4 border-b border-border">
               <span className="text-lg font-medium tracking-tight">Menu Navigasi</span>
               <Button 
@@ -148,10 +152,12 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
 
             <div className="flex-1 overflow-y-auto py-6 px-4">
               <nav className="flex flex-col gap-1">
-                <Link href="/dashboard" className={linkClass("/dashboard")}>
-                  <LayoutGrid className="w-5 h-5" />
-                  <span>Ringkasan</span>
-                </Link>
+                {role !== "KASIR" && (
+                  <Link href="/dashboard" className={linkClass("/dashboard")}>
+                    <LayoutGrid className="w-5 h-5" />
+                    <span>Ringkasan</span>
+                  </Link>
+                )}
 
                 {role === "KASIR" && (
                   <Link href="/pos" className={linkClass("/pos")}>
@@ -243,12 +249,32 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
 
                     <div className="mt-4 pt-4 border-t border-border/50">
                       <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Kasir & Keuangan
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Link href="/dashboard/tutup-kasir" className={linkClass("/dashboard/tutup-kasir")} onClick={() => setIsOpen(false)}>
+                          <Calculator className="w-5 h-5" />
+                          <span>Tutup Kasir</span>
+                        </Link>
+                        <Link href="/dashboard/laporan-kasir" className={linkClass("/dashboard/laporan-kasir")} onClick={() => setIsOpen(false)}>
+                          <FileText className="w-5 h-5" />
+                          <span>Riwayat Kas Harian</span>
+                        </Link>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-border/50">
+                      <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Tools
                       </div>
                       <div className="flex flex-col gap-1">
                          <Link href="/dashboard/label-generator" className={linkClass("/dashboard/label-generator")} onClick={() => setIsOpen(false)}>
                           <Tag className="w-5 h-5" />
                           <span>Pricetag Generator</span>
+                        </Link>
+                        <Link href="/dashboard/product-label" className={linkClass("/dashboard/product-label")} onClick={() => setIsOpen(false)}>
+                          <Printer className="w-5 h-5" />
+                          <span>Cetak Label Produk</span>
                         </Link>
                         <Link href="/dashboard/log-aktivitas" className={linkClass("/dashboard/log-aktivitas")} onClick={() => setIsOpen(false)}>
                           <History className="w-5 h-5" />
@@ -299,7 +325,7 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
               </nav>
 
               <div className="flex flex-col gap-2 mt-8 pt-6 border-t border-border">
-                {!isKaryawan && bottomLinks.map(({ href, label, icon: Icon }) => (
+                {role !== "KASIR" && role !== "KARYAWAN" && bottomLinks.map(({ href, label, icon: Icon }) => (
                   <Link key={href} href={href} className={linkClass(href)}>
                     <Icon className="w-5 h-5" />
                     <span>{label}</span>

@@ -94,7 +94,7 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
         
         {/* Header Section */}
         <div className="flex flex-col border-b border-border bg-muted/20">
-          <DialogHeader className="px-6 py-5 pb-4">
+          <DialogHeader className="px-4 sm:px-6 py-5 pb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <PackageOpen className="w-5 h-5 text-primary" />
@@ -109,7 +109,7 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
           </DialogHeader>
 
           {/* Search Bar */}
-          <div className="px-6 pb-4">
+          <div className="px-4 sm:px-6 pb-4">
             <form onSubmit={handleSearch} className="flex gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -141,7 +141,7 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-muted/50 sticky top-0 z-10 backdrop-blur-md">
               <tr>
-                <th className="px-6 py-4 w-16">
+                <th className="px-3 sm:px-6 py-4 w-16">
                   <button 
                     onClick={toggleSelectAll}
                     disabled={products.length === 0}
@@ -154,15 +154,15 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
                     )}
                   </button>
                 </th>
-                <th className="px-4 py-4 font-semibold tracking-wider">Nama Produk</th>
-                <th className="px-4 py-4 font-semibold tracking-wider">Barcode</th>
-                <th className="px-6 py-4 font-semibold tracking-wider text-right">Harga Jual</th>
+                <th className="px-3 sm:px-4 py-4 font-semibold tracking-wider">Nama Produk</th>
+                <th className="px-3 sm:px-4 py-4 font-semibold tracking-wider">Barcode</th>
+                <th className="px-3 sm:px-6 py-4 font-semibold tracking-wider text-right">Harga Jual</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {products.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-16">
+                  <td colSpan={4} className="px-4 py-16">
                     <div className="flex flex-col items-center justify-center text-center">
                       <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                         <Search className="w-8 h-8 text-muted-foreground/50" />
@@ -184,7 +184,7 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
                     )}
                     onClick={() => toggleSelect(product.id)}
                   >
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-3 sm:px-6 py-4 text-center">
                       <button 
                         className={cn(
                           "transition-colors",
@@ -202,12 +202,12 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
                         )}
                       </button>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-3 sm:px-4 py-4">
                       <span className={cn("font-medium text-base", isSelected ? "text-foreground" : "text-foreground/90")}>
                         {product.nama_produk}
                       </span>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-3 sm:px-4 py-4">
                       {product.barcode ? (
                         <span className="font-mono text-xs bg-muted px-2 py-1 rounded-md text-muted-foreground">
                           {product.barcode}
@@ -216,7 +216,7 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
                         <span className="text-xs text-muted-foreground/50 italic">Kosong</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-3 sm:px-6 py-4 text-right">
                       <span className="font-medium text-foreground">
                         {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(product.harga_jual_satuan)}
                       </span>
@@ -229,9 +229,9 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
         </div>
 
         {/* Footer Section */}
-        <div className="border-t border-border bg-background p-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/10 text-primary px-4 py-2 rounded-lg text-sm font-medium">
+        <div className="border-t border-border bg-background p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="bg-primary/10 text-primary px-4 py-2 rounded-lg text-sm font-medium text-center whitespace-nowrap">
               {selectedIds.size} Produk Terpilih
             </div>
             {selectedIds.size > 0 && (
@@ -240,11 +240,11 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
               </Button>
             )}
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" size="lg" onClick={() => onOpenChange(false)} className="px-8 rounded-xl">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <Button variant="outline" size="lg" onClick={() => onOpenChange(false)} className="px-4 sm:px-8 rounded-xl w-full sm:w-auto">
               Batal
             </Button>
-            <Button size="lg" onClick={handleInsert} disabled={selectedIds.size === 0} className="px-8 rounded-xl shadow-sm">
+            <Button size="lg" onClick={handleInsert} disabled={selectedIds.size === 0} className="px-4 sm:px-8 rounded-xl shadow-sm w-full sm:w-auto">
               Masukkan ke Antrean
             </Button>
           </div>

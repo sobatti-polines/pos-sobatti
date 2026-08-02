@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo, useDeferredValue } from "react";
-import { ClipboardList, Download } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
@@ -128,8 +129,16 @@ export default function OpnameHistoryClient({ initialHistory }: { initialHistory
       filters={filters}
       actions={[
         { label: "Reset", variant: "outline", onClick: () => { setSearchQuery(""); setDateFilter({ start: "", end: "" }); } },
-        { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
-        { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
+        {
+          label: "Export",
+          customRender: () => (
+            <ExportDropdown
+              onExportCSV={handleExportCSV}
+              onExportPDF={handleExportPDF}
+              className="flex-1 md:flex-none"
+            />
+          ),
+        },
       ]}
       emptyState={{
         icon: ClipboardList,

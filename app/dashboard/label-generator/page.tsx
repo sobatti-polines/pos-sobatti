@@ -120,8 +120,8 @@ export default function LabelGeneratorPage() {
       `}} />
 
       <div className="flex-1 flex flex-col min-h-0 print:hidden">
-        <div className="px-6 pt-6 pb-4 border-b border-border">
-          <div className="flex items-center justify-between">
+        <div className="px-4 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-border">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Tag className="w-5 h-5 text-primary" />
@@ -223,9 +223,9 @@ export default function LabelGeneratorPage() {
                       <div key={item.id} className="flex items-center gap-3 p-3 border rounded-lg bg-background shadow-sm">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-sm truncate">{item.nama_produk}</h3>
-                          <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                            <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{item.sku || '-'}</span>
-                            <span>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(item.harga_modal)}</span>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1 min-w-0">
+                            <span className="font-mono bg-muted px-1.5 py-0.5 rounded truncate min-w-0">{item.sku || '-'}</span>
+                            <span className="shrink-0">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(item.harga_modal)}</span>
                           </div>
                         </div>
                         <Button variant="ghost" size="icon-xs" onClick={() => handleRemove(item.id)} className="text-destructive hover:bg-destructive/10 shrink-0 h-8 w-8" disabled={isGenerating}>
@@ -275,7 +275,7 @@ export default function LabelGeneratorPage() {
 
           {/* Right Panel — Preview */}
           <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-            <div className="p-6 flex items-center justify-between border-b border-border bg-background sticky top-0 z-10">
+            <div className="px-4 py-4 sm:px-6 flex items-center justify-between border-b border-border bg-background sticky top-0 z-10">
               <h2 className="text-sm font-medium text-foreground">Live Preview</h2>
 
               {data.length > 0 && (
@@ -303,10 +303,10 @@ export default function LabelGeneratorPage() {
               )}
             </div>
 
-            <div className="flex-1 flex items-center justify-center p-8 bg-muted/20 min-h-[400px]">
+            <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-muted/20 min-h-[300px] sm:min-h-[400px]">
               <div className="relative">
                 <p className="absolute -top-5 left-0 text-[10px] text-muted-foreground font-mono">60mm × 40mm</p>
-                <div className="scale-[1.5] origin-center shadow-xl transition-transform duration-300 rounded-sm overflow-hidden">
+                <div className="scale-[1.2] sm:scale-[1.5] origin-center shadow-xl transition-transform duration-300 rounded-sm overflow-hidden">
                   <PriceTag
                     productName={previewItem.nama_produk}
                     sku={previewItem.sku}

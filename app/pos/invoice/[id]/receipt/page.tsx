@@ -74,7 +74,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="min-h-screen bg-white flex justify-center p-0 md:p-8">
-      <div className="w-[58mm] flex flex-col font-mono text-[10px] leading-tight text-black print:w-full print:m-0">
+      <div className="w-[58mm] flex flex-col font-mono text-[10px] leading-tight text-black break-words print:w-full print:m-0">
         {/* Header */}
         <div className="text-center mb-4">
           <h1 className="text-xs font-bold uppercase mb-1">{pengaturan?.nama_toko || "SOBATTI POS"}</h1>
@@ -93,7 +93,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           </div>
           <div className="flex justify-between">
             <span>KSR: {transaksi.kasir?.username}</span>
-            <span>PLG: {transaksi.pelanggan?.nama_pelanggan || "Umum"}</span>
+            <span className="min-w-0 text-right">PLG: {transaksi.pelanggan?.nama_pelanggan || "Umum"}</span>
           </div>
         </div>
 

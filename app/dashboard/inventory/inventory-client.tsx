@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Plus, PackageOpen, X, AlertCircle, Check, Loader2, Edit2, Trash2, Download, Warehouse, Eye, EyeOff, Upload } from "lucide-react";
+import { Plus, PackageOpen, X, AlertCircle, Check, Loader2, Edit2, Trash2, Warehouse, Eye, EyeOff, Upload } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef, type DeleteModalConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { addProduct, updateProduct, deleteProduct, restockDisplay, importProduct
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ProductDetailSheet from "@/components/product-detail-sheet";
 import ImportCSVModal from "@/components/import-csv-modal";
+import { ExportDropdown } from "@/components/export-dropdown";
 import {
   Dialog,
   DialogContent,
@@ -226,8 +227,8 @@ export default function InventoryClient({
   ];
 
   const avcoColumns: Column<Product>[] = [
-    { key: "harga_pokok_avco", header: "HPP (AVCO)", sortable: true, headerClassName: "text-right w-[120px]", render: (p) => <span className="tabular-nums">{formatIDR(p.harga_pokok_avco)}</span> },
-    { key: "nilai_persediaan", header: "Total Aset", sortable: true, headerClassName: "text-right w-[120px]", render: (p) => <span className="tabular-nums">{formatIDR(p.nilai_persediaan)}</span> },
+    { key: "harga_pokok_avco", header: "HPP (AVCO)", sortable: true, align: "right", headerClassName: "w-[120px]", render: (p) => <span className="tabular-nums">{formatIDR(p.harga_pokok_avco)}</span> },
+    { key: "nilai_persediaan", header: "Total Aset", sortable: true, align: "right", headerClassName: "w-[120px]", render: (p) => <span className="tabular-nums">{formatIDR(p.nilai_persediaan)}</span> },
   ];
 
   const actionsColumn: Column<Product> = {
@@ -294,8 +295,16 @@ export default function InventoryClient({
         onRowClick={(p) => setSelectedProduct(p)}
         actions={[
           { label: "Import CSV", icon: <Upload className="w-4 h-4" />, variant: "outline", onClick: () => setIsImportOpen(true) },
-          { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
-          { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
+          {
+            label: "Export",
+            customRender: () => (
+              <ExportDropdown
+                onExportCSV={handleExportCSV}
+                onExportPDF={handleExportPDF}
+                className="flex-1 md:flex-none"
+              />
+            ),
+          },
           {
             label: showAvcoCols ? "Sembunyikan HPP" : "Tampilkan HPP",
             icon: showAvcoCols ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />,
@@ -443,7 +452,7 @@ export default function InventoryClient({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3.5 pt-3 border-t border-border/40">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-3 border-t border-border/40">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" title="Sama dengan label teks unit base">
                         Base Unit
@@ -616,7 +625,7 @@ export default function InventoryClient({
             <div className="flex items-center gap-3.5 w-full sm:w-auto justify-end">
               <Button
                 variant="outline"
-                className="px-6 h-11 rounded-full bg-background flex-1 sm:flex-none text-sm font-medium"
+                className="px-4 sm:px-6 h-11 rounded-full bg-background flex-1 sm:flex-none text-sm font-medium"
                 onClick={handleCancelInline}
                 disabled={isPending}
               >
@@ -624,7 +633,7 @@ export default function InventoryClient({
               </Button>
               <Button
                 variant="default"
-                className="px-8 h-11 rounded-full shadow-sm flex-1 sm:flex-none text-sm font-medium"
+                className="px-4 sm:px-8 h-11 rounded-full shadow-sm flex-1 sm:flex-none text-sm font-medium"
                 onClick={handleSaveInline}
                 disabled={isPending}
               >

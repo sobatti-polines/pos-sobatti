@@ -164,7 +164,7 @@ export default function AttendanceScanPage() {
   const isVideoVisible = status === "scanning" || status === "processing";
 
   return (
-    <div className="flex-1 p-8 lg:p-12 w-full max-w-8xl mx-auto flex flex-col gap-8">
+    <div className="flex-1 p-4 md:p-8 lg:p-12 w-full max-w-8xl mx-auto flex flex-col gap-8">
       <header>
         <h1 className="text-4xl font-light tracking-tight text-foreground">
           Scan QR Attendance

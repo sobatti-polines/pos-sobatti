@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Plus, Trash2, Users, X, AlertCircle, Check, Loader2, Edit2, Download, Upload } from "lucide-react";
+import { Plus, Trash2, Users, X, AlertCircle, Check, Loader2, Edit2, Upload } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type DeleteModalConfig } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
 import { addCustomer, updateCustomer, deleteCustomer, importCustomers } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 interface Customer {
   id: number;
@@ -164,10 +165,10 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
         if (isUmum) return null;
         return (
           <div className="flex justify-end gap-1">
-            <Button variant="ghost" size="icon" aria-label="Edit customer" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, customer)} disabled={editingId !== null}>
+            <Button variant="outline" size="icon" aria-label="Edit customer" className="h-11 w-11 md:h-8 md:w-8 md:border-transparent md:bg-transparent text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, customer)} disabled={editingId !== null}>
               <Edit2 className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Hapus customer" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); setDeleteTarget(customer); }} disabled={editingId !== null}>
+            <Button variant="outline" size="icon" aria-label="Hapus customer" className="h-11 w-11 md:h-8 md:w-8 md:border-transparent md:bg-transparent text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); setDeleteTarget(customer); }} disabled={editingId !== null}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -216,6 +217,15 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
               {errorMsg && <p className="text-[11px] text-destructive mt-1">{errorMsg}</p>}
             </TableCell>
             <TableCell className="align-top pt-4">{editInput("no_hp", "No. HP", { tabular: true })}</TableCell>
+            <TableCell className="align-top pt-4">
+              <Input
+                aria-label="Poin"
+                value={String(editForm.point ?? 0)}
+                readOnly
+                tabIndex={-1}
+                className="h-8 text-[13px] tabular-nums bg-muted"
+              />
+            </TableCell>
             <TableCell className="align-top pt-4">{editInput("email", "Email")}</TableCell>
             <TableCell className="align-top pt-4">{editInput("alamat", "Alamat")}</TableCell>
             <TableCell className="align-top pt-4">{editInput("keterangan", "Keterangan")}</TableCell>
@@ -234,8 +244,16 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
       }}
       actions={[
         { label: "Import CSV", icon: <Upload className="w-4 h-4" />, variant: "outline", onClick: () => setIsImportOpen(true) },
-        { label: "CSV", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportCSV },
-        { label: "PDF", icon: <Download className="w-4 h-4" />, variant: "outline", onClick: handleExportPDF },
+        {
+          label: "Export",
+          customRender: () => (
+            <ExportDropdown
+              onExportCSV={handleExportCSV}
+              onExportPDF={handleExportPDF}
+              className="flex-1 md:flex-none"
+            />
+          ),
+        },
         {
           label: "Tambah Pelanggan",
           icon: <Plus className="w-4 h-4" />,

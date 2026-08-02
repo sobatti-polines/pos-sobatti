@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { Printer, Search, Loader2, Scale, Download, AlertCircle } from "lucide-react";
+import { Printer, Search, Loader2, Scale, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchNeraca } from "./actions";
 import { exportToCSV } from "@/lib/export-utils";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -55,10 +56,10 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative w-full print-area print:border-none print:shadow-none print:bg-transparent">
-      <div className="shrink-0 flex flex-col items-start md:flex-row md:items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4 print:hidden">
-        <div className="flex-1 flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border w-full md:w-auto">
-            <div className="flex items-center justify-between sm:justify-start gap-2 px-2 py-1 sm:py-0">
+      <div className="shrink-0 flex flex-col items-start xl:flex-row xl:items-center justify-between p-4 lg:p-6 border-b border-border bg-transparent gap-4 print:hidden">
+        <div className="flex-1 flex flex-col xl:flex-row items-stretch xl:items-center gap-3 w-full">
+          <div className="flex flex-col xl:flex-row items-stretch xl:items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border w-full xl:w-auto">
+            <div className="flex items-center justify-between sm:justify-start gap-2 px-2 py-1 xl:py-0">
               <Label htmlFor="date" className="text-[11px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">Tanggal Laporan</Label>
               <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-[150px] h-9 text-sm bg-background" />
             </div>
@@ -69,10 +70,8 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-2 md:ml-4 shrink-0 w-full md:w-auto">
-          <Button variant="outline" className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none" onClick={handleExport}>
-            <Download className="w-4 h-4" /> Unduh CSV
-          </Button>
+        <div className="flex flex-wrap items-center gap-2 xl:ml-4 shrink-0 w-full xl:w-auto">
+          <ExportDropdown onExportCSV={handleExport} className="flex-1 md:flex-none" />
           <Button variant="outline" className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none" onClick={() => window.print()}>
             <Printer className="w-4 h-4" /> Cetak Laporan
           </Button>

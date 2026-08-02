@@ -10,9 +10,20 @@ import {
   Trash2,
   AlertCircle,
   Loader2,
+  Filter,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -65,9 +76,10 @@ export interface ActionDef {
   label: string
   icon?: React.ReactNode
   variant?: "outline" | "default" | "destructive" | "ghost" | "secondary"
-  onClick: () => void
+  onClick?: () => void
   disabled?: boolean
   kind?: "default" | "primary"
+  customRender?: () => React.ReactNode
 }
 
 export interface DeleteModalConfig {
@@ -189,6 +201,18 @@ export default function DataTable<T>({
 
   const isInEditMode = editingId !== undefined && editingId !== null
 
+  const dateFilters = (filters ?? []).filter((f) => f.type === "date-range")
+  const selectFilters = (filters ?? []).filter((f) => f.type === "select")
+  const customFilters = (filters ?? []).filter((f) => f.type === "custom")
+  const useNestedFilters = selectFilters.length >= 2
+
+  const isSelectFilterActive = (f: SelectFilter) =>
+    f.value !== "" && f.value !== "all"
+
+  const activeFilterCount = useNestedFilters
+    ? selectFilters.filter(isSelectFilterActive).length
+    : 0
+
   const getRowBaseClass = () => {
     if (!mobileCards) return "group hover:bg-muted/30 transition-colors"
     if (bp === "md") return "group hover:bg-muted/30 transition-colors flex flex-col md:table-row p-4 md:p-0 border-b hover:bg-muted/30"
@@ -251,85 +275,144 @@ export default function DataTable<T>({
                     </div>
                   )}
 
-                  {filters && filters.length > 0 && (
+                  {(dateFilters.length > 0 || customFilters.length > 0) && (
                     <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                      {filters.map((filter, i) => {
-                        if (filter.type === "select") {
-                          return (
-                            <select
-                              key={i}
-                              aria-label={filter.label}
-                              value={filter.value}
-                              onChange={(e) => filter.onChange(e.target.value)}
-                              disabled={isInEditMode}
-                              className="h-10 w-full md:w-auto rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 text-muted-foreground disabled:opacity-50"
-                            >
-                              <option value="all">
-                                {filter.placeholder || `Semua ${filter.label}`}
-                              </option>
-                              {filter.options.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                          )
-                        }
-                        if (filter.type === "date-range") {
-                          return (
-                            <div key={i} className="flex items-center gap-2 w-full md:w-auto">
-                              <Input
-                                type="date"
-                                disabled={isInEditMode}
-                                className="rounded-md border px-3 py-2 text-sm w-full md:w-40 h-10 disabled:opacity-50"
-                                value={filter.start}
-                                onChange={(e) => filter.onStartChange(e.target.value)}
-                              />
-                              <span className="text-muted-foreground text-sm">s/d</span>
-                              <Input
-                                type="date"
-                                disabled={isInEditMode}
-                                className="rounded-md border px-3 py-2 text-sm w-full md:w-40 h-10 disabled:opacity-50"
-                                value={filter.end}
-                                onChange={(e) => filter.onEndChange(e.target.value)}
-                              />
-                            </div>
-                          )
-                        }
-                        if (filter.type === "custom") {
-                          return <div key={i}>{filter.render()}</div>
-                        }
-                        return null
-                      })}
+                      {dateFilters.map((filter, i) => (
+                        <div key={i} className="flex items-center gap-2 w-full md:w-auto">
+                          <Input
+                            type="date"
+                            disabled={isInEditMode}
+                            className="rounded-md border px-3 py-2 text-sm w-full md:w-40 h-10 disabled:opacity-50"
+                            value={filter.start}
+                            onChange={(e) => filter.onStartChange(e.target.value)}
+                          />
+                          <span className="text-muted-foreground text-sm">s/d</span>
+                          <Input
+                            type="date"
+                            disabled={isInEditMode}
+                            className="rounded-md border px-3 py-2 text-sm w-full md:w-40 h-10 disabled:opacity-50"
+                            value={filter.end}
+                            onChange={(e) => filter.onEndChange(e.target.value)}
+                          />
+                        </div>
+                      ))}
+                      {customFilters.map((filter, i) => (
+                        <div key={`custom-${i}`}>{filter.render()}</div>
+                      ))}
                     </div>
+                  )}
+
+                  {useNestedFilters ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="gap-2 px-4 h-10 flex-1 md:flex-none"
+                          disabled={isInEditMode}
+                        >
+                          <Filter className="w-4 h-4" />
+                          Filter
+                          {activeFilterCount > 0 && (
+                            <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-medium tabular-nums">
+                              {activeFilterCount}
+                            </span>
+                          )}
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        {selectFilters.map((filter) => {
+                          const isActive = isSelectFilterActive(filter)
+                          return (
+                            <DropdownMenuSub key={filter.label}>
+                              <DropdownMenuSubTrigger
+                                className={cn(
+                                  isActive && "text-primary font-medium"
+                                )}
+                              >
+                                {filter.label}
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent>
+                                <DropdownMenuRadioGroup
+                                  value={filter.value === "" ? "all" : filter.value}
+                                  onValueChange={filter.onChange}
+                                >
+                                  <DropdownMenuRadioItem value="all">
+                                    {filter.placeholder ||
+                                      `Semua ${filter.label}`}
+                                  </DropdownMenuRadioItem>
+                                  {filter.options.map((opt) => (
+                                    <DropdownMenuRadioItem
+                                      key={opt.value}
+                                      value={opt.value}
+                                    >
+                                      {opt.label}
+                                    </DropdownMenuRadioItem>
+                                  ))}
+                                </DropdownMenuRadioGroup>
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          )
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    selectFilters.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                        {selectFilters.map((filter) => (
+                          <select
+                            key={filter.label}
+                            aria-label={filter.label}
+                            value={filter.value}
+                            onChange={(e) => filter.onChange(e.target.value)}
+                            disabled={isInEditMode}
+                            className="h-10 w-full md:w-auto rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 text-muted-foreground disabled:opacity-50"
+                          >
+                            <option value="all">
+                              {filter.placeholder || `Semua ${filter.label}`}
+                            </option>
+                            {filter.options.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ))}
+                      </div>
+                    )
                   )}
                 </div>
 
                 {actions && actions.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2 md:ml-4 shrink-0 w-full md:w-auto">
                     {actions.map((action, i) => (
-                      <Button
-                        key={i}
-                        variant={
-                          action.kind === "primary"
-                            ? "default"
-                            : action.variant || "outline"
-                        }
-                        onClick={action.onClick}
-                        disabled={action.disabled}
-                        className={cn(
-                          "rounded-full",
-                          action.kind === "primary"
-                            ? "px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm font-normal shrink-0 gap-2"
-                            : action.kind
-                              ? ""
-                              : "px-4 h-10 gap-2",
-                          "flex-1 md:flex-none"
+                      <React.Fragment key={i}>
+                        {action.customRender ? (
+                          action.customRender()
+                        ) : (
+                          <Button
+                            variant={
+                              action.kind === "primary"
+                                ? "default"
+                                : action.variant || "outline"
+                            }
+                            onClick={action.onClick}
+                            disabled={action.disabled}
+                            className={cn(
+                              "rounded-full",
+                              action.kind === "primary"
+                                ? "px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm font-normal shrink-0 gap-2"
+                                : action.kind
+                                  ? ""
+                                  : "px-4 h-10 gap-2",
+                              "flex-1 md:flex-none"
+                            )}
+                          >
+                            {action.icon}
+                            {action.label}
+                          </Button>
                         )}
-                      >
-                        {action.icon}
-                        {action.label}
-                      </Button>
+                      </React.Fragment>
                     ))}
                   </div>
                 )}
@@ -489,7 +572,7 @@ export default function DataTable<T>({
             <span className="font-medium text-foreground">{endRecord}</span> dari{" "}
             <span className="font-medium text-foreground">{total}</span> data
           </p>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {onItemsPerPageChange && (
               <div className="flex items-center gap-2">
                 <span className="text-[13px] text-muted-foreground whitespace-nowrap">

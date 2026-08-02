@@ -67,7 +67,7 @@ export default function GenerateQRPage() {
   const hasQR = qrDataUrl && !isExpired;
 
   return (
-    <div className="flex-1 p-8 lg:p-12 w-full max-w-4xl mx-auto flex flex-col gap-8">
+    <div className="flex-1 p-4 md:p-8 lg:p-12 w-full max-w-4xl mx-auto flex flex-col gap-8">
       <header>
         <h1 className="text-4xl font-light tracking-tight text-foreground">
           Generate QR Attendance
@@ -84,19 +84,19 @@ export default function GenerateQRPage() {
             <CardDescription>Berlaku selama {timeLeft > 0 ? timeLeft : 30} detik</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-8 py-10">
-            <div className="bg-background p-4 rounded-2xl relative">
+            <div className="bg-background p-4 rounded-2xl relative w-full max-w-[282px] mx-auto">
               {loading && !qrDataUrl ? (
-                <div className="w-[250px] h-[250px] flex items-center justify-center">
+                <div className="w-full aspect-square flex items-center justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
               ) : hasQR ? (
                 <img 
                   src={qrDataUrl} 
                   alt="QR Attendance" 
-                  className={`w-[250px] h-[250px] transition-opacity duration-300 ${loading ? "opacity-50" : "opacity-100"}`}
+                  className={`w-full aspect-square transition-opacity duration-300 ${loading ? "opacity-50" : "opacity-100"}`}
                 />
               ) : (
-                <div className="w-[250px] h-[250px] flex flex-col items-center justify-center text-center p-6 bg-muted/20 rounded-xl border-2 border-dashed border-border/50">
+                <div className="w-full aspect-square flex flex-col items-center justify-center text-center p-6 bg-muted/20 rounded-xl border-2 border-dashed border-border/50">
                   <p className="text-sm text-muted-foreground mb-4">
                     {isExpired ? "QR Code telah kedaluwarsa." : "Klik tombol di bawah untuk membuat QR code baru."}
                   </p>

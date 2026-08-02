@@ -17,14 +17,6 @@ export default async function DashboardLayout({
 
   const role = user.user_metadata?.role;
 
-  if (role === "KASIR") {
-    redirect("/pos");
-  }
-
-  if (role === "KARYAWAN") {
-    redirect("/attendance/scan");
-  }
-
   return (
     <div className="flex flex-col md:h-[100dvh] md:overflow-hidden bg-background md:flex-row">
       <DashboardSidebar role={role} />
