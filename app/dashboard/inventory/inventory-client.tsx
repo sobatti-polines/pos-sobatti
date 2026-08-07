@@ -7,6 +7,7 @@ import DataTable, { type Column, type FilterDef, type DeleteModalConfig } from "
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { addProduct, updateProduct, deleteProduct, restockDisplay, importProducts } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
@@ -49,9 +50,12 @@ interface Product {
   stok_minimum: number;
   harga_pokok_avco: number;
   nilai_persediaan: number;
-  base_unit: string;
   default_purchase_unit: string | null;
   conversion_ratio: number;
+  jual_satuan: string | null;
+  harga_jual_besar_satuan: number | null;
+  harga_jual_besar_grosir: number | null;
+  harga_jual_besar_promo: number | null;
   kategori: { nama: string } | null;
   satuan: { nama: string } | null;
 }
@@ -135,9 +139,12 @@ export default function InventoryClient({
       harga_jual_grosir: Number(editForm.harga_jual_grosir || 0),
       harga_jual_promo: editForm.harga_jual_promo ? Number(editForm.harga_jual_promo) : null,
       diskon: Number(editForm.diskon || 0), stok_minimum: Number(editForm.stok_minimum ?? 5),
-      base_unit: editForm.base_unit || "pcs",
       default_purchase_unit: editForm.default_purchase_unit || null,
       conversion_ratio: Number(editForm.conversion_ratio ?? 1),
+      jual_satuan: editForm.jual_satuan || null,
+      harga_jual_besar_satuan: editForm.harga_jual_besar_satuan ? Number(editForm.harga_jual_besar_satuan) : null,
+      harga_jual_besar_grosir: editForm.harga_jual_besar_grosir ? Number(editForm.harga_jual_besar_grosir) : null,
+      harga_jual_besar_promo: editForm.harga_jual_besar_promo ? Number(editForm.harga_jual_besar_promo) : null,
     };
 
     startTransition(async () => {
@@ -313,7 +320,7 @@ export default function InventoryClient({
           },
           {
             label: "Tambah Produk", icon: <Plus className="w-4 h-4" />, kind: "primary",
-            onClick: () => { setEditingId("new"); setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5, base_unit: "pcs", default_purchase_unit: "", conversion_ratio: 1, id_satuan: 0 }); setErrorMsg(""); },
+            onClick: () => { setEditingId("new"); setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5, default_purchase_unit: "", conversion_ratio: 1, id_satuan: 0 }); setErrorMsg(""); },
             disabled: editingId !== null,
           },
         ]}
@@ -435,14 +442,14 @@ export default function InventoryClient({
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Satuan (Base) <span className="text-destructive">*</span>
+                        Satuan Inventory <span className="text-destructive">*</span>
                       </label>
                       <select
                         value={editForm.id_satuan || ""}
                         onChange={(e) => setEditForm((prev) => ({ ...prev, id_satuan: Number(e.target.value) }))}
                         className="w-full h-11 rounded-md border border-input bg-background px-3.5 text-sm shadow-2xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                       >
-                        <option value="">Pilih Satuan</option>
+                        <option value="">Pilih Satuan Inventory</option>
                         {units.map((u) => (
                           <option key={u.id} value={u.id}>
                             {u.nama}
@@ -452,30 +459,19 @@ export default function InventoryClient({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-3 border-t border-border/40">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" title="Sama dengan label teks unit base">
-                        Base Unit
-                      </label>
-                      <select
-                        value={editForm.base_unit || "pcs"}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, base_unit: e.target.value }))}
-                        className="w-full h-11 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-2xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-                      >
-                        {units.map((u) => (
-                          <option key={u.id} value={u.nama}>
-                            {u.nama}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-3 border-t border-border/40">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" title="Satuan pembelian">
                         Sat. Beli
                       </label>
                       <select
                         value={editForm.default_purchase_unit || ""}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, default_purchase_unit: e.target.value }))}
+                        onChange={(e) => setEditForm((prev) => {
+                          const unit = e.target.value;
+                          // Jika satuan jual besar aktif, ikuti Sat. Beli (Opsi A)
+                          const jualSatuan = prev.jual_satuan ? (unit || null) : prev.jual_satuan;
+                          return { ...prev, default_purchase_unit: unit, jual_satuan: jualSatuan };
+                        })}
                         className="w-full h-11 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-2xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                       >
                         <option value="">(sama)</option>
@@ -499,6 +495,92 @@ export default function InventoryClient({
                       />
                     </div>
                   </div>
+
+                  {/* Sell Unit — toggle besar (on = jual_satuan mengikuti default_purchase_unit) */}
+                   <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" title="Satuan jual besar (opsional)">
+                            Jual dalam Satuan Besar
+                          </label>
+                          {editForm.jual_satuan ? (
+                            <p className="text-[11px] text-muted-foreground italic pt-0.5">
+                              Satuan jual: {editForm.jual_satuan} · 1 {editForm.jual_satuan} = {editForm.conversion_ratio ?? 1} satuan inventory
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground pt-0.5">
+                              Satuan jual besar mengikuti Sat. Beli{editForm.default_purchase_unit ? ` (${editForm.default_purchase_unit})` : " (kosong)"}
+                            </p>
+                          )}
+                        </div>
+                        <Switch
+                          checked={!!editForm.jual_satuan}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              if (!editForm.default_purchase_unit) {
+                                setErrorMsg("Isi Sat. Beli terlebih dahulu untuk mengaktifkan satuan jual besar");
+                                return;
+                              }
+                              setEditForm((prev) => ({ ...prev, jual_satuan: prev.default_purchase_unit }));
+                            } else {
+                              setEditForm((prev) => ({
+                                ...prev,
+                                jual_satuan: null,
+                                harga_jual_besar_satuan: null,
+                                harga_jual_besar_grosir: null,
+                                harga_jual_besar_promo: null,
+                              }));
+                            }
+                          }}
+                          aria-label="Jual dalam satuan besar"
+                        />
+                      </div>
+                    </div>
+
+                  {/* Harga Jual Besar (only shown if jual_satuan is set) */}
+                  {editForm.jual_satuan && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-3 border-t border-border/40">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Harga {editForm.jual_satuan} (Satuan)
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={editForm.harga_jual_besar_satuan ?? ""}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_satuan: e.target.value ? Number(e.target.value) : null }))}
+                          className="h-11 tabular-nums text-sm font-medium bg-background px-3"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Harga {editForm.jual_satuan} (Grosir)
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={editForm.harga_jual_besar_grosir ?? ""}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_grosir: e.target.value ? Number(e.target.value) : null }))}
+                          className="h-11 tabular-nums text-sm font-medium bg-background px-3"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Harga {editForm.jual_satuan} (Promo)
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={editForm.harga_jual_besar_promo ?? ""}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_promo: e.target.value ? Number(e.target.value) : null }))}
+                          className="h-11 tabular-nums text-sm font-medium bg-background px-3"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

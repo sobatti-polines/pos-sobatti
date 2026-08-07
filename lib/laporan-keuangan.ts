@@ -1,13 +1,14 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { startOfDay, endOfDay, format } from "date-fns";
+import { format } from "date-fns";
 
 export async function generateLabaRugi(
   supabase: SupabaseClient,
   startDate: string,
   endDate: string
 ) {
-  const start = startOfDay(new Date(startDate)).toISOString();
-  const end = endOfDay(new Date(endDate)).toISOString();
+  // tgl_transaksi is stored in UTC; use WIB (+07:00) day boundaries.
+  const start = `${startDate}T00:00:00+07:00`;
+  const end = `${endDate}T23:59:59+07:00`;
 
   // 1. Fetch sales aggregation
   const { data: sales, error: salesErr } = await supabase
@@ -109,7 +110,7 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
   const { data: allSales } = await supabase
     .from("transaksi_keluar")
     .select("total, pajak_nominal, total_hpp")
-    .lte("tgl_transaksi", endOfDay(new Date(date)).toISOString())
+    .lte("tgl_transaksi", `${dateStr}T23:59:59+07:00`)
     .limit(100000);
 
   const labaDitahan = (allSales || []).reduce((acc, s) => {

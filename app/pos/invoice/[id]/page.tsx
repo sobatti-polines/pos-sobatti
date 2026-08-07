@@ -21,6 +21,7 @@ function formatDate(dateStr: string) {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Jakarta",
   }).format(new Date(dateStr));
 }
 
@@ -210,17 +211,21 @@ export default async function InvoicePage({
               </tr>
             </thead>
             <tbody>
-              {items.map((item: { produk?: { nama_produk?: string, satuan?: { nama?: string } }, type_harga_jual?: string, harga_jual: number, qty: number, jumlah: number }, i: number) => (
-                <tr key={i} className="border-b border-[#e3e8ee]">
-                  <td className="py-4">
-                    <p className="text-[15px] font-light text-[#0d253d]">{item.produk?.nama_produk || "Item Tidak Diketahui"}</p>
-                    <p className="text-[13px] font-light text-[#64748d] mt-1">{item.type_harga_jual}</p>
-                  </td>
-                  <td className="py-4 text-[14px] font-light tabular-nums tracking-[-0.42px] text-right text-[#64748d]">{formatIDR(item.harga_jual)}</td>
-                  <td className="py-4 text-[14px] font-light tabular-nums tracking-[-0.42px] text-center text-[#0d253d]">{item.qty} {item.produk?.satuan?.nama || ""}</td>
-                  <td className="py-4 text-[14px] font-light tabular-nums tracking-[-0.42px] text-right text-[#0d253d]">{formatIDR(item.jumlah)}</td>
-                </tr>
-              ))}
+              {items.map((item: { produk?: { nama_produk?: string, satuan?: { nama?: string } }, type_harga_jual?: string, harga_jual: number, qty: number, qty_satuan?: number, satuan_jual?: string, jumlah: number }, i: number) => {
+                const displayQty = item.qty_satuan ?? item.qty;
+                const displayUnit = item.satuan_jual ?? item.produk?.satuan?.nama ?? "";
+                return (
+                  <tr key={i} className="border-b border-[#e3e8ee]">
+                    <td className="py-4">
+                      <p className="text-[15px] font-light text-[#0d253d]">{item.produk?.nama_produk || "Item Tidak Diketahui"}</p>
+                      <p className="text-[13px] font-light text-[#64748d] mt-1">{item.type_harga_jual}</p>
+                    </td>
+                    <td className="py-4 text-[14px] font-light tabular-nums tracking-[-0.42px] text-right text-[#64748d]">{formatIDR(item.harga_jual)}</td>
+                    <td className="py-4 text-[14px] font-light tabular-nums tracking-[-0.42px] text-center text-[#0d253d]">{displayQty} {displayUnit}</td>
+                    <td className="py-4 text-[14px] font-light tabular-nums tracking-[-0.42px] text-right text-[#0d253d]">{formatIDR(item.jumlah)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -8,7 +8,7 @@ export default async function StockInPage() {
     supabase
       .from("produk")
       .select(
-        "id, nama_produk, barcode, base_unit, default_purchase_unit, conversion_ratio, satuan(id, nama)"
+        "id, nama_produk, barcode, default_purchase_unit, conversion_ratio, satuan(id, nama)"
       )
       .eq("hitung_stok", true)
       .order("nama_produk"),
@@ -20,21 +20,23 @@ export default async function StockInPage() {
     id: number;
     nama_produk: string;
     barcode: string | null;
-    base_unit: string;
     default_purchase_unit: string | null;
     conversion_ratio: number;
     satuan: { id: number; nama: string } | { id: number; nama: string }[] | null;
   }
 
-  const products = (productsRes.data ?? []).map((p: RawStockInProduct) => ({
-    id: p.id,
-    nama_produk: p.nama_produk,
-    barcode: p.barcode,
-    base_unit: p.base_unit || "pcs",
-    default_purchase_unit: p.default_purchase_unit || null,
-    conversion_ratio: p.conversion_ratio || 1,
-    satuan: Array.isArray(p.satuan) ? p.satuan[0] ?? null : p.satuan ?? null,
-  }));
+  const products = (productsRes.data ?? []).map((p: RawStockInProduct) => {
+    const satuanNama = (Array.isArray(p.satuan) ? p.satuan[0] ?? null : p.satuan ?? null)?.nama ?? "pcs";
+    return {
+      id: p.id,
+      nama_produk: p.nama_produk,
+      barcode: p.barcode,
+      inventory_unit: satuanNama,
+      default_purchase_unit: p.default_purchase_unit || null,
+      conversion_ratio: p.conversion_ratio || 1,
+      satuan: Array.isArray(p.satuan) ? p.satuan[0] ?? null : p.satuan ?? null,
+    };
+  });
 
   const satuanOptions: { id: number; nama: string }[] = satuanRes.data ?? [];
 

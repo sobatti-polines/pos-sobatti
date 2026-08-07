@@ -1,3 +1,4 @@
+
 ## Table `kategori`
 
 ### Columns
@@ -66,6 +67,7 @@
 | `email` | `varchar` |  Nullable |
 | `keterangan` | `text` |  Nullable |
 | `created_at` | `timestamp` |  |
+| `point` | `int4` |  |
 
 ## Table `produk`
 
@@ -211,6 +213,7 @@
 | `metode_cetak` | `text` |  Nullable |
 | `logo_nota` | `bool` |  Nullable |
 | `hormat_kami_nama` | `text` |  Nullable |
+| `poin_min_pembelian` | `numeric` |  |
 
 ## Table `absensi`
 
@@ -375,6 +378,23 @@
 | `nama` | `varchar` |  Unique |
 | `kode` | `varchar` |  Unique |
 
+## Table `log_aktivitas`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `id_pengguna` | `int4` |  |
+| `aksi` | `text` |  |
+| `entitas` | `text` |  |
+| `id_entitas` | `int4` |  Nullable |
+| `deskripsi` | `text` |  |
+| `data_lama` | `jsonb` |  Nullable |
+| `data_baru` | `jsonb` |  Nullable |
+| `ip_address` | `text` |  Nullable |
+| `created_at` | `timestamptz` |  |
+
 ## RLS Policies
 
 ### `barang_masuk`
@@ -497,3 +517,10 @@
 |--------|---------|-------|--------|-------|------------|
 | `authenticated users can select pembayaran_piutang` | SELECT | authenticated | PERMISSIVE | `true` | — |
 | `authenticated users can insert pembayaran_piutang` | INSERT | authenticated | PERMISSIVE | — | `true` |
+
+### `log_aktivitas`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `auth_can_select_log_aktivitas` | SELECT | authenticated | PERMISSIVE | `true` | — |
+

@@ -32,9 +32,12 @@ export default async function InventoryPage() {
     stok_minimum: number | null;
     harga_pokok_avco: number | null;
     nilai_persediaan: number | null;
-    base_unit: string | null;
     default_purchase_unit: string | null;
     conversion_ratio: number | null;
+    jual_satuan: string | null;
+    harga_jual_besar_satuan: number | null;
+    harga_jual_besar_grosir: number | null;
+    harga_jual_besar_promo: number | null;
     kategori: { nama: string } | null;
     satuan: { nama: string } | null;
   }
@@ -48,9 +51,12 @@ export default async function InventoryPage() {
       stok_minimum: p.stok_minimum ?? 5,
       harga_pokok_avco: p.harga_pokok_avco ?? 0,
       nilai_persediaan: p.nilai_persediaan ?? 0,
-      base_unit: p.base_unit ?? "pcs",
       default_purchase_unit: p.default_purchase_unit ?? null,
       conversion_ratio: p.conversion_ratio ?? 1,
+      jual_satuan: p.jual_satuan ?? null,
+      harga_jual_besar_satuan: p.harga_jual_besar_satuan ?? null,
+      harga_jual_besar_grosir: p.harga_jual_besar_grosir ?? null,
+      harga_jual_besar_promo: p.harga_jual_besar_promo ?? null,
     };
   });
 

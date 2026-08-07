@@ -40,15 +40,19 @@ export interface LowStockItem {
 export async function getDashboardData(): Promise<DashboardData> {
   const supabase = await createClient();
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
-
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-  const yesterdayEnd = new Date(todayEnd);
-  yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+  // Use WIB (UTC+7) for business-day boundaries, consistent with
+  // no_transaksi prefix and /api/laporan/penjualan (+07:00 filters).
+  const nowUtc = Date.now();
+  const wibOffset = 7 * 60 * 60 * 1000;
+  const nowWIB = new Date(nowUtc + wibOffset);
+  const todayStr = nowWIB.toISOString().slice(0, 10);
+  const todayStart = new Date(`${todayStr}T00:00:00+07:00`);
+  const todayEnd = new Date(`${todayStr}T23:59:59+07:00`);
+  const yesterday = new Date(nowWIB);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const yesterdayStart = new Date(`${yesterdayStr}T00:00:00+07:00`);
+  const yesterdayEnd = new Date(`${yesterdayStr}T23:59:59+07:00`);
 
   const fmt = (d: Date) => d.toISOString();
 
@@ -93,7 +97,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from("transaksi_keluar")
       .select("tgl_transaksi, total")
-      .gte("tgl_transaksi", fmt(new Date(todayStart.getTime() - 13 * 86400000)))
+      .gte("tgl_transaksi", fmt(new Date(nowUtc - 13 * 86400000)))
       .lte("tgl_transaksi", fmt(todayEnd))
       .order("tgl_transaksi", { ascending: true })
       .limit(100000),
@@ -174,7 +178,9 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const dayTotals = new Map<string, number>();
   for (const row of recentDaysRes.data ?? []) {
-    const day = new Date(row.tgl_transaksi).toISOString().slice(0, 10);
+    const day = new Date(
+      new Date(row.tgl_transaksi).getTime() + wibOffset
+    ).toISOString().slice(0, 10);
     dayTotals.set(day, (dayTotals.get(day) ?? 0) + Number(row.total));
   }
   const sparklineData = Array.from(dayTotals.values());

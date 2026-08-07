@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   } = await request.json();
 
   if (!items || items.length === 0) {
-    return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
+    return NextResponse.json({ error: "Keranjang kosong. Tambahkan produk terlebih dahulu." }, { status: 400 });
   }
 
   const {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
   }
 
   const { data: pengguna } = await supabase
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
   if (!pengguna) {
     return NextResponse.json(
-      { error: "Staff profile not found. Cannot process checkout." },
+      { error: "Profil pegawai tidak ditemukan. Tidak dapat memproses transaksi." },
       { status: 403 }
     );
   }
@@ -69,11 +69,15 @@ export async function POST(request: Request) {
   const itemsForRpc = items.map((i: {
     id_produk: number;
     qty: number;
+    qty_satuan?: number;
+    satuan_jual?: string | null;
     diskon_item?: number;
     tipe_harga?: string;
   }) => ({
     id_produk: i.id_produk,
     qty: i.qty,
+    qty_satuan: i.qty_satuan ?? i.qty,
+    satuan_jual: i.satuan_jual ?? null,
     diskon_item: i.diskon_item || 0,
     type_harga_jual: i.tipe_harga ? i.tipe_harga.toUpperCase() : "SATUAN",
   }));
@@ -96,6 +100,19 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("Checkout RPC error:", error);
+
+    // Error domain dari RPC (RAISE EXCEPTION) — tampilkan pesan asli ke kasir
+    const msg = error.message ?? "";
+    const domainErrors = [
+      "Stok tidak mencukupi",
+      "Pelanggan harus dipilih",
+      "tidak ditemukan",
+      "Qty tidak valid",
+    ];
+    if (domainErrors.some((d) => msg.includes(d))) {
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+
     return NextResponse.json({ error: "Gagal memproses checkout" }, { status: 500 });
   }
 

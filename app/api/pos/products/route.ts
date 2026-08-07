@@ -17,8 +17,10 @@ export async function GET(req: NextRequest) {
     .select(`
       id, nama_produk, id_kategori, hitung_stok, barcode, stok, stok_gudang,
       harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon,
-      base_unit, default_purchase_unit, conversion_ratio,
-      kategori(nama)
+      default_purchase_unit, conversion_ratio,
+      jual_satuan,
+      harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo,
+      kategori(nama), satuan(nama)
     `, { count: "exact" })
     .order("nama_produk");
 

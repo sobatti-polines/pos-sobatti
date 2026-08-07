@@ -1,11 +1,14 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { startOfDay, endOfDay, subDays, format } from "date-fns";
+import { format, subDays } from "date-fns";
 
 export async function getDailyCashSummary(supabase: SupabaseClient, date: string) {
   const d = new Date(date);
-  const start = startOfDay(d).toISOString();
-  const end = endOfDay(d).toISOString();
   const dateStr = format(d, "yyyy-MM-dd");
+
+  // tgl_transaksi is stored in UTC; use WIB (+07:00) day boundaries so
+  // 00:00–06:59 WIB sales are counted on the correct business day.
+  const start = `${dateStr}T00:00:00+07:00`;
+  const end = `${dateStr}T23:59:59+07:00`;
 
   // 1. Get Saldo Awal (Yesterday's Saldo Akhir)
   const yesterdayStr = format(subDays(d, 1), "yyyy-MM-dd");

@@ -29,9 +29,12 @@ interface ProductData {
   harga_jual_promo: number | null;
   diskon: number;
   stok_minimum: number;
-  base_unit?: string;
   default_purchase_unit?: string | null;
   conversion_ratio?: number;
+  jual_satuan?: string | null;
+  harga_jual_besar_satuan?: number | null;
+  harga_jual_besar_grosir?: number | null;
+  harga_jual_besar_promo?: number | null;
 }
 
 export async function addProduct(data: ProductData) {
@@ -65,7 +68,7 @@ export async function updateProduct(id: number, data: ProductData) {
   // Fetch old data for log
   const { data: oldProduct } = await supabase
     .from("produk")
-    .select("nama_produk, id_kategori, id_satuan, hitung_stok, sku, barcode, harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon, stok_minimum, base_unit, default_purchase_unit, conversion_ratio")
+    .select("nama_produk, id_kategori, id_satuan, hitung_stok, sku, barcode, harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon, stok_minimum, default_purchase_unit, conversion_ratio, jual_satuan, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo")
     .eq("id", id)
     .single();
 
@@ -301,7 +304,7 @@ export async function importProducts(
     if (!nama_produk.trim()) continue;
 
     const catName = r["Kategori"] || r["kategori"] || "";
-    const unitName = r["Satuan"] || r["satuan"] || "";
+    const unitName = r["Satuan"] || r["satuan"] || r["Satuan Dasar"] || r["base_unit"] || "";
     const brandName = r["Merk"] || r["merk"] || "";
 
     const id_kategori = catName ? (await getOrCreateRef("kategori", categoryMap, catName)) || defaultCatId : defaultCatId;
@@ -331,7 +334,6 @@ export async function importProducts(
     const hitungStokRaw = (r["Hitung Stok"] || r["hitung_stok"] || "ya").toString().toLowerCase().trim();
     const hitung_stok = hitungStokRaw === "ya" || hitungStokRaw === "true" || hitungStokRaw === "1";
 
-    const base_unit = (r["Satuan Dasar"] || r["base_unit"] || "pcs").trim() || "pcs";
     const default_purchase_unit = (r["Satuan Beli"] || r["default_purchase_unit"] || "").trim() || null;
     const conversion_ratio = parseNum(r["Rasio Konversi"] || r["conversion_ratio"], 1);
 
@@ -355,7 +357,6 @@ export async function importProducts(
       stok_gudang,
       stok_minimum,
       hitung_stok,
-      base_unit,
       default_purchase_unit,
       conversion_ratio,
       harga_pokok_avco,

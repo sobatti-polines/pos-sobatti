@@ -133,6 +133,14 @@ app/                          # Next.js App Router pages & API routes
 │   │   │   └── page.tsx      # Generate QR code absensi (auto-refresh 30s)
 │   │   └── report/
 │   │       └── page.tsx      # Laporan absensi pegawai (admin/owner)
+│   ├── log-aktivitas/
+│   │   └── page.tsx          # Log aktivitas admin/owner
+│   ├── label-generator/
+│   │   └── page.tsx          # Generator price tag (A4)
+│   ├── product-label/
+│   │   └── page.tsx          # Cetak label produk thermal
+│   ├── support/
+│   │   └── page.tsx          # Halaman bantuan/FAQ
 │   └── settings/
 │       ├── page.tsx          # Pengaturan toko
 │       ├── users/
@@ -201,7 +209,7 @@ types/
 └── barcode-detector.d.ts      # Ambient type untuk BarcodeDetector Web API
 
 supabase/
-└── migrations/                # 19 file migrasi SQL (lihat detail di bawah)
+└── migrations/                # 25 file migrasi SQL (lihat detail di bawah)
 
 public/
 ├── icon-192x192.png
@@ -224,9 +232,9 @@ public/
 | **pengguna** | `id SERIAL PK`, `username VARCHAR UNIQUE`, `password VARCHAR`, `level VARCHAR` (ADMIN/KASIR/OWNER/KARYAWAN), `aktif BOOL`, `nama TEXT` | Pengguna sistem |
 | **supplier** | `id SERIAL PK`, `nama_supplier VARCHAR`, `alamat TEXT`, `telepon VARCHAR`, `email VARCHAR`, `keterangan TEXT` | Pemasok barang |
 | **pelanggan** | `id SERIAL PK`, `nama_pelanggan VARCHAR`, `alamat TEXT`, `no_hp VARCHAR`, `email VARCHAR`, `keterangan TEXT` | Pelanggan |
-| **produk** | `id SERIAL PK`, `nama_produk VARCHAR`, `sku VARCHAR UNIQUE`, `id_merk INT FK(merk)`, `id_kategori INT FK(kategori)`, `id_satuan INT FK(satuan)`, `hitung_stok BOOL`, `harga_modal NUMERIC`, `harga_jual_satuan NUMERIC`, `harga_jual_grosir NUMERIC`, `harga_jual_promo NUMERIC`, `diskon NUMERIC`, `stok NUMERIC`, `stok_gudang NUMERIC`, `stok_minimum INT DEFAULT 5`, `barcode TEXT UNIQUE`, `harga_pokok_avco NUMERIC`, `nilai_persediaan NUMERIC`, `base_unit VARCHAR DEFAULT 'pcs'`, `default_purchase_unit VARCHAR`, `conversion_ratio NUMERIC DEFAULT 1` | Produk (dual stok: display+gudang) |
+| **produk** | `id SERIAL PK`, `nama_produk VARCHAR`, `sku VARCHAR UNIQUE`, `id_merk INT FK(merk)`, `id_kategori INT FK(kategori)`, `id_satuan INT FK(satuan)`, `hitung_stok BOOL`, `harga_modal NUMERIC`, `harga_jual_satuan NUMERIC`, `harga_jual_grosir NUMERIC`, `harga_jual_promo NUMERIC`, `diskon NUMERIC`, `stok NUMERIC`, `stok_gudang NUMERIC`, `stok_minimum INT DEFAULT 5`, `barcode TEXT UNIQUE`, `harga_pokok_avco NUMERIC`, `nilai_persediaan NUMERIC`, `default_purchase_unit VARCHAR`, `conversion_ratio NUMERIC DEFAULT 1`, `jual_satuan TEXT`, `harga_jual_besar_satuan NUMERIC`, `harga_jual_besar_grosir NUMERIC`, `harga_jual_besar_promo NUMERIC` | Produk (dual stok: display+gudang). `id_satuan` = base unit untuk stok/HPP/struk. `jual_satuan` = satuan jual besar (opsional). Rasio jual besar = `conversion_ratio` (sama dengan rasio beli) |
 | **transaksi_keluar** | `id SERIAL PK`, `no_transaksi BIGINT UNIQUE`, `tgl_transaksi TIMESTAMP`, `id_kasir INT FK(pengguna)`, `id_pelanggan INT FK(pelanggan)`, `id_metode_bayar INT FK(metode_bayar)`, `subtotal`, `diskon_persen`, `diskon_nominal`, `pajak_persen`, `pajak_nominal`, `total`, `bayar`, `kembali`, `dp`, `sisa`, `total_hpp`, `laba_kotor` | Transaksi penjualan |
-| **detail_transaksi_keluar** | `id SERIAL PK`, `id_transaksi INT FK`, `id_produk INT FK`, `type_harga_jual VARCHAR` (SATUAN/GROSIR/PROMO), `harga_modal`, `harga_jual`, `diskon_item`, `qty`, `jumlah`, `kas_masuk`, `profit`, `harga_pokok_satuan`, `total_harga_pokok` | Item detail transaksi |
+| **detail_transaksi_keluar** | `id SERIAL PK`, `id_transaksi INT FK`, `id_produk INT FK`, `type_harga_jual VARCHAR` (SATUAN/GROSIR/PROMO), `harga_modal`, `harga_jual`, `diskon_item`, `qty`, `jumlah`, `kas_masuk`, `profit`, `harga_pokok_satuan`, `total_harga_pokok`, `satuan_jual TEXT`, `qty_satuan NUMERIC`, `jual_ratio NUMERIC` | Item detail transaksi |
 | **barang_masuk** | `id SERIAL PK`, `tgl_masuk DATE`, `id_supplier INT FK`, `id_produk INT FK`, `harga_beli NUMERIC`, `jumlah NUMERIC`, `total NUMERIC`, `keterangan TEXT`, `supplied_unit VARCHAR`, `supplied_qty NUMERIC`, `applied_conversion_ratio NUMERIC`, `base_qty_added NUMERIC`, `total_cost NUMERIC`, `base_cost_per_piece NUMERIC` | Barang masuk (pembelian stok) |
 | **stok_opname** | `id SERIAL PK`, `tgl_opname DATE`, `id_produk INT FK`, `stok_sistem NUMERIC`, `stok_fisik NUMERIC`, `selisih NUMERIC`, `keterangan TEXT` | Stok opname |
 | **absensi** | `id BIGSERIAL PK`, `id_pengguna INT FK`, `tanggal DATE`, `jam_masuk TIMESTAMP`, `jam_pulang TIMESTAMP`, `status VARCHAR` (HADIR/TELAT), `telat_menit INT`, `latitude NUMERIC`, `longitude NUMERIC`, `foto_masuk TEXT`, `foto_pulang TEXT`, `device_info TEXT` | Absensi karyawan |
@@ -244,8 +252,12 @@ public/
 
 | Function | Parameter | Keterangan |
 |----------|-----------|------------|
-| **process_checkout** | `p_items JSONB, p_id_kasir INT, p_id_pelanggan INT?, p_id_metode_bayar INT?, p_diskon_persen NUMERIC, p_bayar NUMERIC, p_pajak_persen NUMERIC, p_is_dp BOOL` | Proses checkout: generate no_transaksi (YYYYMM + 4 digit seq), hitung subtotal/diskon/pajak/total, insert header + detail, kurangi stok (display stok), catat AVCO history, buat piutang jika sisa > 0. **Gunakan `pg_advisory_xact_lock(987654321)`** untuk serialisasi race condition. |
+| **process_checkout** | `p_items JSONB, p_id_kasir INT, p_id_pelanggan INT?, p_id_metode_bayar INT?, p_diskon_persen NUMERIC, p_bayar NUMERIC, p_pajak_persen NUMERIC, p_is_dp BOOL` | Proses checkout: generate no_transaksi (YYYYMM + 4 digit seq), hitung subtotal/diskon/pajak/total, insert header + detail, **validasi stok** (tolak jika qty > total stok, pesan "Stok tidak mencukupi"), kurangi stok display dulu lalu fallback ke gudang, catat AVCO history (stok total). **Gunakan `pg_advisory_xact_lock(987654321)`**. Piutang sudah dihapus (sisa hanya tercatat di kolom `sisa`). |
 | **process_barang_masuk** | `p_items JSONB` | Proses barang masuk: dual-format (UoM + legacy). Insert barang_masuk, update stok_gudang, hitung ulang harga_pokok_avco & nilai_persediaan. Gunakan `pg_advisory_xact_lock(987654322)`. |
+| **process_stock_opname** | `p_items JSONB` | Proses bulk stok opname: insert stok_opname, update stok display ke stok_fisik, catat AVCO jenis `koreksi`. Gunakan `pg_advisory_xact_lock(987654323)`. |
+| **increment_point** | `row_id INT, points INT` | Tambah poin member pelanggan secara atomik. |
+| **reset_pelanggan_id_seq** | — | Reset sequence pelanggan (workaround konflik 23505 saat insert member). |
+| **tambah_log_aktivitas** | `p_id_pengguna, p_aksi, p_entitas, p_id_entitas, p_deskripsi, p_data_lama, p_data_baru, p_ip_address` | Insert log ke `log_aktivitas` (SECURITY DEFINER, bypass RLS). |
 | **get_inventory_value_at_date** | `p_date DATE` | Ambil nilai persediaan (nilai_persediaan_sesudah) per produk dari riwayat_avco terakhir sebelum/saat tanggal. |
 
 ### Format Nomor Transaksi
@@ -269,14 +281,16 @@ public/
 - **Diskon Item**: Per-produk, dikurangkan dari harga jual sebelum dikali qty
 - **Diskon Global**: Persentase dari subtotal
 - **Pajak**: Persentase dari (subtotal - diskon), diambil dari `pengaturan.pajak_persen`
+- **Multi-unit selling**: Produk bisa dijual dalam 2 satuan (base + satu satuan besar). Harga besar per satuan (`harga_jual_besar_satuan/grosir/promo`) diinput manual. `conversion_ratio` menentukan berapa qty base dalam 1 satuan besar.
 
 ### Stok (Dual Warehouse System)
 - **`stok`**: Stok display (tersedia di rak toko)
 - **`stok_gudang`**: Stok gudang/warehouse
 - **Total Stok** = `stok` + `stok_gudang`
-- **Penjualan**: Kurangi `stok` (display). Jika stok display tidak cukup, kurangi sisa dari `stok_gudang` (logika di klien).
+- **Penjualan**: Kurangi `stok` (display) dulu, jika tidak cukup sisa diambil dari `stok_gudang` (logika di RPC `process_checkout`, validasi stok di pass 1 sebelum transaksi disimpan).
 - **Barang Masuk**: Tambah ke `stok_gudang` (bukan display)
 - **Produk** dengan `hitung_stok = false` tidak akan dikurangi stoknya saat checkout
+- **Restock display**: Manual via `restockDisplay` di halaman Inventaris (gudang → display)
 
 ### AVCO (Average Cost / Harga Pokok)
 - Method: **Weighted Average Cost (AVCO)** — harga pokok rata-rata tertimbang
@@ -290,20 +304,21 @@ public/
 - **Migration ke-9** (20260606000001) menambahkan kolom HPP ke transaksi; **migration ke-10** (20260606000002) menambahkan AVCO + update process_checkout
 
 ### Hutang & Piutang
-- **Catatan**: Fitur Hutang & Piutang telah **dihapus dari codebase** (commit `60673b9` — "delete hutang"). Tabel dan sidebar links masih ada di DB/UI tapi tidak aktif digunakan.
-- Piutang masih dibuat otomatis saat checkout jika `sisa > 0` (dari `process_checkout`).
-- Kode untuk manajemen hutang/piutang (CRUD, pembayaran) sudah dihapus.
+- **Catatan**: Fitur Hutang & Piutang telah **dihapus** — tabel `hutang_dagang`, `piutang_dagang`, `pembayaran_hutang`, `pembayaran_piutang` di-drop oleh migration `20260721_drop_hutang_piutang.sql`.
+- Kolom `dp` dan `sisa` di `transaksi_keluar` tetap ada untuk melacak kelengkapan transaksi DP, tetapi tidak ada entri piutang yang terkait.
+- Laporan (Neraca) menetapkan Piutang = 0 dan Hutang = 0.
 
 ### Transaksi (Checkout Flow)
-1. Kasir memilih produk (search/barcode scan)
-2. Pilih tipe harga (Satuan/Grosir/Promo)
-3. Atur qty (via numpad +/-, atau klik item + numpad)
-4. Pilih pelanggan (opsional, wajib jika kredit/DP)
-5. Pilih metode bayar
-6. Input jumlah bayar (via numpad)
-7. Submit → POST `/api/pos/checkout` → panggil RPC `process_checkout`
-8. Redirect ke `/pos/invoice/[id]`
-9. Invoice bisa dicetak thermal 58mm atau faktur A4
+1. Kasir memilih produk (search → dialog pilih satuan; barcode scan → langsung ke cart)
+2. Pilih satuan jual (base unit atau satuan besar — misal: METER/ROLL) — opsional jika produk punya `jual_satuan`
+3. Pilih tipe harga (Satuan/Grosir/Promo) — berlaku untuk semua satuan
+4. Atur qty (via numpad +/-, atau klik item + numpad) — qty dalam satuan jual
+5. Pilih pelanggan (opsional, wajib jika kredit/DP)
+6. Pilih metode bayar
+7. Input jumlah bayar (via numpad)
+8. Submit → POST `/api/pos/checkout` → panggil RPC `process_checkout` dengan `satuan_jual`, `qty_satuan`
+9. Redirect ke `/pos/invoice/[id]`
+10. Invoice bisa dicetak thermal 58mm atau faktur A4
 
 ### Laporan Keuangan (Laba Rugi & Neraca)
 
@@ -350,10 +365,10 @@ public/
 - Produk bisa memiliki SKU (nomor unik) selain barcode
 
 ### UoM Conversion (Unit of Measure)
-- **Base Unit**: Default `pcs` (satuan dasar inventory)
+- **Base Unit**: Satuan dasar inventory (disimpan di `produk.id_satuan` → FK ke tabel `satuan`)
 - **Purchase Unit**: Satuan pembelian dari supplier (contoh: `lusin`, `roll`, `set`)
 - **Conversion Ratio**: Jumlah base_unit dalam 1 purchase_unit (contoh: 12 untuk lusin → 1 lusin = 12 pcs)
-- Disimpan di kolom `produk.base_unit`, `produk.default_purchase_unit`, `produk.conversion_ratio`
+- Disimpan di kolom `produk.id_satuan`, `produk.default_purchase_unit`, `produk.conversion_ratio`
 - Di form Barang Masuk: input quantity dalam purchase unit → otomatis dikonversi ke base unit
 - HPP tetap dalam base unit (per pcs), total cost = qty_supplied × total_cost (bukan per piece)
 - Migration `20260720_add_uom_conversion.sql` + `20260710_process_barang_masuk.sql` (dual-format)
@@ -441,7 +456,7 @@ interface PosState {
   paymentMethods: PaymentMethod[] // Metode bayar
 
   // Cart & POS flow
-  cart: CartItem[]              // Item di keranjang ({ id_produk, nama_produk, kategori, harga_jual, qty, diskon_item, tipe_harga })
+  cart: CartItem[]              // Item di keranjang ({ id_produk, nama_produk, kategori, harga_jual, qty, qty_satuan, satuan_jual, diskon_item, tipe_harga })
   numpadValue: string           // Input numpad (string karena bisa mengandung ".")
   searchQuery: string           // Pencarian produk
   selectedCustomer: Customer | null
@@ -452,8 +467,8 @@ interface PosState {
 
   // Actions
   setProducts(), setCustomers(), setPaymentMethods()
-  addToCart(product)            // Tambah (atau increment qty jika sudah ada)
-  updateQty(id, delta)          // Ubah qty (+1/-1)
+  addToCart(product, opts)       // Tambah (opts.satuan_jual untuk pilih satuan besar)
+  updateQty(id, delta)          // Ubah qty (+1/-1, otomatis rekalkulasi base qty)
   removeItem(id)                // Hapus dari cart
   clearCart()                   // Reset cart
   numpadPress(val)              // "0"-"9", "delete", "."
@@ -461,8 +476,9 @@ interface PosState {
   setSelectedCustomer(c)
   setSelectedPayment(id)
   setActiveCartItemId(id)       // Toggle selected item
-  applyNumpadAsQty()            // Terapkan numpadValue sebagai qty item aktif
+  applyNumpadAsQty()            // Terapkan numpadValue sebagai qty_satuan item aktif
   setPriceType(type)            // Ganti tipe harga item aktif (Satuan/Grosir/Promo)
+  setSellUnit(unit)             // Ganti satuan jual item aktif (base/satuan besar)
   checkout()                    // POST /api/pos/checkout → redirect ke invoice
 }
 ```
@@ -471,40 +487,54 @@ interface PosState {
 
 ## 🌐 API ROUTES LENGKAP
 
+> **Catatan penting**: Sebagian besar CRUD dashboard (transaksi, produk, kategori, satuan, supplier, pelanggan, pengaturan, users, laporan laba-rugi/neraca, stok opname, barang masuk) diimplementasikan sebagai **Server Actions** (di folder `app/` masing-masing halaman, file `actions.ts`), bukan Route Handlers. Route Handlers berikut hanya untuk POS, absensi, laporan penjualan, scanner, dan util.
+
+### Route Handlers (`app/api/`)
+
 | Route | Method | Fungsi |
 |-------|--------|--------|
-| `/api/auth/login` | POST | Login dengan Supabase Auth |
-| `/api/pos/products` | GET | Ambil semua produk (aktif) |
-| `/api/pos/customer-search` | GET | Cari pelanggan by nama/no_hp |
-| `/api/pos/checkout` | POST | Proses checkout (panggil RPC process_checkout) |
-| `/api/dashboard/stats` | GET | Data ringkasan dashboard |
-| `/api/dashboard/transactions` | GET | Riwayat transaksi (paginated, filterable) |
-| `/api/dashboard/transactions/[id]` | GET | Detail transaksi |
-| `/api/dashboard/transactions/[id]` | DELETE | Void transaksi |
-| `/api/low-stock` | GET | Daftar produk stok menipis |
-| `/api/customers` | GET/POST | CRUD pelanggan |
-| `/api/customers/[id]` | PUT/DELETE | Edit/hapus pelanggan |
-| `/api/inventory/products` | GET/POST | CRUD produk |
-| `/api/inventory/categories` | GET/POST | CRUD kategori |
-| `/api/inventory/units` | GET/POST | CRUD satuan |
-| `/api/inventory/suppliers` | GET/POST | CRUD supplier |
-| `/api/inventory/stock-in` | POST | Barang masuk (panggil RPC process_barang_masuk) |
-| `/api/inventory/stock-opname` | POST | Simpan stok opname |
-| `/api/inventory/barcode` | GET | Generate barcode SVG |
-| `/api/attendance/today` | GET | Status absensi hari ini |
-| `/api/attendance/check-in` | POST | Check-in (QR scan + GPS) |
-| `/api/attendance/check-out` | POST | Check-out |
-| `/api/attendance/qr-scan` | POST | Validasi QR + lokasi |
-| `/api/attendance/generate-qr` | GET | Generate QR token baru |
-| `/api/scanner/relay` | POST | Relay barcode ke sesi POS |
-| `/api/settings` | GET/PUT | CRUD pengaturan toko |
-| `/api/users` | GET/POST/PUT | CRUD pengguna |
-| `/api/laporan/penjualan` | GET | Laporan penjualan (paginated, filterable) |
-| `/api/laporan/penjualan/rekap` | GET | Rekap penjualan (grouped) |
+| `/api/auth/login` | POST | Login dengan Supabase Auth (email = `username@sobats.com`) |
+| `/api/pos/products` | GET | Ambil produk (search nama/barcode, paginated, caching 60s) |
+| `/api/pos/barcode` | GET | Cari produk by barcode/id/nama (fallback berurutan) |
+| `/api/pos/customers` | GET | Ambil semua pelanggan (+ point) |
+| `/api/pos/payment-methods` | GET | Ambil metode bayar |
+| `/api/pos/member-search` | GET | Cari member by no_hp (ilike, limit 1) |
+| `/api/pos/member-register` | POST | Daftar member baru (point 0, retry 23505 + reset_pelanggan_id_seq) |
+| `/api/pos/checkout` | POST | Proses checkout (RPC process_checkout + poin member via increment_point) |
+| `/api/attendance/today` | GET | Status absensi hari ini (WIB) |
+| `/api/attendance/checkin` | POST | Check-in: validasi QR + geofencing Haversine + telat |
+| `/api/attendance/checkout` | POST | Check-out (validasi QR, tanpa GPS) |
+| `/api/attendance/generate-qr` | POST | Generate QR token (OWNER only, QR_EXPIRE_SECONDS) |
+| `/api/attendance/history` | GET | Riwayat absensi pribadi (limit 31) |
+| `/api/admin/attendance` | GET | Laporan absensi semua pegawai (ADMIN/OWNER) |
+| `/api/laporan/penjualan` | GET | Laporan penjualan (paginated, filterable, include_items) |
+| `/api/laporan/penjualan/rekap` | GET | Rekap penjualan (group_by: hari/kasir/metode_bayar/pelanggan) |
 | `/api/laporan/penjualan/[id]` | GET | Detail transaksi untuk laporan |
-| `/api/laporan/penjualan/export` | GET | Export CSV laporan penjualan |
-| `/api/laporan/laba-rugi` | GET | Generate laporan laba rugi |
-| `/api/laporan/neraca` | GET | Generate laporan neraca |
+| `/api/laporan/penjualan/export` | GET | Export CSV laporan penjualan (server-side) |
+| `/api/low-stock` | GET | Daftar produk stok menipis (caching 30s) |
+| `/api/scanner/[sessionId]` | GET | SSE stream barcode (relay, heartbeat 20s) |
+| `/api/scanner/[sessionId]/events` | GET | Cek sesi scanner masih hidup |
+| `/api/scanner/[sessionId]` | POST | Inject barcode ke sesi (dari HP scanner) |
+| `/api/network-ip` | GET | IP LAN server (untuk QR scanner HP) |
+
+### Server Actions utama
+
+| File | Fungsi |
+|------|--------|
+| `app/dashboard/transactions/actions.ts` | `voidTransaction` (ADMIN/OWNER), `getTransactionDetails` |
+| `app/dashboard/inventory/actions.ts` | CRUD produk, `restockDisplay` (gudang→display), `getProductMutationHistory`, `importProducts` |
+| `app/dashboard/inventory/stock-in/actions.ts` | `addStockIn` (RPC process_barang_masuk, dual-format UoM/legacy) |
+| `app/dashboard/inventory/stock-opname/actions.ts` | `saveStockOpname`, `saveBulkStockOpname` (RPC process_stock_opname) |
+| `app/dashboard/customers/actions.ts` | CRUD pelanggan + import (proteksi "UMUM") |
+| `app/dashboard/suppliers/actions.ts` | CRUD supplier + import |
+| `app/dashboard/settings/actions.ts` | `updateProfile` (username unik + sync auth) |
+| `app/dashboard/settings/store-actions.ts` | `updateStoreSettings` (upsert pengaturan id=1) |
+| `app/dashboard/settings/keuangan/actions.ts` | Upsert pengaturan_keuangan |
+| `app/dashboard/settings/users/actions.ts` | CRUD pengguna (OWNER only, sync auth) |
+| `app/dashboard/settings/reference-data/actions.ts` | CRUD kategori/satuan/merk + import |
+| `app/dashboard/laporan/laba-rugi/actions.ts` | `fetchLabaRugi` |
+| `app/dashboard/laporan/neraca/actions.ts` | `fetchNeraca` |
+| `app/dashboard/tutup-kasir/actions.ts` | Fetch ringkasan kas harian (ADMIN/OWNER) |
 
 ---
 
@@ -524,6 +554,7 @@ interface PosState {
 | `getMonthlyAttendanceStats()` | `lib/attendance.ts` | none | { total, hadir, telat } |
 | `getDashboardData()` | `lib/dashboard.ts` | none | DashboardData |
 | `getLowStockItems()` | `lib/low-stock.ts` | none | LowStockItem[] |
+| `logActivity(supabase, params)` | `lib/activity-log.ts` | SupabaseClient, LogActivityParams | Promise<void> |
 | `getDailyCashSummary(supabase, date)` | `lib/laporan-kasir.ts` | SupabaseClient, string | CashSummary |
 | `confirmTutupKasir(supabase, params)` | `lib/laporan-kasir.ts` | SupabaseClient, TutupKasirParams | SaldoKasHarian |
 | `generateLabaRugi(supabase, startDate, endDate)` | `lib/laporan-keuangan.ts` | SupabaseClient, string, string | LabaRugiReport |
@@ -531,7 +562,7 @@ interface PosState {
 
 ---
 
-## 🧩 MIGRATION HISTORY (19 files)
+## 🧩 MIGRATION HISTORY (25 files)
 
 | No | File | Tujuan |
 |----|------|--------|
@@ -545,7 +576,7 @@ interface PosState {
 | 8 | `20260606000003_add_neraca_rpc.sql` | Buat RPC get_inventory_value_at_date |
 | 9 | `20260706_add_stok_gudang.sql` | Tambah kolom stok_gudang, update process_checkout |
 | 10 | `20260707_add_rls_riwayat_avco.sql` | RLS untuk riwayat_avco |
-| 11 | `20260708_add_produk_realtime.sql` | Tambah tabel produk ke publikasi realtime |
+| 11 | `20260708_add_produk_realtime.sql` | Tambah tabel produk ke publikasi realtime (diperbaiki dari typo "publik") |
 | 12 | `20260710_process_barang_masuk.sql` | Buat RPC process_barang_masuk (dual format) |
 | 13 | `20260710_widen_numeric_columns.sql` | Perluas tipe numeric columns |
 | 14 | `20260716_add_rls_hutang_piutang.sql` | RLS untuk tabel hutang/piutang |
@@ -553,7 +584,16 @@ interface PosState {
 | 16 | `20260717_drop_produk_nama_produk_unique.sql` | Ganti unique constraint ke (nama, sku) |
 | 17 | `20260718104411_update_process_barang_masuk.sql` | Update process_barang_masuk (UoM + legacy) |
 | 18 | `20260720_add_uom_conversion.sql` | Tambah kolom UoM ke produk & audit barang_masuk |
-| 19 | *(belum diapply — migration untuk drop hutang/piutang)* | — |
+| 19 | `20260721_drop_hutang_piutang.sql` | **Drop tabel hutang/piutang** + update process_checkout (tanpa piutang) |
+| 20 | `20260725_add_member_point.sql` | Tambah kolom point ke pelanggan + RPC increment_point & reset_pelanggan_id_seq |
+| 21 | `20260726_add_poin_min_pembelian.sql` | Tambah poin_min_pembelian ke pengaturan (default 100000) |
+| 22 | `20260728_add_bulk_stock_opname.sql` | Buat RPC process_stock_opname (bulk + AVCO koreksi) |
+| 23 | `20260729_add_log_aktivitas.sql` | Buat tabel log_aktivitas + RPC tambah_log_aktivitas |
+| 24 | `20260729_fix_produk_realtime.sql` | **Koreksi realtime**: drop tabel "publik", add tabel produk |
+| 25 | `20260803_fix_checkout_stock_validation.sql` | **Fix process_checkout**: validasi stok, fallback gudang, konsistensi AVCO total stok |
+| 26 | `20260805_merge_base_unit_into_satuan.sql` | **Merge base_unit → id_satuan**: dedup satuan, backfill, drop kolom base_unit |
+| 27 | `20260807_add_sell_units.sql` | **Multi-unit selling**: kolom jual_satuan/ratio/harga_besar_* di produk, qty_satuan/satuan_jual di detail, update process_checkout |
+| 28 | `20260808_drop_produk_jual_ratio.sql` | **Hapus jual_ratio**: redundant dengan conversion_ratio; backfill, drop kolom, update process_checkout |
 
 ---
 
@@ -605,8 +645,10 @@ interface PosState {
 
 ### Outstanding Work (from TODO files)
 - **TODO2 Item #8**: PWA service worker caching untuk attendance module
-- **TODO4**: UoM (Unit of Measure) conversion untuk Barang Masuk — fitur baru yang belum dimulai
-- **Hutang/Piutang**: Module telah dihapus (commit `60673b9`), tetapi tabel masih ada di database
+- **TODO4**: UoM (Unit of Measure) conversion untuk Barang Masuk — SUDAH SELESAI (migration 17-18 + form stock-in)
+- **TODO5**: Member poin pelanggan — SUDAH SELESAI (migration 20-21 + member search/register di POS)
+- **TODO6**: Konfigurasi poin_min_pembelian — SUDAH SELESAI (migration 21 + form store)
+- **Hutang/Piutang**: Module telah dihapus (migration 19 `20260721_drop_hutang_piutang.sql`), tabel sudah di-drop dari database
 
 ---
 

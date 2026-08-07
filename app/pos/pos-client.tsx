@@ -34,7 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { usePosStore, type Customer } from "@/stores/pos-store";
+import { usePosStore, type Customer, type Product } from "@/stores/pos-store";
 import { LowStockBanner } from "@/components/low-stock-banner";
 
 function formatIDR(n: number) {
@@ -110,6 +110,7 @@ export function PosClient() {
   const setActiveCartItemId = usePosStore((s) => s.setActiveCartItemId);
   const applyNumpadAsQty = usePosStore((s) => s.applyNumpadAsQty);
   const setPriceType = usePosStore((s) => s.setPriceType);
+  const setSellUnit = usePosStore((s) => s.setSellUnit);
   const checkout = usePosStore((s) => s.checkout);
   const clearCart = usePosStore((s) => s.clearCart);
 
@@ -138,6 +139,10 @@ export function PosClient() {
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [taxRate, setTaxRate] = useState(0);
+
+  // ── Server-side search state ─────────────────────────────────────────────
+  const [serverSearch, setServerSearch] = useState<{ q: string; data: Product[] } | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -168,6 +173,54 @@ export function PosClient() {
   const [memberRegPhone, setMemberRegPhone] = useState("");
   const [memberRegLoading, setMemberRegLoading] = useState(false);
   const [memberRegError, setMemberRegError] = useState("");
+
+  // ── Add Item Dialog State (4A: search click → choose unit) ──────────────
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [addItemProduct, setAddItemProduct] = useState<Product | null>(null);
+  const [addItemSatuan, setAddItemSatuan] = useState<string | null>(null); // null = base
+  const [addItemQty, setAddItemQty] = useState(1);
+
+  const openAddItemDialog = (product: Product) => {
+    if (!product.jual_satuan) {
+      // No big unit → add directly
+      addToCart(product);
+      setSearchQuery("");
+      return;
+    }
+    setAddItemProduct(product);
+    setAddItemSatuan(null); // default base unit
+    setAddItemQty(1);
+    setAddItemOpen(true);
+  };
+
+  const handleAddItemConfirm = () => {
+    if (!addItemProduct) return;
+    // Add with chosen unit
+    addToCart(addItemProduct, { satuan_jual: addItemSatuan });
+
+    // If qty > 1, set it after item is added
+    if (addItemQty > 1) {
+      setTimeout(() => {
+        const state = usePosStore.getState();
+        const product = state.products.find((p) => p.id === addItemProduct.id);
+        const isBig = addItemSatuan !== null && product?.jual_satuan
+          && addItemSatuan.toUpperCase() === product.jual_satuan.toUpperCase();
+        const ratio = isBig && product ? (product.conversion_ratio || 1) : 1;
+
+        usePosStore.setState({
+          activeCartItemId: addItemProduct.id,
+          cart: state.cart.map((i) =>
+            i.id_produk === addItemProduct.id && i.satuan_jual === addItemSatuan
+              ? { ...i, qty_satuan: addItemQty, qty: addItemQty * ratio }
+              : i
+          ),
+        });
+      }, 0);
+    }
+    setAddItemOpen(false);
+    setAddItemProduct(null);
+    setSearchQuery("");
+  };
 
   const pushToast = useCallback((text: string, ok: boolean) => {
     const id = ++toastIdRef.current;
@@ -246,11 +299,41 @@ export function PosClient() {
     load();
   }, [setProducts, setCustomers, setPaymentMethods, supabase]);
 
+  // ── Debounced server-side search ──────────────────────────────────────────
+  // Pencarian lokal hanya menjangkau 500 produk pertama yang dimuat. Untuk
+  // menjangkau seluruh katalog (1000+ produk), query dikirim ke server.
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`/api/pos/products?search=${encodeURIComponent(q)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        setServerSearch({ q, data: json.data ?? [] });
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setServerSearch(null);
+        }
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery]);
+
   const barcodeBufferRef = useRef<string>("");
   const lastKeyTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
+    async function handleKeyDown(e: KeyboardEvent) {
       // ── Global Barcode Scanner Detection ──
       // Ignore modifier keys
       if (!e.ctrlKey && !e.altKey && !e.metaKey) {
@@ -267,7 +350,15 @@ export function PosClient() {
           const barcode = barcodeBufferRef.current;
           barcodeBufferRef.current = "";
           
-          const product = products.find(p => p.barcode === barcode);
+          let product = products.find(p => p.barcode === barcode);
+          if (!product) {
+            // Produk mungkin berada di luar 500 pertama yang dimuat di memori
+            const res = await fetch(`/api/pos/barcode?code=${encodeURIComponent(barcode)}`);
+            if (res.ok) {
+              const { product: serverProduct } = await res.json();
+              if (serverProduct) product = serverProduct;
+            }
+          }
           if (product) {
             if (stockCheckOpenRef.current) {
               setScannedStockProduct(product);
@@ -311,7 +402,10 @@ export function PosClient() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [numpadPress, products, addToCart, pushToast, setSearchQuery]);
 
+  const serverResultsActive = serverSearch !== null && serverSearch.q === searchQuery.trim();
+
   const filteredProducts = useMemo(() => {
+    if (serverResultsActive && serverSearch) return serverSearch.data;
     if (!searchQuery.trim()) return products;
     const q = searchQuery.toLowerCase();
     return products.filter(
@@ -321,9 +415,9 @@ export function PosClient() {
         String(p.id).includes(q) ||
         (p.barcode && p.barcode.includes(q))
     );
-  }, [products, searchQuery]);
+  }, [products, searchQuery, serverSearch, serverResultsActive]);
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.harga_jual - item.diskon_item) * item.qty, 0);
+  const subtotal = cart.reduce((sum, item) => sum + (item.harga_jual - item.diskon_item) * item.qty_satuan, 0);
   const tax = subtotal * (taxRate / 100);
   const total = subtotal + tax;
   const numpadAmount = numpadValue
@@ -430,13 +524,15 @@ export function PosClient() {
               <div className="overflow-y-auto p-2">
                 {products.length === 0 ? (
                   <div className="p-8 text-center text-sm text-muted-foreground">Memuat produk...</div>
+                ) : searchLoading && !serverResultsActive ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">Mencari produk...</div>
                 ) : filteredProducts.length === 0 ? (
                   <div className="p-8 text-center text-sm text-muted-foreground">
                     Produk <span className="font-medium text-foreground">&quot;{searchQuery}&quot;</span> tidak ditemukan
                   </div>
                 ) : (
                   <div className="flex flex-col gap-1">
-                    {filteredProducts.slice(0, 20).map((product) => {
+                    {filteredProducts.slice(0, 50).map((product) => {
                       const cat = product.kategori?.nama ?? "";
                       const colorClass = categoryColors[cat] ?? "bg-muted text-muted-foreground";
                       return (
@@ -445,8 +541,7 @@ export function PosClient() {
                           type="button"
                           className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-colors text-left group"
                           onClick={() => {
-                            addToCart(product);
-                            setSearchQuery("");
+                            openAddItemDialog(product);
                           }}
                         >
                           <div className="flex flex-col gap-1">
@@ -566,6 +661,11 @@ export function PosClient() {
                             <span className="ml-2 inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                               {item.tipe_harga}
                             </span>
+                            {item.satuan_jual && (
+                              <span className="ml-2 inline-flex items-center rounded-sm bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium">
+                                {item.satuan_jual}
+                              </span>
+                            )}
                             {item.diskon_item > 0 && (
                               <span className="text-destructive ml-2 font-medium">- {formatIDR(item.diskon_item)}</span>
                             )}
@@ -586,7 +686,7 @@ export function PosClient() {
                               >
                                 <Minus className="w-3.5 h-3.5" />
                               </Button>
-                              <span className="w-8 text-center tabular-nums text-lg font-medium">{item.qty}</span>
+                              <span className="w-8 text-center tabular-nums text-lg font-medium">{item.qty_satuan}</span>
                               <Button
                                 variant="outline"
                                 size="icon"
@@ -603,7 +703,7 @@ export function PosClient() {
                             
                             {/* Mobile Jumlah & Delete */}
                             <div className="flex md:hidden items-center gap-3">
-                              <span className="font-medium text-base tabular-nums">{formatIDR((item.harga_jual - item.diskon_item) * item.qty)}</span>
+                              <span className="font-medium text-base tabular-nums">{formatIDR((item.harga_jual - item.diskon_item) * item.qty_satuan)}</span>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -623,7 +723,7 @@ export function PosClient() {
                           {formatIDR(item.harga_jual)}
                         </TableCell>
                         <TableCell className="text-right hidden md:table-cell">
-                          {formatIDR((item.harga_jual - item.diskon_item) * item.qty)}
+                          {formatIDR((item.harga_jual - item.diskon_item) * item.qty_satuan)}
                         </TableCell>
                         <TableCell className="px-0 text-right hidden md:table-cell">
                           <Button
@@ -650,7 +750,7 @@ export function PosClient() {
           <div className="shrink-0 px-4 lg:px-10 py-4 border-t border-border flex justify-between items-center bg-background min-h-[69px] sticky bottom-0 z-10 lg:static">
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Total Item</span>
             <span className="text-xl font-light tabular-nums text-foreground">
-              {cart.reduce((sum, item) => sum + item.qty, 0)}
+              {cart.reduce((sum, item) => sum + item.qty_satuan, 0)}
             </span>
           </div>
         </div>
@@ -777,6 +877,43 @@ export function PosClient() {
                   Set Qty
                 </button>
               </div>
+              {(() => {
+                const activeItem = cart.find((i) => i.id_produk === activeCartItemId);
+                const activeProduct = products.find((p) => p.id === activeCartItemId);
+                if (activeItem && activeProduct?.jual_satuan) {
+                  const baseName = activeProduct.satuan?.nama ?? "Stok";
+                  const bigName = activeProduct.jual_satuan;
+                  const isBig = activeItem.satuan_jual !== null
+                    && activeItem.satuan_jual.toUpperCase() === bigName.toUpperCase();
+                  return (
+                    <div className="grid grid-cols-2 gap-2 mt-3">
+                      <button
+                        type="button"
+                        className={`h-10 rounded-lg font-medium border transition-colors text-[10px] uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed ${
+                          !isBig
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-muted-foreground border-border hover:bg-muted"
+                        }`}
+                        onClick={() => setSellUnit(null)}
+                      >
+                        {baseName}
+                      </button>
+                      <button
+                        type="button"
+                        className={`h-10 rounded-lg font-medium border transition-colors text-[10px] uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed ${
+                          isBig
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-muted-foreground border-border hover:bg-muted"
+                        }`}
+                        onClick={() => setSellUnit(bigName)}
+                      >
+                        {bigName}
+                      </button>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               <div className="grid grid-cols-3 gap-2 mt-3">
                 <button
                   type="button"
@@ -1240,6 +1377,123 @@ export function PosClient() {
                 )}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Item Dialog (4A: choose unit on search click) ──────────────── */}
+      {addItemOpen && addItemProduct && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => { setAddItemOpen(false); setAddItemProduct(null); }}
+        >
+          <div
+            className="relative bg-background border border-border shadow-xl rounded-xl p-6 flex flex-col gap-5 w-[380px] max-w-[calc(100vw-32px)] animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => { setAddItemOpen(false); setAddItemProduct(null); }}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex flex-col gap-1 pt-1">
+              <p className="text-base font-semibold text-foreground tracking-tight">{addItemProduct.nama_produk}</p>
+              <p className="text-xs text-muted-foreground">{addItemProduct.kategori?.nama ?? ""}</p>
+            </div>
+
+            {/* Unit selector */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Satuan</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={`h-11 rounded-lg font-medium border transition-colors text-sm ${
+                    addItemSatuan === null
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:bg-muted"
+                  }`}
+                  onClick={() => setAddItemSatuan(null)}
+                >
+                  {addItemProduct.satuan?.nama ?? "Stok"}
+                </button>
+                {addItemProduct.jual_satuan && (
+                  <button
+                    type="button"
+                    className={`h-11 rounded-lg font-medium border transition-colors text-sm ${
+                      addItemSatuan !== null
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:bg-muted"
+                    }`}
+                    onClick={() => setAddItemSatuan(addItemProduct!.jual_satuan)}
+                  >
+                    {addItemProduct.jual_satuan}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Price preview */}
+            <div className="flex items-center justify-between bg-muted/40 rounded-lg px-4 py-3">
+              <span className="text-xs text-muted-foreground">Harga</span>
+              <span className="text-sm font-medium tabular-nums text-foreground">
+                {(() => {
+                  const isBig = addItemSatuan !== null
+                    && addItemProduct.jual_satuan !== null
+                    && addItemSatuan.toUpperCase() === addItemProduct.jual_satuan.toUpperCase();
+                  if (isBig) return formatIDR(addItemProduct.harga_jual_besar_satuan ?? 0);
+                  return formatIDR(addItemProduct.harga_jual_satuan);
+                })()}
+              </span>
+            </div>
+
+            {/* Qty */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Jumlah</label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="w-10 h-10 rounded-full border border-border bg-background hover:bg-muted/80 flex items-center justify-center text-lg"
+                  onClick={() => setAddItemQty((q) => Math.max(1, q - 1))}
+                >
+                  -
+                </button>
+                <span className="w-12 text-center text-lg font-medium tabular-nums">{addItemQty}</span>
+                <button
+                  type="button"
+                  className="w-10 h-10 rounded-full border border-border bg-background hover:bg-muted/80 flex items-center justify-center text-lg"
+                  onClick={() => setAddItemQty((q) => q + 1)}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Total */}
+            <div className="flex items-center justify-between border-t border-border pt-4">
+              <span className="text-sm font-medium text-muted-foreground">Jumlah</span>
+              <span className="text-lg font-medium tabular-nums text-foreground">
+                {(() => {
+                  const isBig = addItemSatuan !== null
+                    && addItemProduct.jual_satuan !== null
+                    && addItemSatuan.toUpperCase() === addItemProduct.jual_satuan.toUpperCase();
+                  const price = isBig
+                    ? (addItemProduct.harga_jual_besar_satuan ?? 0)
+                    : addItemProduct.harga_jual_satuan;
+                  return formatIDR(price * addItemQty);
+                })()}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-sm transition-colors"
+              onClick={handleAddItemConfirm}
+            >
+              Tambah ke Keranjang
+            </button>
           </div>
         </div>
       )}

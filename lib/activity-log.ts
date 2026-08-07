@@ -91,7 +91,6 @@ const COLUMN_LABELS: Record<string, string> = {
   sku: "SKU",
   barcode: "Barcode",
   hitung_stok: "Hitung Stok",
-  base_unit: "Satuan Dasar",
   default_purchase_unit: "Satuan Pembelian",
   conversion_ratio: "Rasio Konversi",
   nama_toko: "Nama Toko",

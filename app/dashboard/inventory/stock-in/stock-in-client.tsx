@@ -62,7 +62,7 @@ interface Product {
   id: number;
   nama_produk: string;
   barcode: string | null;
-  base_unit: string;
+  inventory_unit: string;
   default_purchase_unit: string | null;
   conversion_ratio: number;
   satuan: { nama: string } | null;
@@ -155,9 +155,10 @@ function ProductCombo({
       setSearchText(product.nama_produk);
       setOpen(false);
 
-      // Auto-fill supplied_unit from product's default_purchase_unit
-      if (product.default_purchase_unit) {
-        setValue(`items.${index}.supplied_unit`, product.default_purchase_unit, {
+      // Auto-fill supplied_unit: default_purchase_unit first, fallback to inventory_unit
+      const autoUnit = product.default_purchase_unit || product.inventory_unit || "";
+      if (autoUnit) {
+        setValue(`items.${index}.supplied_unit`, autoUnit, {
           shouldValidate: true,
         });
       }
@@ -232,7 +233,7 @@ function ProductCombo({
       />
       {selectedProduct && (
         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground uppercase tracking-widest">
-          {selectedProduct.base_unit || "pcs"}
+          {selectedProduct.default_purchase_unit || selectedProduct.inventory_unit || "pcs"}
         </span>
       )}
       {open && filtered.length > 0 && (
@@ -291,7 +292,7 @@ function ConversionIndicator({ index, products }: { index: number; products: Pro
 
   const ratio = selectedProduct.conversion_ratio || 1;
   const baseQty = suppliedQty * ratio;
-  const baseUnit = selectedProduct.base_unit || "pcs";
+  const baseUnit = selectedProduct.inventory_unit || "pcs";
   const unitLabel = suppliedUnit.charAt(0).toUpperCase() + suppliedUnit.slice(1);
 
   return (
@@ -552,9 +553,10 @@ function FormBody({
                   <td className="px-2 py-2">
                     <select
                       {...register(`items.${index}.supplied_unit`)}
-                      className={inputBase}
+                      className={inputBase + " cursor-not-allowed opacity-70"}
+                      disabled
                     >
-                      <option value="">Pilih</option>
+                      <option value="">Pilih produk dulu</option>
                       {satuanOptions.map((u) => (
                         <option key={u.id} value={u.nama}>{u.nama}</option>
                       ))}
@@ -586,7 +588,7 @@ function FormBody({
                     {perPieceCost > 0 ? formatIDR(Math.round(perPieceCost)) : "-"}
                   </td>
                   <td className="px-2 py-2 text-right tabular-nums text-sm font-medium text-foreground align-top pt-5">
-                    {baseQty > 0 ? `${baseQty} ${selectedProduct?.base_unit || "pcs"}` : "-"}
+                    {baseQty > 0 ? `${baseQty} ${selectedProduct?.inventory_unit || "pcs"}` : "-"}
                   </td>
                   <td className="px-2 py-2">
                     <input

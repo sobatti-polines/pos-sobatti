@@ -46,6 +46,8 @@ export interface Transaction {
 interface TransactionDetail {
   id: number;
   qty: number;
+  qty_satuan: number | null;
+  satuan_jual: string | null;
   harga_jual: number;
   jumlah: number;
   produk: { nama_produk: string } | null;
@@ -320,7 +322,7 @@ export default function TransactionsClient({
                     voidModal.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between text-sm p-2 bg-muted/20 rounded-md">
                         <span className="truncate flex-1 pr-4">{item.produk?.nama_produk}</span>
-                        <span className="text-muted-foreground tabular-nums">{item.qty} x {formatIDR(item.harga_jual)}</span>
+                        <span className="text-muted-foreground tabular-nums">{item.qty_satuan ?? item.qty} {item.satuan_jual ?? ""} x {formatIDR(item.harga_jual)}</span>
                       </div>
                     ))
                   )}

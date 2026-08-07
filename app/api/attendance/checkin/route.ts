@@ -1,18 +1,37 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+/** Jarak Haversine antara dua koordinat dalam meter. */
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000; // radius bumi (meter)
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
-    const { token, device_info } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const token = body.token;
+    const device_info = body.device_info;
+    const latitude = body.latitude != null ? Number(body.latitude) : null;
+    const longitude = body.longitude != null ? Number(body.longitude) : null;
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Tidak terautentikasi" },
+        { status: 401 }
+      );
     }
 
     // 1. Get current user details
@@ -23,11 +42,17 @@ export async function POST(request: Request) {
       .single();
 
     if (!pengguna) {
-      return NextResponse.json({ error: "User profile not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Profil pengguna tidak ditemukan" },
+        { status: 404 }
+      );
     }
 
     if (pengguna.level === "OWNER") {
-      return NextResponse.json({ error: "Owner cannot perform attendance" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Owner tidak dapat melakukan absensi" },
+        { status: 403 }
+      );
     }
 
     // 2. Validate QR Token
@@ -39,15 +64,59 @@ export async function POST(request: Request) {
       .single();
 
     if (!qrSession) {
-      return NextResponse.json({ error: "Invalid or inactive QR token" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Kode QR tidak valid atau sudah digunakan", code: "INVALID_TOKEN" },
+        { status: 400 }
+      );
     }
 
     // Ensure expired_at is interpreted as UTC even if the column is `timestamp without time zone`
-    const expiredAtStr = qrSession.expired_at.endsWith("Z")
-      ? qrSession.expired_at
-      : qrSession.expired_at + "Z";
-    if (new Date(expiredAtStr) < new Date()) {
-      return NextResponse.json({ error: "QR token expired" }, { status: 400 });
+    const expiredAtStr =
+      typeof qrSession.expired_at === "string"
+        ? qrSession.expired_at.endsWith("Z")
+          ? qrSession.expired_at
+          : qrSession.expired_at + "Z"
+        : null;
+    if (!expiredAtStr || new Date(expiredAtStr) < new Date()) {
+      return NextResponse.json(
+        { error: "Kode QR sudah kedaluwarsa", code: "TOKEN_EXPIRED" },
+        { status: 400 }
+      );
+    }
+
+    // 2b. Geofencing — validasi lokasi GPS (Haversine) jika dikonfigurasi
+    const storeLat = process.env.STORE_LATITUDE
+      ? Number(process.env.STORE_LATITUDE)
+      : null;
+    const storeLng = process.env.STORE_LONGITUDE
+      ? Number(process.env.STORE_LONGITUDE)
+      : null;
+    const maxRadius = Number(process.env.MAX_ATTENDANCE_RADIUS) || 50; // meter
+
+    let distanceMeters: number | null = null;
+
+    if (storeLat != null && storeLng != null && !Number.isNaN(storeLat) && !Number.isNaN(storeLng)) {
+      if (latitude == null || longitude == null || Number.isNaN(latitude) || Number.isNaN(longitude)) {
+        return NextResponse.json(
+          {
+            error:
+              "Lokasi GPS tidak terdeteksi. Pastikan izin lokasi diaktifkan dan coba lagi.",
+            code: "GPS_UNAVAILABLE",
+          },
+          { status: 400 }
+        );
+      }
+      distanceMeters = haversineMeters(latitude, longitude, storeLat, storeLng);
+      if (distanceMeters > maxRadius) {
+        return NextResponse.json(
+          {
+            error: `Anda berada di luar radius toko (jarak ${Math.round(distanceMeters)} m, maksimal ${maxRadius} m).`,
+            code: "OUTSIDE_RADIUS",
+            distance: Math.round(distanceMeters),
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // 3. Check for duplicate (already checked in today)
@@ -64,22 +133,25 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (existingAttendance) {
-      return NextResponse.json({ error: "Already checked in today" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Anda sudah melakukan check-in hari ini", code: "ALREADY_CHECKED_IN" },
+        { status: 400 }
+      );
     }
 
     // 4. Calculate Lateness using WIB hours
     // Store as ISO but ensure it represents the correct point in time
     const jam_masuk = nowUtc.toISOString();
-    
+
     // Get current hour/minute in WIB (UTC+7) for lateness check
     const wibHours = nowWIB.getUTCHours();
     const wibMinutes = nowWIB.getUTCMinutes();
     const wibTotalMinutes = wibHours * 60 + wibMinutes;
-    
+
     // Read office start time and tolerance from environment variables, with defaults
     const envStartTime = process.env.ATTENDANCE_START_TIME || "09:00";
     const envToleranceStr = process.env.ATTENDANCE_TOLERANCE_MINUTES || "15";
-    
+
     // Parse start time (e.g., "09:00")
     const [startHourStr, startMinStr] = envStartTime.split(":");
     const startHour = parseInt(startHourStr, 10) || 9;
@@ -105,11 +177,16 @@ export async function POST(request: Request) {
       status,
       telat_menit,
       device_info,
+      latitude: latitude != null && !Number.isNaN(latitude) ? latitude : null,
+      longitude: longitude != null && !Number.isNaN(longitude) ? longitude : null,
     });
 
     if (insertError) {
       console.error("Check-in insert error:", insertError);
-      return NextResponse.json({ error: "Gagal mencatat check-in" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Gagal mencatat check-in" },
+        { status: 500 }
+      );
     }
 
     // 6. Mark QR token as used to prevent replay
@@ -120,13 +197,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Check-in successful",
+      message: "Check-in berhasil",
       status,
       telat_menit,
     });
   } catch (err: unknown) {
     console.error("Error in checkin:", err);
-    const message = err instanceof Error ? err.message : "Internal Server Error";
+    const message = err instanceof Error ? err.message : "Terjadi kesalahan internal";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

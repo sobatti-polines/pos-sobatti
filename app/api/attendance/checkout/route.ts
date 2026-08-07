@@ -6,14 +6,15 @@ export async function POST(request: Request) {
     const supabase = await createClient();
 
     // Token might be required for checkout too according to spec "User scans QR" in checkout flow
-    const { token } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const token = body.token;
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
     }
 
     // 1. Get current user details
@@ -24,11 +25,17 @@ export async function POST(request: Request) {
       .single();
 
     if (!pengguna) {
-      return NextResponse.json({ error: "User profile not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Profil pengguna tidak ditemukan" },
+        { status: 404 }
+      );
     }
 
     if (pengguna.level === "OWNER") {
-      return NextResponse.json({ error: "Owner cannot perform attendance" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Owner tidak dapat melakukan absensi" },
+        { status: 403 }
+      );
     }
 
     // 2. Validate QR Token (spec says user scans QR for checkout too)
@@ -40,15 +47,24 @@ export async function POST(request: Request) {
       .single();
 
     if (!qrSession) {
-      return NextResponse.json({ error: "Invalid or inactive QR token" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Kode QR tidak valid atau sudah digunakan", code: "INVALID_TOKEN" },
+        { status: 400 }
+      );
     }
 
     // Ensure expired_at is interpreted as UTC even if the column is `timestamp without time zone`
-    const expiredAtStr = qrSession.expired_at.endsWith("Z")
-      ? qrSession.expired_at
-      : qrSession.expired_at + "Z";
-    if (new Date(expiredAtStr) < new Date()) {
-      return NextResponse.json({ error: "QR token expired" }, { status: 400 });
+    const expiredAtStr =
+      typeof qrSession.expired_at === "string"
+        ? qrSession.expired_at.endsWith("Z")
+          ? qrSession.expired_at
+          : qrSession.expired_at + "Z"
+        : null;
+    if (!expiredAtStr || new Date(expiredAtStr) < new Date()) {
+      return NextResponse.json(
+        { error: "Kode QR sudah kedaluwarsa", code: "TOKEN_EXPIRED" },
+        { status: 400 }
+      );
     }
 
     // 3. Verify check-in exists for today (use WIB / UTC+7 for Indonesian business day)
@@ -64,11 +80,17 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (!attendance) {
-      return NextResponse.json({ error: "You haven't checked in today" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Anda belum melakukan check-in hari ini", code: "NOT_CHECKED_IN" },
+        { status: 400 }
+      );
     }
 
     if (attendance.jam_pulang) {
-      return NextResponse.json({ error: "Already checked out today" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Anda sudah melakukan check-out hari ini", code: "ALREADY_CHECKED_OUT" },
+        { status: 400 }
+      );
     }
 
     // 4. Record Checkout
@@ -92,11 +114,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Check-out successful",
+      message: "Check-out berhasil",
     });
   } catch (err: unknown) {
     console.error("Error in checkout:", err);
-    const message = err instanceof Error ? err.message : "Internal Server Error";
+    const message = err instanceof Error ? err.message : "Terjadi kesalahan internal";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

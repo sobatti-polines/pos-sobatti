@@ -18,6 +18,7 @@ function formatDate(dateStr: string) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Jakarta",
   }).format(new Date(dateStr));
 }
 
@@ -102,15 +103,19 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
         {/* Items */}
         <div className="mb-2">
-          {items.map((item: any, i: number) => (
-            <div key={i} className="mb-1">
-              <div className="uppercase">{item.produk?.nama_produk}</div>
-              <div className="flex justify-between pl-2">
-                <span>{item.qty} x {formatIDR(item.harga_jual)}</span>
-                <span>{formatIDR(item.jumlah)}</span>
+          {items.map((item, i: number) => {
+            const displayQty = item.qty_satuan ?? item.qty;
+            const displayUnit = item.satuan_jual ?? "";
+            return (
+              <div key={i} className="mb-1">
+                <div className="uppercase">{item.produk?.nama_produk}</div>
+                <div className="flex justify-between pl-2">
+                  <span>{displayQty}{displayUnit ? ` ${displayUnit}` : ""} x {formatIDR(item.harga_jual)}</span>
+                  <span>{formatIDR(item.jumlah)}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Divider */}

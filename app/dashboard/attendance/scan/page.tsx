@@ -5,7 +5,7 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 import { NotFoundException, DecodeHintType, BarcodeFormat } from "@zxing/library";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Camera, RefreshCw, CheckCircle2, AlertCircle, Loader2, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type ScanStatus = "idle" | "requesting_permission" | "scanning" | "processing" | "success" | "error";
@@ -30,17 +30,36 @@ export default function AttendanceScanPage() {
     }
   }, []);
 
+  const getCurrentPosition = useCallback((): Promise<{ latitude: number; longitude: number } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      );
+    });
+  }, []);
+
   const handleScan = useCallback(async (token: string) => {
     try {
       setStatus("processing");
-      
+
+      // Ambil koordinat GPS untuk geofencing (check-in)
+      const position = await getCurrentPosition();
+
       // Try Check-in first, if already checked in, try checkout
       const checkinRes = await fetch("/api/attendance/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
-          device_info: navigator.userAgent
+          device_info: navigator.userAgent,
+          latitude: position?.latitude ?? null,
+          longitude: position?.longitude ?? null,
         })
       });
 
@@ -58,7 +77,10 @@ export default function AttendanceScanPage() {
       }
 
       // If already checked in, try checkout
-      if (checkinData.error?.toLowerCase().includes("already checked in")) {
+      const alreadyCheckedIn =
+        checkinData.code === "ALREADY_CHECKED_IN" ||
+        checkinData.error?.toLowerCase().includes("already checked in");
+      if (alreadyCheckedIn) {
         const checkoutRes = await fetch("/api/attendance/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -87,7 +109,7 @@ export default function AttendanceScanPage() {
       setStatus("error");
       setErrorMsg("Terjadi kesalahan koneksi.");
     }
-  }, []);
+  }, [getCurrentPosition]);
 
   const startScanning = useCallback(async () => {
     try {
@@ -272,7 +294,7 @@ export default function AttendanceScanPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
         <Card className="bg-muted/30 border-none">
           <CardContent className="py-4 px-6">
             <div className="flex items-start gap-4">
@@ -284,7 +306,7 @@ export default function AttendanceScanPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-muted/30 border-none">
           <CardContent className="py-4 px-6">
             <div className="flex items-start gap-4">
@@ -292,6 +314,18 @@ export default function AttendanceScanPage() {
               <div>
                 <p className="font-medium">QR Dinamis</p>
                 <p className="text-sm text-muted-foreground leading-relaxed">Pastikan Anda melakukan scan sebelum kode QR kedaluwarsa (30 detik).</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-muted/30 border-none">
+          <CardContent className="py-4 px-6">
+            <div className="flex items-start gap-4">
+              <MapPin className="w-5 h-5 text-primary shrink-0 mt-1" />
+              <div>
+                <p className="font-medium">Izin Lokasi</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">Check-in membutuhkan lokasi GPS Anda (harus berada di area toko).</p>
               </div>
             </div>
           </CardContent>

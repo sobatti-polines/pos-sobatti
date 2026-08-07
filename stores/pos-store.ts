@@ -14,6 +14,13 @@ export interface Product {
   harga_jual_promo: number | null;
   diskon: number;
   kategori: { nama: string } | null;
+  // Multi-unit sell fields
+  satuan: { nama: string } | null;        // base unit name (e.g. "Meter")
+  jual_satuan: string | null;             // big sell unit name (e.g. "Roll") or null
+  conversion_ratio: number;               // 1 big unit = conversion_ratio base units (same as rasio beli)
+  harga_jual_besar_satuan: number | null; // price per big unit — tier Satuan
+  harga_jual_besar_grosir: number | null; // price per big unit — tier Grosir
+  harga_jual_besar_promo: number | null;  // price per big unit — tier Promo
 }
 
 export interface Customer {
@@ -33,18 +40,12 @@ export interface CartItem {
   id_produk: number;
   nama_produk: string;
   kategori: string;
-  harga_jual: number;
-  qty: number;
+  satuan_jual: string | null;  // NULL = base unit, string = big unit name
+  qty: number;                 // qty in base units (stock)
+  qty_satuan: number;          // qty in sold unit (display)
+  harga_jual: number;          // price per sold unit
   diskon_item: number;
   tipe_harga: "Satuan" | "Grosir" | "Promo";
-}
-
-interface CheckoutPayload {
-  items: { id_produk: number; qty: number; diskon_item: number; tipe_harga: string }[];
-  id_pelanggan: number | null;
-  id_metode_bayar: number;
-  diskon_persen: number;
-  bayar: number;
 }
 
 interface PosState {
@@ -65,7 +66,7 @@ interface PosState {
   setPaymentMethods: (p: PaymentMethod[]) => void;
   setSearchQuery: (q: string) => void;
 
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product, opts?: { satuan_jual?: string | null }) => void;
   updateQty: (id_produk: number, delta: number) => void;
   removeItem: (id_produk: number) => void;
   clearCart: () => void;
@@ -79,6 +80,7 @@ interface PosState {
   setActiveCartItemId: (id: number | null) => void;
   applyNumpadAsQty: () => void;
   setPriceType: (type: "Satuan" | "Grosir" | "Promo") => void;
+  setSellUnit: (satuanJual: string | null) => void;
 
   checkout: () => Promise<{ success: boolean; id?: number; no_transaksi?: number }>;
 }
@@ -101,16 +103,36 @@ export const usePosStore = create<PosState>((set, get) => ({
   setPaymentMethods: (methods) => set({ paymentMethods: methods }),
   setSearchQuery: (query) => set({ searchQuery: query }),
 
-  addToCart: (product) =>
+  addToCart: (product: Product, opts?: { satuan_jual?: string | null }) =>
     set((state) => {
-      const existing = state.cart.find((i) => i.id_produk === product.id);
+      const satuanJual = opts?.satuan_jual !== undefined ? opts.satuan_jual : null;
+
+      // Determine which price to use based on satuan_jual
+      let harga_jual = product.harga_jual_satuan;
+      if (satuanJual && product.jual_satuan && satuanJual.toUpperCase() === product.jual_satuan.toUpperCase()) {
+        harga_jual = product.harga_jual_besar_satuan ?? 0;
+      }
+
+      const ratio = (satuanJual && product.jual_satuan && satuanJual.toUpperCase() === product.jual_satuan.toUpperCase())
+        ? (product.conversion_ratio || 1)
+        : 1;
+
+      const existing = state.cart.find((i) => i.id_produk === product.id && i.satuan_jual === satuanJual);
       if (existing) {
         return {
           cart: state.cart.map((i) =>
-            i.id_produk === product.id ? { ...i, qty: i.qty + 1 } : i
+            i.id_produk === product.id && i.satuan_jual === satuanJual
+              ? {
+                  ...i,
+                  qty_satuan: i.qty_satuan + 1,
+                  qty: i.qty_satuan * ratio + ratio, // (existing + 1) × ratio
+                  harga_jual: i.harga_jual, // keep existing price
+                }
+              : i
           ),
         };
       }
+
       return {
         cart: [
           ...state.cart,
@@ -118,8 +140,10 @@ export const usePosStore = create<PosState>((set, get) => ({
             id_produk: product.id,
             nama_produk: product.nama_produk,
             kategori: product.kategori?.nama ?? "",
-            harga_jual: product.harga_jual_satuan,
-            qty: 1,
+            satuan_jual: satuanJual,
+            qty: 1 * ratio,
+            qty_satuan: 1,
+            harga_jual,
             diskon_item: product.diskon || 0,
             tipe_harga: "Satuan",
           },
@@ -128,15 +152,23 @@ export const usePosStore = create<PosState>((set, get) => ({
     }),
 
   updateQty: (id_produk, delta) =>
-    set((state) => ({
-      cart: state.cart
-        .map((item) =>
-          item.id_produk === id_produk
-            ? { ...item, qty: Math.max(0, item.qty + delta) }
-            : item
-        )
-        .filter((item) => item.qty > 0),
-    })),
+    set((state) => {
+      return {
+        cart: state.cart
+          .map((item) => {
+            if (item.id_produk !== id_produk) return item;
+            const newQtySatuan = item.qty_satuan + delta;
+            if (newQtySatuan <= 0) return null;
+            // Recompute base qty from qty_satuan and satuan_jual
+            const isBig = item.satuan_jual !== null;
+            const product = state.products.find((p) => p.id === id_produk);
+            const ratio = isBig && product ? (product.conversion_ratio || 1) : 1;
+            const newBaseQty = newQtySatuan * ratio;
+            return { ...item, qty_satuan: newQtySatuan, qty: newBaseQty };
+          })
+          .filter((item): item is CartItem => item !== null),
+      };
+    }),
 
   removeItem: (id_produk) =>
     set((state) => {
@@ -178,11 +210,19 @@ export const usePosStore = create<PosState>((set, get) => ({
     set((state) => {
       const id = state.activeCartItemId;
       if (id === null) return {};
-      const qty = parseInt(state.numpadValue, 10);
-      if (isNaN(qty) || qty <= 0) return { numpadValue: "" };
+      const item = state.cart.find((i) => i.id_produk === id);
+      if (!item) return {};
+      const qtySatuan = parseInt(state.numpadValue, 10);
+      if (isNaN(qtySatuan) || qtySatuan <= 0) return { numpadValue: "" };
+
+      const product = state.products.find((p) => p.id === id);
+      const isBig = item.satuan_jual !== null;
+      const ratio = isBig && product ? (product.conversion_ratio || 1) : 1;
+      const baseQty = qtySatuan * ratio;
+
       return {
-        cart: state.cart.map((item) =>
-          item.id_produk === id ? { ...item, qty } : item
+        cart: state.cart.map((i) =>
+          i.id_produk === id ? { ...i, qty_satuan: qtySatuan, qty: baseQty } : i
         ),
         numpadValue: "",
       };
@@ -194,14 +234,67 @@ export const usePosStore = create<PosState>((set, get) => ({
       if (id === null) return {};
       const product = state.products.find((p) => p.id === id);
       if (!product) return {};
+      const item = state.cart.find((i) => i.id_produk === id);
+      if (!item) return {};
       
+      const isBig = item.satuan_jual !== null && product.jual_satuan
+        && item.satuan_jual.toUpperCase() === product.jual_satuan.toUpperCase();
+
       let newPrice = product.harga_jual_satuan;
-      if (type === "Grosir") newPrice = product.harga_jual_grosir;
-      if (type === "Promo" && product.harga_jual_promo != null) newPrice = product.harga_jual_promo;
+      if (isBig) {
+        // Big unit pricing
+        newPrice = product.harga_jual_besar_satuan ?? 0;
+        if (type === "Grosir") newPrice = product.harga_jual_besar_grosir ?? newPrice;
+        if (type === "Promo" && product.harga_jual_besar_promo != null) newPrice = product.harga_jual_besar_promo;
+      } else {
+        // Base unit pricing
+        newPrice = product.harga_jual_satuan;
+        if (type === "Grosir") newPrice = product.harga_jual_grosir;
+        if (type === "Promo" && product.harga_jual_promo != null) newPrice = product.harga_jual_promo;
+      }
 
       return {
-        cart: state.cart.map((item) =>
-          item.id_produk === id ? { ...item, tipe_harga: type, harga_jual: newPrice } : item
+        cart: state.cart.map((i) =>
+          i.id_produk === id ? { ...i, tipe_harga: type, harga_jual: newPrice } : i
+        ),
+      };
+    }),
+
+  setSellUnit: (satuanJual) =>
+    set((state) => {
+      const id = state.activeCartItemId;
+      if (id === null) return {};
+      const product = state.products.find((p) => p.id === id);
+      if (!product) return {};
+      const item = state.cart.find((i) => i.id_produk === id);
+      if (!item) return {};
+
+      const isBig = satuanJual !== null
+        && product.jual_satuan !== null
+        && satuanJual.toUpperCase() === product.jual_satuan.toUpperCase();
+
+      const ratio = isBig ? (product.conversion_ratio || 1) : 1;
+
+      // Pick price based on current tier + new unit
+      let newPrice: number;
+      if (isBig) {
+        newPrice = product.harga_jual_besar_satuan ?? 0;
+        if (item.tipe_harga === "Grosir") newPrice = product.harga_jual_besar_grosir ?? newPrice;
+        if (item.tipe_harga === "Promo" && product.harga_jual_besar_promo != null) newPrice = product.harga_jual_besar_promo;
+      } else {
+        newPrice = product.harga_jual_satuan;
+        if (item.tipe_harga === "Grosir") newPrice = product.harga_jual_grosir;
+        if (item.tipe_harga === "Promo" && product.harga_jual_promo != null) newPrice = product.harga_jual_promo;
+      }
+
+      // Recompute base qty from current qty_satuan and new ratio
+      const newBaseQty = item.qty_satuan * ratio;
+
+      return {
+        cart: state.cart.map((i) =>
+          i.id_produk === id
+            ? { ...i, satuan_jual: satuanJual, harga_jual: newPrice, qty: newBaseQty }
+            : i
         ),
       };
     }),
@@ -214,10 +307,12 @@ export const usePosStore = create<PosState>((set, get) => ({
         ? Math.round(parseFloat(state.numpadValue))
         : 0;
 
-      const payload: CheckoutPayload = {
+      const payload = {
         items: state.cart.map((i) => ({
           id_produk: i.id_produk,
-          qty: i.qty,
+          qty: i.qty,                 // base qty (for stock)
+          qty_satuan: i.qty_satuan,   // qty in sold unit (for display)
+          satuan_jual: i.satuan_jual, // sold unit name (null = base)
           diskon_item: i.diskon_item,
           tipe_harga: i.tipe_harga,
         })),

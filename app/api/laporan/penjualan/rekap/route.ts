@@ -81,12 +81,30 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
+    // Ambil total qty item per transaksi (untuk total_item_terjual)
+    const { data: itemRows, error: itemError } = await supabase
+      .from("detail_transaksi_keluar")
+      .select("id_transaksi, qty, transaksi_keluar!inner(tgl_transaksi)")
+      .gte("transaksi_keluar.tgl_transaksi", startISO)
+      .lte("transaksi_keluar.tgl_transaksi", endISO);
+
+    if (itemError) throw itemError;
+
+    const qtyPerTx: Record<number, number> = {};
+    for (const item of itemRows ?? []) {
+      const txId = item.id_transaksi as number;
+      qtyPerTx[txId] = (qtyPerTx[txId] ?? 0) + Number(item.qty ?? 0);
+    }
+
     const safe = (v: any) => Number(v ?? 0);
+    // tgl_transaksi is stored in UTC; group by WIB date to match +07:00 filters
+    const wibDate = (ts: string): string =>
+      new Date(new Date(ts).getTime() + 7 * 3600000).toISOString().slice(0, 10);
     const groups: Record<string, any> = {};
     const groupKey = (r: any): string => {
       switch (p.group_by) {
         case "hari":
-          return (r.tgl_transaksi ?? "").slice(0, 10);
+          return `d_${wibDate(r.tgl_transaksi ?? "")}`;
         case "kasir":
           return `k_${r.id_kasir}`;
         case "metode_bayar":
@@ -112,7 +130,7 @@ export async function GET(req: NextRequest) {
         };
         switch (p.group_by) {
           case "hari":
-            base.tanggal = (r.tgl_transaksi ?? "").slice(0, 10);
+            base.tanggal = wibDate(r.tgl_transaksi ?? "");
             break;
           case "kasir":
             base.id_kasir = r.id_kasir;
@@ -136,6 +154,7 @@ export async function GET(req: NextRequest) {
       g.total_hpp += safe(r.total_hpp);
       g.total_diskon += safe(r.diskon_nominal);
       g.total_pajak += safe(r.pajak_nominal);
+      g.total_item_terjual += qtyPerTx[r.id as number] ?? 0;
     }
 
     const data = Object.values(groups);

@@ -43,7 +43,7 @@ export async function addStockIn(
   const productIds = [...new Set(rows.map((r) => r.id_produk))];
   const { data: products, error: prodError } = await supabase
     .from("produk")
-    .select("id, conversion_ratio, default_purchase_unit, base_unit")
+    .select("id, conversion_ratio, default_purchase_unit")
     .in("id", productIds);
 
   if (prodError) {
