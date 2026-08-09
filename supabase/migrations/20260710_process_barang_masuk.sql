@@ -37,7 +37,7 @@ BEGIN
 
     -- Lock and read current product row (includes UoM fields for new format)
     SELECT stok, stok_gudang, harga_pokok_avco, nilai_persediaan,
-           COALESCE(conversion_ratio, 1) INTO v_prod
+           COALESCE(conversion_ratio, 1) AS conversion_ratio INTO v_prod
     FROM produk
     WHERE id = (v_item->>'id_produk')::integer
     FOR UPDATE;

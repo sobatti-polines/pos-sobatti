@@ -337,14 +337,10 @@ function FormBody({
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const computedTotal = useMemo(
-    () =>
-      fields.reduce((sum, _, i) => {
-        const cost = watch(`items.${i}.total_cost`) || 0;
-        return sum + cost;
-      }, 0),
-    [fields, watch]
-  );
+  const computedTotal = watch("items")?.reduce(
+    (sum: number, item: { total_cost?: number }) => sum + (item.total_cost || 0),
+    0
+  ) ?? 0;
 
   /* Flatten nested RHF errors into user-facing strings */
   const validationErrors = useMemo(() => {

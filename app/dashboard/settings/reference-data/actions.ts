@@ -12,7 +12,7 @@ export type ReferenceActionState = {
 
 // Generic CRUD functions for reference tables (kategori, satuan, metode_bayar)
 export async function createReferenceData(
-  tableName: "kategori" | "satuan" | "metode_bayar",
+  tableName: "kategori" | "satuan" | "metode_bayar" | "lokasi_area",
   prevState: ReferenceActionState,
   formData: FormData
 ): Promise<ReferenceActionState> {
@@ -52,7 +52,7 @@ export async function createReferenceData(
 }
 
 export async function updateReferenceData(
-  tableName: "kategori" | "satuan" | "metode_bayar",
+  tableName: "kategori" | "satuan" | "metode_bayar" | "lokasi_area",
   prevState: ReferenceActionState,
   formData: FormData
 ): Promise<ReferenceActionState> {
@@ -96,7 +96,7 @@ export async function updateReferenceData(
 }
 
 export async function deleteReferenceData(
-  tableName: "kategori" | "satuan" | "metode_bayar",
+  tableName: "kategori" | "satuan" | "metode_bayar" | "lokasi_area",
   id: number
 ): Promise<ReferenceActionState> {
   const supabase = await createClient();
@@ -131,7 +131,7 @@ export async function deleteReferenceData(
 }
 
 export async function importReferenceData(
-  tableName: "kategori" | "satuan" | "merk" | "metode_bayar",
+  tableName: "kategori" | "satuan" | "merk" | "metode_bayar" | "lokasi_area",
   rows: Record<string, string>[]
 ) {
   const supabase = await createClient();

@@ -16,38 +16,46 @@ export async function GET(req: Request) {
     default_purchase_unit, conversion_ratio,
     jual_satuan,
     harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo,
+    id_produk_master, qty_per_unit,
     kategori(nama), satuan(nama)`;
 
-  // Try barcode match first (scanner input)
-  const { data: barcodeMatch } = await supabase
-    .from("produk")
-    .select(fields)
-    .eq("barcode", code)
-    .maybeSingle();
+  const findProduct = async () => {
+    // Try barcode match first (scanner input)
+    const { data: barcodeMatch } = await supabase
+      .from("produk")
+      .select(fields)
+      .eq("barcode", code)
+      .maybeSingle();
 
-  if (barcodeMatch) return NextResponse.json({ product: barcodeMatch });
+    if (barcodeMatch) return barcodeMatch;
 
-  // Try numeric ID match as fallback
-  const numericId = /^\d+$/.test(code) ? Number(code) : null;
-  if (numericId !== null) {
+    // Try numeric ID match as fallback
+    const numericId = /^\d+$/.test(code) ? Number(code) : null;
+    if (numericId !== null) {
+      const { data } = await supabase
+        .from("produk")
+        .select(fields)
+        .eq("id", numericId)
+        .maybeSingle();
+
+      if (data) return data;
+    }
+
+    // Try name search as another fallback
     const { data } = await supabase
       .from("produk")
       .select(fields)
-      .eq("id", numericId)
+      .ilike("nama_produk", `%${code}%`)
+      .limit(1)
       .maybeSingle();
 
-    if (data) return NextResponse.json({ product: data });
-  }
+    if (data) return data;
 
-  // Try name search as another fallback
-  const { data } = await supabase
-    .from("produk")
-    .select(fields)
-    .ilike("nama_produk", `%${code}%`)
-    .limit(1)
-    .maybeSingle();
+    return null;
+  };
 
-  if (data) return NextResponse.json({ product: data });
+  const product = await findProduct();
+  if (!product) return NextResponse.json({ product: null }, { status: 404 });
 
-  return NextResponse.json({ product: null }, { status: 404 });
+  return NextResponse.json({ product });
 }

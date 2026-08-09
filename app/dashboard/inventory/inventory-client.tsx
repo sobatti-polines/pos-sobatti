@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useTransition, useDeferredValue } from "react";
-import { Plus, PackageOpen, X, AlertCircle, Check, Loader2, Edit2, Trash2, Warehouse, Eye, EyeOff, Upload } from "lucide-react";
+import { useState, useMemo, useTransition, useDeferredValue, useEffect, useRef } from "react";
+import { Plus, PackageOpen, PackagePlus, X, AlertCircle, Check, Loader2, Edit2, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Upload, ChevronsUpDown, Search } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef, type DeleteModalConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { addProduct, updateProduct, deleteProduct, restockDisplay, importProducts } from "./actions";
+import { addProduct, updateProduct, deleteProduct, restockDisplay, moveToWarehouse, importProducts, isiStokPaket } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ProductDetailSheet from "@/components/product-detail-sheet";
 import ImportCSVModal from "@/components/import-csv-modal";
@@ -30,6 +30,130 @@ function formatIDR(n: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+// ── Combobox pencarian produk master ────────────────────────────────────────
+function MasterCombobox({
+  products,
+  value,
+  onChange,
+}: {
+  products: { id: number; nama_produk: string; sku: string | null }[];
+  value: number | null;
+  onChange: (id: number, master: { id: number; nama_produk: string; sku: string | null }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlighted, setHighlighted] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const selected = useMemo(
+    () => products.find((p) => p.id === value) ?? null,
+    [products, value]
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        p.nama_produk.toLowerCase().includes(q) ||
+        (p.sku ?? "").toLowerCase().includes(q)
+    );
+  }, [products, query]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((v) => !v);
+          setQuery("");
+          setHighlighted(0);
+        }}
+        className={`w-full h-11 rounded-md border border-input bg-background px-3.5 text-sm shadow-2xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 flex items-center justify-between gap-2 ${
+          open ? "ring-2 ring-primary/20 border-primary" : ""
+        }`}
+      >
+        <span className={`truncate ${selected ? "text-foreground" : "text-muted-foreground"}`}>
+          {selected ? (
+            <>
+              <span className="font-medium">{selected.nama_produk}</span>
+              <span className="text-muted-foreground ml-2 text-xs">
+                ({selected.sku || selected.id})
+              </span>
+            </>
+          ) : (
+            "Cari & pilih produk master…"
+          )}
+        </span>
+        <ChevronsUpDown className="w-4 h-4 shrink-0 text-muted-foreground" />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1.5 w-full rounded-xl border border-border bg-background shadow-lg shadow-black/5 overflow-hidden">
+          <div className="p-2 border-b border-border/60 flex items-center gap-2">
+            <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setHighlighted(0);
+              }}
+              placeholder="Ketik nama atau SKU master…"
+              className="w-full bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+            />
+          </div>
+          <ul className="max-h-56 overflow-y-auto py-1">
+            {filtered.length === 0 && (
+              <li className="px-3.5 py-2.5 text-sm text-muted-foreground">
+                Tidak ada produk master yang cocok
+              </li>
+            )}
+            {filtered.map((p, i) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onMouseEnter={() => setHighlighted(i)}
+                  onClick={() => {
+                    onChange(p.id, p);
+                    setOpen(false);
+                  }}
+                  className={`w-full text-left px-3.5 py-2.5 text-sm flex items-center justify-between gap-2 transition-colors ${
+                    i === highlighted ? "bg-primary/10" : ""
+                  } ${value === p.id ? "text-primary font-medium" : "text-foreground"}`}
+                >
+                  <span className="truncate">{p.nama_produk}</span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground uppercase tracking-wider">
+                    {p.sku || `#${p.id}`}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface Product {
@@ -56,22 +180,30 @@ interface Product {
   harga_jual_besar_satuan: number | null;
   harga_jual_besar_grosir: number | null;
   harga_jual_besar_promo: number | null;
+  id_produk_master: number | null;
+  qty_per_unit: number | null;
+  master: { stok: number | null; stok_gudang: number | null; hitung_stok: boolean | null; nama_produk: string | null } | null;
   kategori: { nama: string } | null;
   satuan: { nama: string } | null;
+  id_lokasi_area: number | null;
+  lokasi_area: { nama: string } | null;
 }
 
 export default function InventoryClient({
   initialProducts,
   categories,
-  units
+  units,
+  lokasiAreas,
 }: {
   initialProducts: Product[];
   categories: { id: number; nama: string }[];
   units: { id: number; nama: string }[];
+  lokasiAreas: { id: number; nama: string }[];
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [lokasiFilter, setLokasiFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
 
@@ -79,11 +211,20 @@ export default function InventoryClient({
 
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
+  const [isPaket, setIsPaket] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const [restockModal, setRestockModal] = useState<{ open: boolean; product: Product | null; qty: string; error: string }>({
+  const [displayModal, setDisplayModal] = useState<{ open: boolean; product: Product | null; qty: string; error: string }>({
+    open: false, product: null, qty: "1", error: "",
+  });
+
+  const [gudangModal, setGudangModal] = useState<{ open: boolean; product: Product | null; qty: string; error: string }>({
+    open: false, product: null, qty: "1", error: "",
+  });
+
+  const [fillPaketModal, setFillPaketModal] = useState<{ open: boolean; product: Product | null; qty: string; error: string }>({
     open: false, product: null, qty: "1", error: "",
   });
 
@@ -100,7 +241,8 @@ export default function InventoryClient({
           p.nama_produk.toLowerCase().includes(q) ||
           p.barcode?.toLowerCase().includes(q) ||
           p.sku?.toLowerCase().includes(q) ||
-          p.kategori?.nama.toLowerCase().includes(q)
+          p.kategori?.nama.toLowerCase().includes(q) ||
+          p.lokasi_area?.nama.toLowerCase().includes(q)
       );
     }
 
@@ -108,9 +250,23 @@ export default function InventoryClient({
       result = result.filter((p) => p.id_kategori.toString() === categoryFilter);
     }
 
+    if (lokasiFilter !== "all") {
+      result = result.filter((p) => {
+        if (lokasiFilter === "none") return !p.id_lokasi_area;
+        return p.id_lokasi_area?.toString() === lokasiFilter;
+      });
+    }
+
     if (stockFilter !== "all") {
       result = result.filter((p) => {
-        if (stockFilter === "untracked") return !p.hitung_stok;
+        const isPaket = Boolean(p.id_produk_master);
+        if (stockFilter === "untracked") return !p.hitung_stok && !isPaket;
+        if (isPaket) {
+          if (stockFilter === "out") return (p.stock ?? 0) <= 0;
+          if (stockFilter === "low") return (p.stock ?? 0) > 0 && (p.stock ?? 0) <= p.stok_minimum;
+          if (stockFilter === "in") return (p.stock ?? 0) > p.stok_minimum;
+          return true;
+        }
         if (!p.hitung_stok || p.stock === null) return false;
         if (stockFilter === "out") return p.stock <= 0;
         if (stockFilter === "low") return p.stock > 0 && p.stock <= p.stok_minimum;
@@ -120,7 +276,7 @@ export default function InventoryClient({
     }
 
     return result;
-  }, [initialProducts, deferredSearchQuery, categoryFilter, stockFilter]);
+  }, [initialProducts, deferredSearchQuery, categoryFilter, lokasiFilter, stockFilter]);
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 25 });
 
@@ -128,11 +284,28 @@ export default function InventoryClient({
     if (!editForm.nama_produk?.trim()) { setErrorMsg("Nama produk wajib diisi"); return; }
     if (!editForm.id_kategori) { setErrorMsg("Kategori wajib dipilih"); return; }
     if (!editForm.id_satuan) { setErrorMsg("Satuan wajib dipilih"); return; }
+
+    const isPaketMode = isPaket;
+    if (isPaketMode) {
+      if (!editForm.id_produk_master) {
+        setErrorMsg("Produk master wajib dipilih untuk produk paket");
+        return;
+      }
+      if (!editForm.qty_per_unit || editForm.qty_per_unit <= 0) {
+        setErrorMsg("Jumlah per satuan (qty per unit) wajib diisi dan lebih dari 0 untuk produk paket");
+        return;
+      }
+      if (!editForm.sku?.trim()) {
+        setErrorMsg("SKU wajib diisi untuk produk paket (gunakan suffix unik, berbeda dari SKU master)");
+        return;
+      }
+    }
     setErrorMsg("");
 
     const data = {
       nama_produk: editForm.nama_produk, id_kategori: Number(editForm.id_kategori),
-      id_satuan: Number(editForm.id_satuan), hitung_stok: Boolean(editForm.hitung_stok),
+      id_satuan: Number(editForm.id_satuan), hitung_stok: true,
+      id_lokasi_area: editForm.id_lokasi_area ? Number(editForm.id_lokasi_area) : null,
       sku: editForm.sku || null,
       barcode: editForm.barcode || null, harga_modal: Number(editForm.harga_modal || 0),
       harga_jual_satuan: Number(editForm.harga_jual_satuan || 0),
@@ -141,19 +314,21 @@ export default function InventoryClient({
       diskon: Number(editForm.diskon || 0), stok_minimum: Number(editForm.stok_minimum ?? 5),
       default_purchase_unit: editForm.default_purchase_unit || null,
       conversion_ratio: Number(editForm.conversion_ratio ?? 1),
-      jual_satuan: editForm.jual_satuan || null,
-      harga_jual_besar_satuan: editForm.harga_jual_besar_satuan ? Number(editForm.harga_jual_besar_satuan) : null,
-      harga_jual_besar_grosir: editForm.harga_jual_besar_grosir ? Number(editForm.harga_jual_besar_grosir) : null,
-      harga_jual_besar_promo: editForm.harga_jual_besar_promo ? Number(editForm.harga_jual_besar_promo) : null,
+      jual_satuan: isPaketMode ? null : (editForm.jual_satuan || null),
+      harga_jual_besar_satuan: isPaketMode ? null : (editForm.harga_jual_besar_satuan ? Number(editForm.harga_jual_besar_satuan) : null),
+      harga_jual_besar_grosir: isPaketMode ? null : (editForm.harga_jual_besar_grosir ? Number(editForm.harga_jual_besar_grosir) : null),
+      harga_jual_besar_promo: isPaketMode ? null : (editForm.harga_jual_besar_promo ? Number(editForm.harga_jual_besar_promo) : null),
+      id_produk_master: isPaketMode ? Number(editForm.id_produk_master) : null,
+      qty_per_unit: isPaketMode ? Number(editForm.qty_per_unit) : null,
     };
 
     startTransition(async () => {
       const res = editingId === "new" ? await addProduct(data) : await updateProduct(editingId as number, data);
-      if (res?.error) { setErrorMsg(res.error); } else { setEditingId(null); setEditForm({}); }
+      if (res?.error) { setErrorMsg(res.error); } else { setEditingId(null); setEditForm({}); setIsPaket(false); }
     });
   };
 
-  const handleCancelInline = () => { setEditingId(null); setEditForm({}); setErrorMsg(""); };
+  const handleCancelInline = () => { setEditingId(null); setEditForm({}); setIsPaket(false); setErrorMsg(""); };
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget?.id) return;
@@ -164,37 +339,78 @@ export default function InventoryClient({
     });
   };
 
-  const handleRestock = async () => {
-    if (!restockModal.product) return;
-    const qty = parseInt(restockModal.qty, 10);
-    if (isNaN(qty) || qty <= 0) { setRestockModal(prev => ({ ...prev, error: "Jumlah harus lebih dari 0" })); return; }
-    if (qty > restockModal.product.stok_gudang) { setRestockModal(prev => ({ ...prev, error: `Stok gudang tidak mencukupi. Tersedia: ${restockModal.product!.stok_gudang}` })); return; }
-    setRestockModal(prev => ({ ...prev, error: "" }));
+  const handleMoveToDisplay = async () => {
+    if (!displayModal.product) return;
+    const qty = parseInt(displayModal.qty, 10);
+    if (isNaN(qty) || qty <= 0) { setDisplayModal(prev => ({ ...prev, error: "Jumlah harus lebih dari 0" })); return; }
+    if (qty > displayModal.product.stok_gudang) { setDisplayModal(prev => ({ ...prev, error: `Stok gudang tidak mencukupi. Tersedia: ${displayModal.product!.stok_gudang}` })); return; }
+    setDisplayModal(prev => ({ ...prev, error: "" }));
     startTransition(async () => {
-      const res = await restockDisplay(restockModal.product!.id, qty);
-      if (res?.error) { setRestockModal(prev => ({ ...prev, error: res.error })); } else { setRestockModal({ open: false, product: null, qty: "1", error: "" }); }
+      const res = await restockDisplay(displayModal.product!.id, qty);
+      if (res?.error) { setDisplayModal(prev => ({ ...prev, error: res.error })); } else { setDisplayModal({ open: false, product: null, qty: "1", error: "" }); }
+    });
+  };
+
+  const handleMoveToGudang = async () => {
+    if (!gudangModal.product) return;
+    const qty = parseInt(gudangModal.qty, 10);
+    if (isNaN(qty) || qty <= 0) { setGudangModal(prev => ({ ...prev, error: "Jumlah harus lebih dari 0" })); return; }
+    if (qty > (gudangModal.product.stock ?? 0)) { setGudangModal(prev => ({ ...prev, error: `Stok display tidak mencukupi. Tersedia: ${gudangModal.product!.stock ?? 0}` })); return; }
+    setGudangModal(prev => ({ ...prev, error: "" }));
+    startTransition(async () => {
+      const res = await moveToWarehouse(gudangModal.product!.id, qty);
+      if (res?.error) { setGudangModal(prev => ({ ...prev, error: res.error })); } else { setGudangModal({ open: false, product: null, qty: "1", error: "" }); }
+    });
+  };
+
+  const handleFillPaket = async () => {
+    if (!fillPaketModal.product) return;
+    const qty = parseInt(fillPaketModal.qty, 10);
+    if (isNaN(qty) || qty <= 0) { setFillPaketModal(prev => ({ ...prev, error: "Jumlah harus lebih dari 0" })); return; }
+    const product = fillPaketModal.product;
+    const qtyPerUnit = product.qty_per_unit ?? 1;
+    const masterStock = product.master ? (product.master.stok ?? 0) + (product.master.stok_gudang ?? 0) : 0;
+    if (qty * qtyPerUnit > masterStock) {
+      setFillPaketModal(prev => ({ ...prev, error: `Stok master tidak mencukupi. ${qty} paket × ${qtyPerUnit} satuan = ${qty * qtyPerUnit}, tapi master hanya punya ${masterStock} satuan` }));
+      return;
+    }
+    setFillPaketModal(prev => ({ ...prev, error: "" }));
+    startTransition(async () => {
+      const res = await isiStokPaket(product.id, qty);
+      if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else { setFillPaketModal({ open: false, product: null, qty: "1", error: "" }); }
     });
   };
 
   const handleEditClick = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
     setEditingId(product.id);
+    setIsPaket(Boolean(product.id_produk_master));
     setEditForm({ ...product, hitung_stok: product.hitung_stok ?? true });
     setErrorMsg("");
   };
 
-  const getStockBadge = (hitung_stok: boolean, stock: number | null, stok_minimum = 5) => {
+  const getStockBadge = (hitung_stok: boolean, stock: number | null, stok_minimum = 5, isPaket = false, stok_gudang = 0) => {
+    const display = stock ?? 0;
+    const gudang = stok_gudang ?? 0;
+    if (isPaket) {
+      if (display <= 0 && gudang <= 0) return <Badge variant="secondary" className="bg-destructive/10 text-destructive font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Paket Habis</Badge>;
+      if (display <= 0 && gudang > 0) return <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: 0 (Gudang: {gudang}) Paket</Badge>;
+      if (display <= stok_minimum) return <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: {display} Paket Sisa</Badge>;
+      return <Badge variant="secondary" className="bg-primary/10 text-primary font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: {display} Paket</Badge>;
+    }
     if (!hitung_stok) return <Badge variant="outline" className="text-muted-foreground border-border/50 font-normal rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Tidak dilacak</Badge>;
     if (stock === null) return null;
-    if (stock <= 0) return <Badge variant="secondary" className="bg-destructive/10 text-destructive font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Habis</Badge>;
-    if (stock <= stok_minimum) return <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">{stock} Sisa</Badge>;
-    return <Badge variant="secondary" className="bg-primary/10 text-primary font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Tersedia ({stock})</Badge>;
+    if (display <= 0 && gudang <= 0) return <Badge variant="secondary" className="bg-destructive/10 text-destructive font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Stok Habis</Badge>;
+    if (display <= 0 && gudang > 0) return <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: 0 (Gudang: {gudang})</Badge>;
+    if (display <= stok_minimum) return <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: {display} Sisa</Badge>;
+    return <Badge variant="secondary" className="bg-primary/10 text-primary font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: {display}</Badge>;
   };
 
   const handleExportCSV = () => {
-    const headers = ["SKU", "Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const headers = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
     const data = filteredData.map(p => [
       p.sku || "-", p.barcode || "-", p.nama_produk, p.kategori?.nama || "-",
+      p.lokasi_area?.nama || "-",
       p.hitung_stok ? (p.stock || 0) : "Tidak dilacak", p.hitung_stok ? p.stok_gudang : "-",
       p.harga_modal, p.harga_pokok_avco, p.nilai_persediaan,
       p.harga_jual_satuan, p.harga_jual_grosir, p.harga_jual_promo || "-"
@@ -203,9 +419,10 @@ export default function InventoryClient({
   };
 
   const handleExportPDF = () => {
-    const headers = ["SKU", "Barcode", "Item", "Kategori", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const headers = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
     const data = filteredData.map(p => [
       p.sku || "-", p.barcode || "-", p.nama_produk, p.kategori?.nama || "-",
+      p.lokasi_area?.nama || "-",
       p.hitung_stok ? String(p.stock || 0) : "Tidak dilacak", p.hitung_stok ? String(p.stok_gudang) : "-",
       formatIDR(p.harga_modal), formatIDR(p.harga_pokok_avco), formatIDR(p.nilai_persediaan),
       formatIDR(p.harga_jual_satuan), formatIDR(p.harga_jual_grosir), p.harga_jual_promo ? formatIDR(p.harga_jual_promo) : "-"
@@ -216,16 +433,36 @@ export default function InventoryClient({
   const baseColumns: Column<Product>[] = [
     { key: "sku", header: "SKU", sortable: true, className: "xl:pl-6", headerClassName: "xl:pl-6 w-[130px]", render: (p) => <span className="font-mono text-[14px]">{p.sku || "-"}</span> },
     { key: "barcode", header: "Barcode", sortable: true, headerClassName: "w-[140px]", render: (p) => <span className="font-mono text-[14px]">{p.barcode || "-"}</span> },
-    { key: "nama_produk", header: "Item", sortable: true, render: (p) => <p className="text-foreground text-[15px] xl:text-[14px] font-medium xl:font-normal line-clamp-2 xl:line-clamp-1">{p.nama_produk}</p> },
+    { key: "nama_produk", header: "Item", sortable: true, render: (p) => (
+      <div className="flex items-center gap-2">
+        <p className="text-foreground text-[15px] xl:text-[14px] font-medium xl:font-normal line-clamp-2 xl:line-clamp-1">{p.nama_produk}</p>
+        {p.id_produk_master && (
+          <Badge variant="secondary" className="shrink-0 bg-primary/10 text-primary font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">
+            Paket
+          </Badge>
+        )}
+      </div>
+    ) },
     { key: "kategori", header: "Kategori", sortable: true, sortKey: "kategori.nama", headerClassName: "w-[160px]", render: (p) => p.kategori?.nama || "-" },
+    { key: "lokasi_area", header: "Lokasi", sortable: true, sortKey: "lokasi_area.nama", className: "text-muted-foreground", headerClassName: "w-[130px]", render: (p) => p.lokasi_area?.nama || "-" },
     {
       key: "stock", header: "Status Stok", sortable: true, headerClassName: "w-[140px]",
-      render: (p) => (
-        <div>
-          {getStockBadge(p.hitung_stok, p.stock, p.stok_minimum)}
-          {p.hitung_stok && <div className="text-[11px] text-muted-foreground mt-0.5">Gudang: {p.stok_gudang} · Min: {p.stok_minimum}</div>}
-        </div>
-      ),
+      render: (p) => {
+        const isPaket = Boolean(p.id_produk_master);
+        return (
+          <div>
+            {getStockBadge(p.hitung_stok, p.stock, p.stok_minimum, isPaket, p.stok_gudang)}
+            {isPaket ? (
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                {p.qty_per_unit ?? 1} {p.satuan?.nama ?? ""} = 1 paket · Dari: {p.master?.nama_produk || "-"}
+                {(p.stok_gudang ?? 0) > 0 ? ` · Gudang: ${p.stok_gudang}` : ""}
+              </div>
+            ) : p.hitung_stok && (
+              <div className="text-[11px] text-muted-foreground mt-0.5">Gudang: {p.stok_gudang} · Min: {p.stok_minimum}</div>
+            )}
+          </div>
+        );
+      },
     },
     { key: "harga_modal", header: "Harga Modal", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{formatIDR(p.harga_modal)}</span> },
     { key: "harga_jual_satuan", header: "Harga Retail", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{formatIDR(p.harga_jual_satuan)}</span> },
@@ -242,9 +479,19 @@ export default function InventoryClient({
     key: "actions", header: "", className: "xl:pr-6", headerClassName: "w-[80px] xl:pr-6", mobileHide: true,
     render: (p) => (
       <div className="flex justify-end gap-2 xl:gap-1">
+        {p.id_produk_master !== null && (
+          <Button variant="outline" size="icon" aria-label="Isi Stok Paket" title="Isi Stok Paket" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); setFillPaketModal({ open: true, product: p, qty: "1", error: "" }); }} disabled={editingId !== null}>
+            <PackagePlus className="h-4 w-4" />
+          </Button>
+        )}
         {p.hitung_stok && p.stok_gudang > 0 && (
-          <Button variant="outline" size="icon" aria-label="Restok Display" title="Restok Display" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); setRestockModal({ open: true, product: p, qty: "1", error: "" }); }} disabled={editingId !== null}>
-            <Warehouse className="h-4 w-4" />
+          <Button variant="outline" size="icon" aria-label="Pindah ke Display" title="Pindah ke Display" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); setDisplayModal({ open: true, product: p, qty: "1", error: "" }); }} disabled={editingId !== null}>
+            <ArrowUp className="h-4 w-4" />
+          </Button>
+        )}
+        {p.hitung_stok && (p.stock ?? 0) > 0 && (
+          <Button variant="outline" size="icon" aria-label="Pindah ke Gudang" title="Pindah ke Gudang" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-amber-600 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); setGudangModal({ open: true, product: p, qty: "1", error: "" }); }} disabled={editingId !== null}>
+            <ArrowDown className="h-4 w-4" />
           </Button>
         )}
         <Button variant="outline" size="icon" aria-label="Edit" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-foreground" onClick={(e) => handleEditClick(e, p)} disabled={editingId !== null}>
@@ -263,6 +510,7 @@ export default function InventoryClient({
 
   const filters: FilterDef[] = [
     { type: "select", label: "Kategori", value: categoryFilter, onChange: setCategoryFilter, options: categories.map((c) => ({ value: String(c.id), label: c.nama })) },
+    { type: "select", label: "Lokasi", value: lokasiFilter, onChange: setLokasiFilter, options: [{ value: "none", label: "Tanpa Lokasi" }, ...lokasiAreas.map((l) => ({ value: String(l.id), label: l.nama }))] },
     {
       type: "select", label: "Stok", value: stockFilter, onChange: setStockFilter,
       options: [
@@ -320,7 +568,7 @@ export default function InventoryClient({
           },
           {
             label: "Tambah Produk", icon: <Plus className="w-4 h-4" />, kind: "primary",
-            onClick: () => { setEditingId("new"); setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5, default_purchase_unit: "", conversion_ratio: 1, id_satuan: 0 }); setErrorMsg(""); },
+            onClick: () => { setEditingId("new"); setIsPaket(false); setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5, default_purchase_unit: "", conversion_ratio: 1, id_satuan: 0 }); setErrorMsg(""); },
             disabled: editingId !== null,
           },
         ]}
@@ -362,6 +610,108 @@ export default function InventoryClient({
                 {errorMsg}
               </div>
             )}
+
+            {/* 0. Jenis Produk: Normal vs Paket/Turunan */}
+            <div className="bg-card border border-border/70 rounded-2xl p-6 sm:p-7 shadow-2xs flex flex-col gap-5">
+              <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                <div>
+                  <h4 className="text-base font-semibold text-foreground tracking-wide">Jenis Produk</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">Produk paket menjual kumpulan satuan dari produk master (stok diisi manual)</p>
+                </div>
+              </div>
+
+<div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  aria-pressed={!isPaket}
+                  className={`h-12 rounded-xl border font-medium text-sm transition-colors cursor-pointer ${
+                    !isPaket
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-background text-muted-foreground border-border hover:bg-muted/40"
+                  }`}
+                  onClick={() => {
+                    setIsPaket(false);
+                    setEditForm((prev) => ({
+                      ...prev,
+                      id_produk_master: null,
+                      qty_per_unit: null,
+                      hitung_stok: prev.hitung_stok ?? true,
+                    }));
+                  }}
+                >
+                  Produk Normal
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={isPaket}
+                  className={`h-12 rounded-xl border font-medium text-sm transition-colors cursor-pointer ${
+                    isPaket
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-background text-muted-foreground border-border hover:bg-muted/40"
+                  }`}
+                  onClick={() => {
+                    setIsPaket(true);
+                    setEditForm((prev) => ({
+                      ...prev,
+                      // Pertahankan master terpilih bila sedang edit paket
+                      id_produk_master: prev.id_produk_master || null,
+                      hitung_stok: true,
+                      // Paket tidak punya satuan jual besar / satuan beli sendiri
+                      jual_satuan: null,
+                      harga_jual_besar_satuan: null,
+                      harga_jual_besar_grosir: null,
+                      harga_jual_besar_promo: null,
+                      default_purchase_unit: null,
+                    }));
+                  }}
+                >
+                  Produk Paket
+                </button>
+              </div>
+
+              {isPaket ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Produk Master <span className="text-destructive">*</span>
+                    </label>
+                    <MasterCombobox
+                      products={initialProducts.filter((m) => m.id !== editingId && !m.id_produk_master)}
+                      value={editForm.id_produk_master ?? null}
+                      onChange={(id, master) => {
+                        setEditForm((prev) => ({
+                          ...prev,
+                          id_produk_master: id,
+                          // Auto-suggest SKU suffix jika belum diisi
+                          sku: prev.sku || (master?.sku ? `${master.sku}-PAKET` : prev.sku),
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Jumlah per Paket <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      type="number"
+                      min={0.01}
+                      step="any"
+                      placeholder="Contoh: 3"
+                      value={editForm.qty_per_unit ?? ""}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, qty_per_unit: Number(e.target.value) }))}
+                      className="h-11 tabular-nums text-sm font-medium bg-background px-3"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Berapa satuan master dalam 1 satuan paket (misal: 1 BUNGKUS = 3 PCS)
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Produk normal memiliki stok sendiri dan bisa menjadi master dari produk paket.
+                </p>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
               {/* 1. Identitas Produk (6 columns on lg) */}
@@ -459,132 +809,155 @@ export default function InventoryClient({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-3 border-t border-border/40">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" title="Satuan pembelian">
-                        Sat. Beli
-                      </label>
-                      <select
-                        value={editForm.default_purchase_unit || ""}
-                        onChange={(e) => setEditForm((prev) => {
-                          const unit = e.target.value;
-                          // Jika satuan jual besar aktif, ikuti Sat. Beli (Opsi A)
-                          const jualSatuan = prev.jual_satuan ? (unit || null) : prev.jual_satuan;
-                          return { ...prev, default_purchase_unit: unit, jual_satuan: jualSatuan };
-                        })}
-                        className="w-full h-11 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-2xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-                      >
-                        <option value="">(sama)</option>
-                        {units.map((u) => (
-                          <option key={u.id} value={u.nama}>
-                            {u.nama}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Rasio
-                      </label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={editForm.conversion_ratio ?? 1}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, conversion_ratio: Number(e.target.value) }))}
-                        className="h-11 tabular-nums text-sm font-medium bg-background px-3"
-                      />
-                    </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Lokasi Area
+                    </label>
+                    <select
+                      value={editForm.id_lokasi_area || ""}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, id_lokasi_area: e.target.value ? Number(e.target.value) : null }))}
+                      className="w-full h-11 rounded-md border border-input bg-background px-3.5 text-sm shadow-2xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                    >
+                      <option value="">Pilih Lokasi (Opsional)</option>
+                      {lokasiAreas.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.nama}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  {/* Sell Unit — toggle besar (on = jual_satuan mengikuti default_purchase_unit) */}
-                   <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex flex-col gap-0.5">
-                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" title="Satuan jual besar (opsional)">
-                            Jual dalam Satuan Besar
-                          </label>
-                          {editForm.jual_satuan ? (
-                            <p className="text-[11px] text-muted-foreground italic pt-0.5">
-                              Satuan jual: {editForm.jual_satuan} · 1 {editForm.jual_satuan} = {editForm.conversion_ratio ?? 1} satuan inventory
-                            </p>
-                          ) : (
-                            <p className="text-[11px] text-muted-foreground pt-0.5">
-                              Satuan jual besar mengikuti Sat. Beli{editForm.default_purchase_unit ? ` (${editForm.default_purchase_unit})` : " (kosong)"}
-                            </p>
-                          )}
-                        </div>
-                        <Switch
-                          checked={!!editForm.jual_satuan}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              if (!editForm.default_purchase_unit) {
-                                setErrorMsg("Isi Sat. Beli terlebih dahulu untuk mengaktifkan satuan jual besar");
-                                return;
-                              }
-                              setEditForm((prev) => ({ ...prev, jual_satuan: prev.default_purchase_unit }));
-                            } else {
-                              setEditForm((prev) => ({
-                                ...prev,
-                                jual_satuan: null,
-                                harga_jual_besar_satuan: null,
-                                harga_jual_besar_grosir: null,
-                                harga_jual_besar_promo: null,
-                              }));
-                            }
-                          }}
-                          aria-label="Jual dalam satuan besar"
+                  {!isPaket && (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-3 border-t border-border/40">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" title="Satuan pembelian">
+                          Sat. Beli
+                        </label>
+                        <select
+                          value={editForm.default_purchase_unit || ""}
+                          onChange={(e) => setEditForm((prev) => {
+                            const unit = e.target.value;
+                            // Jika satuan jual besar aktif, ikuti Sat. Beli (Opsi A)
+                            const jualSatuan = prev.jual_satuan ? (unit || null) : prev.jual_satuan;
+                            return { ...prev, default_purchase_unit: unit, jual_satuan: jualSatuan };
+                          })}
+                          className="w-full h-11 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-2xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                        >
+                          <option value="">(sama)</option>
+                          {units.map((u) => (
+                            <option key={u.id} value={u.nama}>
+                              {u.nama}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Rasio
+                        </label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={editForm.conversion_ratio ?? 1}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, conversion_ratio: Number(e.target.value) }))}
+                          className="h-11 tabular-nums text-sm font-medium bg-background px-3"
                         />
                       </div>
                     </div>
 
-                  {/* Harga Jual Besar (only shown if jual_satuan is set) */}
-                  {editForm.jual_satuan && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-3 border-t border-border/40">
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Harga {editForm.jual_satuan} (Satuan)
-                        </label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={editForm.harga_jual_besar_satuan ?? ""}
-                          onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_satuan: e.target.value ? Number(e.target.value) : null }))}
-                          className="h-11 tabular-nums text-sm font-medium bg-background px-3"
-                          placeholder="0"
-                        />
+                    {/* Sell Unit — toggle besar (on = jual_satuan mengikuti default_purchase_unit) */}
+                     <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex flex-col gap-0.5">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" title="Satuan jual besar (opsional)">
+                              Jual dalam Satuan Besar
+                            </label>
+                            {editForm.jual_satuan ? (
+                              <p className="text-[11px] text-muted-foreground italic pt-0.5">
+                                Satuan jual: {editForm.jual_satuan} · 1 {editForm.jual_satuan} = {editForm.conversion_ratio ?? 1} satuan inventory
+                              </p>
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground pt-0.5">
+                                Satuan jual besar mengikuti Sat. Beli{editForm.default_purchase_unit ? ` (${editForm.default_purchase_unit})` : " (kosong)"}
+                              </p>
+                            )}
+                          </div>
+                          <Switch
+                            checked={!!editForm.jual_satuan}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                if (!editForm.default_purchase_unit) {
+                                  setErrorMsg("Isi Sat. Beli terlebih dahulu untuk mengaktifkan satuan jual besar");
+                                  return;
+                                }
+                                setEditForm((prev) => ({ ...prev, jual_satuan: prev.default_purchase_unit }));
+                              } else {
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  jual_satuan: null,
+                                  harga_jual_besar_satuan: null,
+                                  harga_jual_besar_grosir: null,
+                                  harga_jual_besar_promo: null,
+                                }));
+                              }
+                            }}
+                            aria-label="Jual dalam satuan besar"
+                          />
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Harga {editForm.jual_satuan} (Grosir)
-                        </label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={editForm.harga_jual_besar_grosir ?? ""}
-                          onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_grosir: e.target.value ? Number(e.target.value) : null }))}
-                          className="h-11 tabular-nums text-sm font-medium bg-background px-3"
-                          placeholder="0"
-                        />
+
+                    {/* Harga Jual Besar (only shown if jual_satuan is set) */}
+                    {editForm.jual_satuan && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-3 border-t border-border/40">
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Harga {editForm.jual_satuan} (Satuan)
+                          </label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={editForm.harga_jual_besar_satuan ?? ""}
+                            onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_satuan: e.target.value ? Number(e.target.value) : null }))}
+                            className="h-11 tabular-nums text-sm font-medium bg-background px-3"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Harga {editForm.jual_satuan} (Grosir)
+                          </label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={editForm.harga_jual_besar_grosir ?? ""}
+                            onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_grosir: e.target.value ? Number(e.target.value) : null }))}
+                            className="h-11 tabular-nums text-sm font-medium bg-background px-3"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Harga {editForm.jual_satuan} (Promo)
+                          </label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={editForm.harga_jual_besar_promo ?? ""}
+                            onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_promo: e.target.value ? Number(e.target.value) : null }))}
+                            className="h-11 tabular-nums text-sm font-medium bg-background px-3"
+                            placeholder="0"
+                          />
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Harga {editForm.jual_satuan} (Promo)
-                        </label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={editForm.harga_jual_besar_promo ?? ""}
-                          onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_promo: e.target.value ? Number(e.target.value) : null }))}
-                          className="h-11 tabular-nums text-sm font-medium bg-background px-3"
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
+                    )}
+                  </>
                   )}
                 </div>
               </div>
 
               {/* 3. Manajemen Stok (Full width card with 2 columns inside) */}
+              {!isPaket && (
               <div className="lg:col-span-12 bg-card border border-border/70 rounded-2xl p-6 sm:p-7 shadow-2xs flex flex-col gap-5">
                 <div className="flex items-center justify-between border-b border-border/60 pb-3">
                   <div>
@@ -627,6 +1000,23 @@ export default function InventoryClient({
                   </div>
                 </div>
               </div>
+              )}
+              {/* Info stok paket */}
+              {isPaket && (
+                <div className="lg:col-span-12 bg-card border border-border/70 rounded-2xl p-6 sm:p-7 shadow-2xs flex flex-col gap-4">
+                  <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                    <div>
+                      <h4 className="text-base font-semibold text-foreground tracking-wide">Stok Paket</h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">Stok paket dikelola terpisah dan diisi manual dari stok master</p>
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl border border-border bg-muted/15 text-sm text-muted-foreground leading-relaxed">
+                    1 paket = <span className="font-medium text-foreground">{editForm.qty_per_unit || "-"} satuan</span> produk master.
+                    Gunakan tombol <span className="font-medium text-foreground">Isi Stok Paket</span> (di daftar inventaris) untuk
+                    mengonversi stok master menjadi stok paket. Stok paket terlacak sendiri sehingga bisa dijual &amp; dihitung stok opname secara mandiri.
+                  </div>
+                </div>
+              )}
 
               {/* 4. Penetapan Harga (Full width card with 5 price inputs) */}
               <div className="lg:col-span-12 bg-card border border-border/70 rounded-2xl p-6 sm:p-7 shadow-2xs flex flex-col gap-5">
@@ -727,46 +1117,145 @@ export default function InventoryClient({
         </DialogContent>
       </Dialog>
 
-      {/* Restock Modal */}
-      {restockModal.open && restockModal.product && (
+      {/* Isi Stok Paket Modal */}
+      {fillPaketModal.open && fillPaketModal.product && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-background border border-border shadow-[0_8px_24px_rgba(0,55,112,0.08),0_2px_6px_rgba(0,55,112,0.04)] rounded-[12px] w-full max-w-md flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-background border border-border shadow-[0_8px_24px_rgba(0,55,112,0.08),0_2px_6px_rgba(0,55,112,0.04)] rounded-[12px] w-full max-w-lg flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4">
-                <Warehouse className="w-6 h-6" />
+                <PackagePlus className="w-6 h-6" />
               </div>
-              <h2 className="text-[22px] font-light tracking-tight text-foreground mb-2 text-center">Restok Stok Display</h2>
+              <h2 className="text-[22px] font-light tracking-tight text-foreground mb-2 text-center">Isi Stok Paket</h2>
               <p className="text-sm text-muted-foreground text-center mb-6">
-                Pindahkan stok dari gudang ke display untuk <strong className="text-foreground">{restockModal.product.nama_produk}</strong>
+                Konversi stok <strong className="text-foreground">{fillPaketModal.product.master?.nama_produk || "master"}</strong> menjadi paket <strong className="text-foreground">{fillPaketModal.product.nama_produk}</strong> (1 paket = {fillPaketModal.product.qty_per_unit ?? 1} {fillPaketModal.product.satuan?.nama ?? "satuan"})
+                <span className="block mt-1 text-xs text-muted-foreground">Stok paket masuk ke <strong>gudang</strong>. Pindahkan ke display lewat tombol <strong>Pindah ke Display</strong> saat dibutuhkan.</span>
               </p>
               <div className="flex gap-4 mb-6">
                 <div className="flex-1 bg-muted/30 rounded-lg p-4 text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Stok Display</p>
-                  <p className="text-2xl font-semibold tabular-nums">{restockModal.product.stock}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Stok Master</p>
+                  <p className="text-2xl font-semibold tabular-nums">
+                    {(fillPaketModal.product.master?.stok ?? 0) + (fillPaketModal.product.master?.stok_gudang ?? 0)}
+                  </p>
                 </div>
                 <div className="flex-1 bg-muted/30 rounded-lg p-4 text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Stok Gudang</p>
-                  <p className="text-2xl font-semibold tabular-nums">{restockModal.product.stok_gudang}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Stok Paket — Display</p>
+                  <p className="text-2xl font-semibold tabular-nums">{fillPaketModal.product.stock}</p>
+                </div>
+                <div className="flex-1 bg-muted/30 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Stok Paket — Gudang</p>
+                  <p className="text-2xl font-semibold tabular-nums">{fillPaketModal.product.stok_gudang ?? 0}</p>
                 </div>
               </div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Jumlah pindah</label>
-              <Input type="number" min={1} max={restockModal.product.stok_gudang} value={restockModal.qty}
-                onChange={(e) => setRestockModal(prev => ({ ...prev, qty: e.target.value, error: "" }))}
+              <label className="text-sm font-medium text-foreground mb-2 block">Jumlah paket diisi</label>
+              <Input type="number" min={1} value={fillPaketModal.qty}
+                onChange={(e) => setFillPaketModal(prev => ({ ...prev, qty: e.target.value, error: "" }))}
                 className="h-12 text-lg text-center tabular-nums" autoFocus />
-              {restockModal.error && (
+              {fillPaketModal.error && (
                 <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive text-sm">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  {restockModal.error}
+                  {fillPaketModal.error}
                 </div>
               )}
             </div>
             <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex justify-end gap-3">
-              <Button variant="outline" className="rounded-full px-6 bg-background" onClick={() => setRestockModal({ open: false, product: null, qty: "1", error: "" })} disabled={isPending}>
+              <Button variant="outline" className="rounded-full px-6 bg-background" onClick={() => setFillPaketModal({ open: false, product: null, qty: "1", error: "" })} disabled={isPending}>
                 Batal
               </Button>
-              <Button variant="default" className="rounded-full px-6 shadow-sm" onClick={handleRestock} disabled={isPending}>
+              <Button variant="default" className="rounded-full px-6 shadow-sm" onClick={handleFillPaket} disabled={isPending}>
                 {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Restok Display
+                Isi Stok Paket
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pindah ke Display Modal */}
+      {displayModal.open && displayModal.product && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-background border border-border shadow-[0_8px_24px_rgba(0,55,112,0.08),0_2px_6px_rgba(0,55,112,0.04)] rounded-[12px] w-full max-w-md flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4">
+                <ArrowUp className="w-6 h-6" />
+              </div>
+              <h2 className="text-[22px] font-light tracking-tight text-foreground mb-2 text-center">Pindah ke Display</h2>
+              <p className="text-sm text-muted-foreground text-center mb-6">
+                Pindahkan stok dari gudang ke display untuk <strong className="text-foreground">{displayModal.product.nama_produk}</strong>
+              </p>
+              <div className="flex gap-4 mb-6">
+                <div className="flex-1 bg-muted/30 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Stok Display</p>
+                  <p className="text-2xl font-semibold tabular-nums">{displayModal.product.stock}</p>
+                </div>
+                <div className="flex-1 bg-muted/30 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Stok Gudang</p>
+                  <p className="text-2xl font-semibold tabular-nums">{displayModal.product.stok_gudang}</p>
+                </div>
+              </div>
+              <label className="text-sm font-medium text-foreground mb-2 block">Jumlah pindah</label>
+              <Input type="number" min={1} max={displayModal.product.stok_gudang} value={displayModal.qty}
+                onChange={(e) => setDisplayModal(prev => ({ ...prev, qty: e.target.value, error: "" }))}
+                className="h-12 text-lg text-center tabular-nums" autoFocus />
+              {displayModal.error && (
+                <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive text-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {displayModal.error}
+                </div>
+              )}
+            </div>
+            <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex justify-end gap-3">
+              <Button variant="outline" className="rounded-full px-6 bg-background" onClick={() => setDisplayModal({ open: false, product: null, qty: "1", error: "" })} disabled={isPending}>
+                Batal
+              </Button>
+              <Button variant="default" className="rounded-full px-6 shadow-sm" onClick={handleMoveToDisplay} disabled={isPending}>
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Pindah ke Display
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pindah ke Gudang Modal */}
+      {gudangModal.open && gudangModal.product && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-background border border-border shadow-[0_8px_24px_rgba(0,55,112,0.08),0_2px_6px_rgba(0,55,112,0.04)] rounded-[12px] w-full max-w-md flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 mx-auto mb-4">
+                <ArrowDown className="w-6 h-6" />
+              </div>
+              <h2 className="text-[22px] font-light tracking-tight text-foreground mb-2 text-center">Pindah ke Gudang</h2>
+              <p className="text-sm text-muted-foreground text-center mb-6">
+                Pindahkan stok dari display ke gudang untuk <strong className="text-foreground">{gudangModal.product.nama_produk}</strong>
+              </p>
+              <div className="flex gap-4 mb-6">
+                <div className="flex-1 bg-muted/30 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Stok Display</p>
+                  <p className="text-2xl font-semibold tabular-nums">{gudangModal.product.stock}</p>
+                </div>
+                <div className="flex-1 bg-muted/30 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Stok Gudang</p>
+                  <p className="text-2xl font-semibold tabular-nums">{gudangModal.product.stok_gudang}</p>
+                </div>
+              </div>
+              <label className="text-sm font-medium text-foreground mb-2 block">Jumlah pindah</label>
+              <Input type="number" min={1} max={gudangModal.product.stock ?? 0} value={gudangModal.qty}
+                onChange={(e) => setGudangModal(prev => ({ ...prev, qty: e.target.value, error: "" }))}
+                className="h-12 text-lg text-center tabular-nums" autoFocus />
+              {gudangModal.error && (
+                <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive text-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {gudangModal.error}
+                </div>
+              )}
+            </div>
+            <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex justify-end gap-3">
+              <Button variant="outline" className="rounded-full px-6 bg-background" onClick={() => setGudangModal({ open: false, product: null, qty: "1", error: "" })} disabled={isPending}>
+                Batal
+              </Button>
+              <Button variant="default" className="rounded-full px-6 shadow-sm bg-amber-600 hover:bg-amber-700 text-white border-amber-600" onClick={handleMoveToGudang} disabled={isPending}>
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Pindah ke Gudang
               </Button>
             </div>
           </div>

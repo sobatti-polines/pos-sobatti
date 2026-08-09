@@ -43,7 +43,7 @@ export async function addStockIn(
   const productIds = [...new Set(rows.map((r) => r.id_produk))];
   const { data: products, error: prodError } = await supabase
     .from("produk")
-    .select("id, conversion_ratio, default_purchase_unit")
+    .select("id, conversion_ratio, default_purchase_unit, id_produk_master")
     .in("id", productIds);
 
   if (prodError) {
@@ -56,6 +56,9 @@ export async function addStockIn(
     const prod = productMap.get(row.id_produk);
     if (!prod) {
       return { error: `Produk dengan ID ${row.id_produk} tidak ditemukan` };
+    }
+    if (prod.id_produk_master) {
+      return { error: `Produk "${row.id_produk}" adalah produk paket — gunakan menu "Isi Stok Paket" di halaman Inventaris` };
     }
     if (!prod.conversion_ratio || prod.conversion_ratio < 1) {
       return { error: `Produk ID ${row.id_produk} belum memiliki rasio konversi yang valid` };
@@ -81,7 +84,14 @@ export async function addStockIn(
 
   if (rpcError) {
     console.error("Stock-in RPC error:", rpcError);
-    return { error: "Gagal memproses barang masuk" };
+    const msg = rpcError.message ?? "Unknown error";
+    if (/does not exist/i.test(msg)) {
+      return { error: "Gagal memproses barang masuk: skema database belum lengkap — pastikan semua migration sudah dijalankan. Detail: " + msg };
+    }
+    if (/division by zero/i.test(msg)) {
+      return { error: "Gagal memproses barang masuk: rasio konversi produk (conversion_ratio) bernilai 0 — perbaiki rasio produk terlebih dahulu" };
+    }
+    return { error: "Gagal memproses barang masuk: " + msg };
   }
 
   await logActivity(supabase, {

@@ -11,6 +11,7 @@ export default async function StockInPage() {
         "id, nama_produk, barcode, default_purchase_unit, conversion_ratio, satuan(id, nama)"
       )
       .eq("hitung_stok", true)
+      .is("id_produk_master", null)
       .order("nama_produk"),
     supabase.from("supplier").select("id, nama_supplier").order("nama_supplier"),
     supabase.from("satuan").select("id, nama").order("nama"),

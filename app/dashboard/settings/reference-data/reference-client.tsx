@@ -13,21 +13,24 @@ import ImportCSVModal from "@/components/import-csv-modal";
 import { ExportDropdown } from "@/components/export-dropdown";
 
 type ReferenceItem = { id: number; nama: string };
-type TabType = "kategori" | "satuan" | "metode_bayar";
+type TabType = "kategori" | "satuan" | "metode_bayar" | "lokasi_area";
 
 export function ReferenceClient({
   initialKategori,
   initialSatuan,
   initialMetodeBayar,
+  initialLokasiArea,
 }: {
   initialKategori: ReferenceItem[];
   initialSatuan: ReferenceItem[];
   initialMetodeBayar: ReferenceItem[];
+  initialLokasiArea: ReferenceItem[];
 }) {
   const [activeTab, setActiveTab] = useState<TabType>("kategori");
   const [kategori, setKategori] = useState<ReferenceItem[]>(initialKategori);
   const [satuan, setSatuan] = useState<ReferenceItem[]>(initialSatuan);
   const [metodeBayar, setMetodeBayar] = useState<ReferenceItem[]>(initialMetodeBayar);
+  const [lokasiArea, setLokasiArea] = useState<ReferenceItem[]>(initialLokasiArea);
 
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -44,6 +47,7 @@ export function ReferenceClient({
   useEffect(() => { setKategori(initialKategori); }, [initialKategori]);
   useEffect(() => { setSatuan(initialSatuan); }, [initialSatuan]);
   useEffect(() => { setMetodeBayar(initialMetodeBayar); }, [initialMetodeBayar]);
+  useEffect(() => { setLokasiArea(initialLokasiArea); }, [initialLokasiArea]);
 
   useEffect(() => {
     setSearchQuery("");
@@ -73,12 +77,14 @@ export function ReferenceClient({
       if (res.error) {
         setErrorMsg(res.error);
       } else {
-        const newItem = { id: editingId === 'new' ? Date.now() : (editingId as number), nama: editForm.nama! };
-        const updater = (prev: ReferenceItem[]) =>
-          editingId === 'new' ? [...prev, newItem] : prev.map(i => i.id === editingId ? newItem : i);
-        if (activeTab === "kategori") setKategori(updater);
-        else if (activeTab === "satuan") setSatuan(updater);
-        else setMetodeBayar(updater);
+        if (editingId !== 'new') {
+          const newItem = { id: editingId as number, nama: editForm.nama! };
+          const updater = (prev: ReferenceItem[]) => prev.map(i => i.id === editingId ? newItem : i);
+          if (activeTab === "kategori") setKategori(updater);
+          else if (activeTab === "satuan") setSatuan(updater);
+          else if (activeTab === "lokasi_area") setLokasiArea(updater);
+          else setMetodeBayar(updater);
+        }
         setEditingId(null);
         setEditForm({});
       }
@@ -102,6 +108,7 @@ export function ReferenceClient({
         const filterFn = (prev: ReferenceItem[]) => prev.filter((i) => i.id !== deleteTarget.id);
         if (activeTab === "kategori") setKategori(filterFn);
         else if (activeTab === "satuan") setSatuan(filterFn);
+        else if (activeTab === "lokasi_area") setLokasiArea(filterFn);
         else setMetodeBayar(filterFn);
         setDeleteTarget(null);
       }
@@ -111,6 +118,7 @@ export function ReferenceClient({
   const getActiveData = () => {
     if (activeTab === "kategori") return kategori;
     if (activeTab === "satuan") return satuan;
+    if (activeTab === "lokasi_area") return lokasiArea;
     return metodeBayar;
   };
 
@@ -139,6 +147,7 @@ export function ReferenceClient({
   const getTabLabel = (tab: TabType) => {
     if (tab === "kategori") return "Kategori Produk";
     if (tab === "satuan") return "Satuan Barang";
+    if (tab === "lokasi_area") return "Lokasi Area";
     return "Metode Pembayaran";
   };
 
@@ -188,7 +197,7 @@ export function ReferenceClient({
     <div className="flex-1 flex flex-col min-h-0 gap-6">
       {/* Tabs */}
       <div className="shrink-0 flex space-x-1 bg-muted/50 p-1 rounded-[12px] overflow-x-auto custom-scrollbar">
-        {(["kategori", "satuan", "metode_bayar"] as TabType[]).map((tab) => (
+        {(["kategori", "satuan", "metode_bayar", "lokasi_area"] as TabType[]).map((tab) => (
           <button
             key={tab}
             onClick={() => { setActiveTab(tab); setEditingId(null); setEditForm({}); setErrorMsg(""); }}
@@ -290,8 +299,8 @@ export function ReferenceClient({
         templateFilename={`Template_Import_${getTabLabel(activeTab).replace(" ", "_")}`}
         templateHeaders={[`Nama ${getTabLabel(activeTab)}`]}
         sampleRows={[
-          [activeTab === "kategori" ? "Bahan Bangunan" : activeTab === "satuan" ? "Pcs" : "Transfer Bank"],
-          [activeTab === "kategori" ? "Alat Pertukangan" : activeTab === "satuan" ? "Dus" : "QRIS"],
+          [activeTab === "kategori" ? "Bahan Bangunan" : activeTab === "satuan" ? "Pcs" : activeTab === "lokasi_area" ? "Rak A1" : "Transfer Bank"],
+          [activeTab === "kategori" ? "Alat Pertukangan" : activeTab === "satuan" ? "Dus" : activeTab === "lokasi_area" ? "Gudang Utara" : "QRIS"],
         ]}
         validateRow={(row) => {
           const name = row[`Nama ${getTabLabel(activeTab)}`] || row["Nama"] || row["nama"] || "";

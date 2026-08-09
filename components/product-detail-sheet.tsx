@@ -57,6 +57,9 @@ export interface ProductWithAvco {
   diskon: number;
   harga_pokok_avco: number;
   nilai_persediaan: number;
+  id_produk_master: number | null;
+  qty_per_unit: number | null;
+  master: { stok: number | null; stok_gudang: number | null; hitung_stok: boolean | null; nama_produk: string | null } | null;
   kategori: { nama: string } | null;
   satuan: { nama: string } | null;
 }
@@ -172,6 +175,11 @@ export default function ProductDetailSheet({
         label: "Min Stok",
         value: product.hitung_stok ? String(product.stok_minimum) : "-",
       },
+      ...(product.id_produk_master
+        ? [
+            { label: "Qty per Paket", value: String(product.qty_per_unit ?? 1) },
+          ]
+        : []),
       { label: "Harga Modal", value: formatIDR(product.harga_modal), mono: true },
       {
         label: "HPP (AVCO)",

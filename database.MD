@@ -1,4 +1,3 @@
-
 ## Table `kategori`
 
 ### Columns
@@ -523,4 +522,5 @@
 | Policy | Command | Roles | Action | USING | WITH CHECK |
 |--------|---------|-------|--------|-------|------------|
 | `auth_can_select_log_aktivitas` | SELECT | authenticated | PERMISSIVE | `true` | — |
+
 

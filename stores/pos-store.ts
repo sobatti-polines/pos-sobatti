@@ -21,6 +21,9 @@ export interface Product {
   harga_jual_besar_satuan: number | null; // price per big unit — tier Satuan
   harga_jual_besar_grosir: number | null; // price per big unit — tier Grosir
   harga_jual_besar_promo: number | null;  // price per big unit — tier Promo
+  // Produk paket fields
+  id_produk_master: number | null;        // NULL = master; set = produk paket
+  qty_per_unit: number | null;            // berapa satuan master dalam 1 paket
 }
 
 export interface Customer {

@@ -244,6 +244,10 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                           <Scale className="w-4 h-4" />
                           <span>Neraca</span>
                         </Link>
+                        <Link href="/dashboard/laporan/stok-opname" className={subLinkClass("/dashboard/laporan/stok-opname")} onClick={() => setIsOpen(false)}>
+                          <ClipboardList className="w-4 h-4" />
+                          <span>Stok Opname</span>
+                        </Link>
                       </div>
                     </div>
 

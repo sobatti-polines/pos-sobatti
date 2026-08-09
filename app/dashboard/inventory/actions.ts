@@ -35,6 +35,20 @@ interface ProductData {
   harga_jual_besar_satuan?: number | null;
   harga_jual_besar_grosir?: number | null;
   harga_jual_besar_promo?: number | null;
+  id_produk_master?: number | null;
+  qty_per_unit?: number | null;
+  id_lokasi_area?: number | null;
+}
+
+function paketErrorMessage(msg: string): string | null {
+  const keywords = [
+    "Qty per satuan",
+    "produk paket",
+    "Produk master",
+    "master dirinya sendiri",
+    "tidak bisa bertingkat",
+  ];
+  return keywords.some((k) => msg.includes(k)) ? msg : null;
 }
 
 export async function addProduct(data: ProductData) {
@@ -45,7 +59,7 @@ export async function addProduct(data: ProductData) {
   const { error } = await supabase.from("produk").insert([data]);
   if (error) {
     console.error("Failed to add product:", error);
-    return { error: "Gagal menambah produk" };
+    return { error: paketErrorMessage(error.message ?? "") ?? "Gagal menambah produk" };
   }
 
   await logActivity(supabase, {
@@ -68,14 +82,14 @@ export async function updateProduct(id: number, data: ProductData) {
   // Fetch old data for log
   const { data: oldProduct } = await supabase
     .from("produk")
-    .select("nama_produk, id_kategori, id_satuan, hitung_stok, sku, barcode, harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon, stok_minimum, default_purchase_unit, conversion_ratio, jual_satuan, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo")
+    .select("nama_produk, id_kategori, id_satuan, hitung_stok, sku, barcode, harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon, stok_minimum, default_purchase_unit, conversion_ratio, jual_satuan, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo, id_produk_master, qty_per_unit, id_lokasi_area")
     .eq("id", id)
     .single();
 
   const { error } = await supabase.from("produk").update(data).eq("id", id);
   if (error) {
     console.error("Failed to update product:", error);
-    return { error: "Gagal memperbarui produk" };
+    return { error: paketErrorMessage(error.message ?? "") ?? "Gagal memperbarui produk" };
   }
 
   await logActivity(supabase, {
@@ -106,6 +120,10 @@ export async function deleteProduct(id: number) {
   const { error } = await supabase.from("produk").delete().eq("id", id);
   if (error) {
     console.error("Failed to delete product:", error);
+    // FK violation: produk masih menjadi master dari produk paket
+    if (error.code === "23503") {
+      return { error: "Produk tidak bisa dihapus karena masih menjadi master dari produk paket" };
+    }
     return { error: "Gagal menghapus produk" };
   }
 
@@ -164,6 +182,92 @@ export async function restockDisplay(productId: number, qty: number) {
     deskripsi: buildDeskripsi({ aksi: "UPDATE", entitas: "produk", id_entitas: productId, data_lama: { stok: product.stok, stok_gudang: product.stok_gudang } as unknown as Record<string, unknown>, data_baru: { stok: product.stok + qty, stok_gudang: product.stok_gudang - qty } as unknown as Record<string, unknown> }),
     data_lama: { stok: product.stok, stok_gudang: product.stok_gudang } as unknown as Record<string, unknown>,
     data_baru: { stok: product.stok + qty, stok_gudang: product.stok_gudang - qty } as unknown as Record<string, unknown>,
+  });
+
+  revalidatePath("/dashboard/inventory");
+  return { success: true };
+}
+
+export async function moveToWarehouse(productId: number, qty: number) {
+  const ok = await requireAuth();
+  if (!ok) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
+
+  if (qty <= 0) return { error: "Jumlah harus lebih dari 0" };
+
+  const { data: product, error: fetchError } = await supabase
+    .from("produk")
+    .select("stok, stok_gudang")
+    .eq("id", productId)
+    .single();
+
+  if (fetchError || !product) {
+    console.error("Failed to fetch product:", fetchError);
+    return { error: "Produk tidak ditemukan" };
+  }
+
+  if (qty > product.stok) {
+    return { error: `Stok display tidak mencukupi. Tersedia: ${product.stok}` };
+  }
+
+  const { error: updateError } = await supabase
+    .from("produk")
+    .update({
+      stok: product.stok - qty,
+      stok_gudang: product.stok_gudang + qty,
+    })
+    .eq("id", productId);
+
+  if (updateError) {
+    console.error("Failed to move to warehouse:", updateError);
+    return { error: "Gagal memindahkan stok ke gudang" };
+  }
+
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "produk",
+    id_entitas: productId,
+    deskripsi: buildDeskripsi({ aksi: "UPDATE", entitas: "produk", id_entitas: productId, data_lama: { stok: product.stok, stok_gudang: product.stok_gudang } as unknown as Record<string, unknown>, data_baru: { stok: product.stok - qty, stok_gudang: product.stok_gudang + qty } as unknown as Record<string, unknown> }),
+    data_lama: { stok: product.stok, stok_gudang: product.stok_gudang } as unknown as Record<string, unknown>,
+    data_baru: { stok: product.stok - qty, stok_gudang: product.stok_gudang + qty } as unknown as Record<string, unknown>,
+  });
+
+  revalidatePath("/dashboard/inventory");
+  return { success: true };
+}
+
+export async function isiStokPaket(paketId: number, qtyPaket: number) {
+  const ok = await requireAuth();
+  if (!ok) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
+
+  if (!Number.isInteger(qtyPaket) || qtyPaket <= 0) {
+    return { error: "Jumlah paket harus bilangan bulat lebih dari 0" };
+  }
+
+  const { data, error } = await supabase.rpc("process_isi_stok_paket", {
+    p_id_paket: paketId,
+    p_qty_paket: qtyPaket,
+  });
+
+  if (error) {
+    console.error("process_isi_stok_paket failed:", error);
+    return { error: error.message };
+  }
+
+  if (data && typeof data === "object" && "error" in data && data.error) {
+    return { error: String(data.error) };
+  }
+
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "produk",
+    id_entitas: paketId,
+    deskripsi: `Isi stok paket: ${qtyPaket} paket`,
+    data_lama: null,
+    data_baru: { qty_paket: qtyPaket } as unknown as Record<string, unknown>,
   });
 
   revalidatePath("/dashboard/inventory");
@@ -235,6 +339,7 @@ export async function importProducts(
   const { data: categories } = await supabase.from("kategori").select("id, nama");
   const { data: units } = await supabase.from("satuan").select("id, nama");
   const { data: brands } = await supabase.from("merk").select("id, nama");
+  const { data: lokasiAreas } = await supabase.from("lokasi_area").select("id, nama");
 
   const categoryMap = new Map<string, number>(
     (categories || []).map((c) => [c.nama.toLowerCase().trim(), c.id])
@@ -245,10 +350,13 @@ export async function importProducts(
   const brandMap = new Map<string, number>(
     (brands || []).map((b) => [b.nama.toLowerCase().trim(), b.id])
   );
+  const lokasiMap = new Map<string, number>(
+    (lokasiAreas || []).map((l) => [l.nama.toLowerCase().trim(), l.id])
+  );
 
   // Helper to ensure reference item exists or create it
   const getOrCreateRef = async (
-    table: "kategori" | "satuan" | "merk",
+    table: "kategori" | "satuan" | "merk" | "lokasi_area",
     map: Map<string, number>,
     rawName: string
   ): Promise<number | null> => {
@@ -306,10 +414,12 @@ export async function importProducts(
     const catName = r["Kategori"] || r["kategori"] || "";
     const unitName = r["Satuan"] || r["satuan"] || r["Satuan Dasar"] || r["base_unit"] || "";
     const brandName = r["Merk"] || r["merk"] || "";
+    const lokName = r["Lokasi"] || r["lokasi"] || r["Lokasi Area"] || r["lokasi_area"] || "";
 
     const id_kategori = catName ? (await getOrCreateRef("kategori", categoryMap, catName)) || defaultCatId : defaultCatId;
     const id_satuan = unitName ? (await getOrCreateRef("satuan", unitMap, unitName)) || defaultUnitId : defaultUnitId;
     const id_merk = brandName ? await getOrCreateRef("merk", brandMap, brandName) : null;
+    const id_lokasi_area = lokName ? await getOrCreateRef("lokasi_area", lokasiMap, lokName) : null;
 
     const sku = (r["SKU"] || r["sku"] || "").trim() || null;
     const barcode = (r["Barcode"] || r["barcode"] || "").trim() || null;
@@ -346,6 +456,7 @@ export async function importProducts(
       id_kategori,
       id_satuan,
       id_merk,
+      id_lokasi_area,
       sku,
       barcode,
       harga_modal,

@@ -6,8 +6,9 @@ export default async function StockOpnamePage() {
 
   const { data: products } = await supabase
     .from("produk")
-    .select("id, nama_produk, stok, barcode, hitung_stok")
+    .select("id, nama_produk, stok, stok_gudang, barcode, hitung_stok")
     .eq("hitung_stok", true)
+    .is("id_produk_master", null)
     .order("nama_produk");
 
   return (

@@ -4,22 +4,37 @@ import OpnameHistoryClient from "./history-client";
 export default async function StockOpnameHistoryPage() {
   const supabase = await createClient();
 
-  const { data: rawHistory } = await supabase
-    .from("stok_opname")
+  const { data: rawSesi } = await supabase
+    .from("sesi_stok_opname")
     .select(`
       id,
-      tgl_opname,
-      stok_sistem,
-      stok_fisik,
-      selisih,
+      no_sesi,
+      tgl_sesi,
+      status,
       keterangan,
-      produk(nama_produk)
+      total_item,
+      total_selisih,
+      total_nilai,
+      created_at,
+      applied_at,
+      pengguna(nama, username),
+      stok_opname(
+        id,
+        id_produk,
+        stok_sistem,
+        stok_fisik,
+        selisih,
+        klasifikasi,
+        harga_pokok_snap,
+        keterangan,
+        produk(nama_produk, sku)
+      )
     `)
-    .order("tgl_opname", { ascending: false })
+    .order("tgl_sesi", { ascending: false })
     .order("created_at", { ascending: false });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const history = (rawHistory ?? []) as any[];
+  const sesiList = (rawSesi ?? []) as any[];
 
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
@@ -28,11 +43,11 @@ export default async function StockOpnameHistoryPage() {
           Riwayat Stok Opname
         </h1>
         <p className="text-muted-foreground mt-2">
-          Daftar riwayat pengecekan fisik stok yang pernah dilakukan
+          Daftar sesi pengecekan fisik stok yang pernah dilakukan
         </p>
       </header>
 
-      <OpnameHistoryClient initialHistory={history} />
+      <OpnameHistoryClient initialSesi={sesiList} />
     </div>
   );
 }

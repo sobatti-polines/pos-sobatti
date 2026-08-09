@@ -1,17 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
+import { attachMasterInfo, type MasterInfo } from "@/lib/produk-paket";
 import InventoryClient from "./inventory-client";
 
 export default async function InventoryPage() {
   const supabase = await createClient();
 
-  const [productsRes, categoriesRes, unitsRes] = await Promise.all([
+  const [productsRes, categoriesRes, unitsRes, lokasiRes] = await Promise.all([
     supabase.from("produk").select(`
       *,
       kategori(nama),
-      satuan(nama)
+      satuan(nama),
+      lokasi_area(nama)
     `).order("id", { ascending: false }),
     supabase.from("kategori").select("*").order("nama"),
-    supabase.from("satuan").select("*").order("nama")
+    supabase.from("satuan").select("*").order("nama"),
+    supabase.from("lokasi_area").select("*").order("nama"),
   ]);
 
   interface RawProduct {
@@ -38,27 +41,35 @@ export default async function InventoryPage() {
     harga_jual_besar_satuan: number | null;
     harga_jual_besar_grosir: number | null;
     harga_jual_besar_promo: number | null;
+    id_produk_master: number | null;
+    qty_per_unit: number | null;
+    id_lokasi_area: number | null;
     kategori: { nama: string } | null;
     satuan: { nama: string } | null;
+    lokasi_area: { nama: string } | null;
   }
 
-  const productsWithStock = (productsRes.data ?? []).map((p: RawProduct) => {
-    const stock = p.hitung_stok ? (p.stok ?? 0) : null;
-    return {
-      ...p,
-      stock,
-      stok_gudang: p.stok_gudang ?? 0,
-      stok_minimum: p.stok_minimum ?? 5,
-      harga_pokok_avco: p.harga_pokok_avco ?? 0,
-      nilai_persediaan: p.nilai_persediaan ?? 0,
-      default_purchase_unit: p.default_purchase_unit ?? null,
-      conversion_ratio: p.conversion_ratio ?? 1,
-      jual_satuan: p.jual_satuan ?? null,
-      harga_jual_besar_satuan: p.harga_jual_besar_satuan ?? null,
-      harga_jual_besar_grosir: p.harga_jual_besar_grosir ?? null,
-      harga_jual_besar_promo: p.harga_jual_besar_promo ?? null,
-    };
-  });
+  const withMaster = await attachMasterInfo(supabase, (productsRes.data ?? []) as RawProduct[]);
+
+  const productsWithStock = withMaster.map((p) => ({
+    ...p,
+    stock: p.hitung_stok ? (p.stok ?? 0) : null,
+    stok_gudang: p.stok_gudang ?? 0,
+    stok_minimum: p.stok_minimum ?? 5,
+    harga_pokok_avco: p.harga_pokok_avco ?? 0,
+    nilai_persediaan: p.nilai_persediaan ?? 0,
+    default_purchase_unit: p.default_purchase_unit ?? null,
+    conversion_ratio: p.conversion_ratio ?? 1,
+    jual_satuan: p.jual_satuan ?? null,
+    harga_jual_besar_satuan: p.harga_jual_besar_satuan ?? null,
+    harga_jual_besar_grosir: p.harga_jual_besar_grosir ?? null,
+    harga_jual_besar_promo: p.harga_jual_besar_promo ?? null,
+    id_produk_master: p.id_produk_master ?? null,
+    qty_per_unit: p.qty_per_unit ?? null,
+    id_lokasi_area: p.id_lokasi_area ?? null,
+    lokasi_area: p.lokasi_area ?? null,
+    master: p.master as MasterInfo | null,
+  }));
 
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
@@ -74,7 +85,8 @@ export default async function InventoryPage() {
       <InventoryClient 
         initialProducts={productsWithStock} 
         categories={categoriesRes.data ?? []} 
-        units={unitsRes.data ?? []} 
+        units={unitsRes.data ?? []}
+        lokasiAreas={lokasiRes.data ?? []}
       />
     </div>
   );

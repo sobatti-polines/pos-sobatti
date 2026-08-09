@@ -72,6 +72,7 @@ interface ScannedStockProduct {
   stok?: number;
   stok_gudang?: number;
   kategori?: { nama?: string } | string | null;
+  satuan?: { nama?: string } | null;
 }
 
 export function PosClient() {

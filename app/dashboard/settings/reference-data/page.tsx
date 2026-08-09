@@ -24,16 +24,19 @@ export default async function ReferenceDataPage() {
   const [
     { data: kategori, error: errKategori },
     { data: satuan, error: errSatuan },
-    { data: metode_bayar, error: errMetodeBayar }
+    { data: metode_bayar, error: errMetodeBayar },
+    { data: lokasi_area, error: errLokasiArea }
   ] = await Promise.all([
     supabase.from("kategori").select("id, nama").order("id", { ascending: true }),
     supabase.from("satuan").select("id, nama").order("id", { ascending: true }),
-    supabase.from("metode_bayar").select("id, nama").order("id", { ascending: true })
+    supabase.from("metode_bayar").select("id, nama").order("id", { ascending: true }),
+    supabase.from("lokasi_area").select("id, nama").order("id", { ascending: true })
   ]);
 
   if (errKategori) console.error("Error fetching kategori:", errKategori);
   if (errSatuan) console.error("Error fetching satuan:", errSatuan);
   if (errMetodeBayar) console.error("Error fetching metode_bayar:", errMetodeBayar);
+  if (errLokasiArea) console.error("Error fetching lokasi_area:", errLokasiArea);
 
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
@@ -42,7 +45,7 @@ export default async function ReferenceDataPage() {
           Data Referensi
         </h1>
         <p className="text-muted-foreground mt-2">
-          Kelola kategori produk, satuan barang, dan metode pembayaran
+          Kelola kategori produk, satuan barang, metode pembayaran, dan lokasi area
         </p>
       </header>
 
@@ -50,6 +53,7 @@ export default async function ReferenceDataPage() {
         initialKategori={kategori || []}
         initialSatuan={satuan || []}
         initialMetodeBayar={metode_bayar || []}
+        initialLokasiArea={lokasi_area || []}
       />
     </div>
   );

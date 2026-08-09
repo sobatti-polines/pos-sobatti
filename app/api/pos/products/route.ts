@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       default_purchase_unit, conversion_ratio,
       jual_satuan,
       harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo,
+      id_produk_master, qty_per_unit,
       kategori(nama), satuan(nama)
     `, { count: "exact" })
     .order("nama_produk");
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Gagal mengambil data produk" }, { status: 500 });
   }
 
-  const res = NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit });
+  const res = NextResponse.json({ data, total: count ?? 0, page, limit });
   res.headers.set("Cache-Control", "public, max-age=60, s-maxage=120, stale-while-revalidate=300");
   return res;
 }

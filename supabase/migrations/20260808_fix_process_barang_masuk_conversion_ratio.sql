@@ -1,5 +1,6 @@
--- Replaces process_barang_masuk() with dual-format support (UoM + legacy)
--- Updated separately because 20260710_process_barang_masuk.sql was already applied.
+-- 20260808_fix_process_barang_masuk_conversion_ratio.sql
+-- Fix: COALESCE(conversion_ratio, 1) tidak punya alias → PostgreSQL menamainya "coalesce"
+-- sehingga v_prod.conversion_ratio gagal dengan "record has no field conversion_ratio"
 
 CREATE OR REPLACE FUNCTION process_barang_masuk(
   p_items JSONB
@@ -30,15 +31,12 @@ DECLARE
 
   v_results JSONB[] := '{}';
 BEGIN
-  -- Serialise concurrent stock-in calls (lock ID differs from process_checkout's 987654321)
   PERFORM pg_advisory_xact_lock(987654322);
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
   LOOP
-    -- Detect format: new UoM format (supplied_qty present) vs legacy format
     v_is_uom := (v_item ? 'supplied_qty') AND (v_item->>'supplied_qty') IS NOT NULL;
 
-    -- Lock and read current product row (includes UoM fields for new format)
     SELECT stok, stok_gudang, harga_pokok_avco, nilai_persediaan,
            COALESCE(conversion_ratio, 1) AS conversion_ratio INTO v_prod
     FROM produk
@@ -50,23 +48,19 @@ BEGIN
     END IF;
 
     IF v_is_uom THEN
-      -- === New UoM format: client sends supplied_qty, supplied_unit, total_cost ===
       v_supplied_qty     := (v_item->>'supplied_qty')::numeric;
       v_supplied_unit    := v_item->>'supplied_unit';
       v_conversion_ratio := v_prod.conversion_ratio;
       v_total_cost       := (v_item->>'total_cost')::numeric;
 
-      -- Derived: base quantity in Pcs
       v_base_qty := v_supplied_qty * v_conversion_ratio;
 
-      -- HPP per piece (base unit)
       IF v_base_qty > 0 THEN
         v_per_piece_cost := v_total_cost / v_base_qty;
       ELSE
         v_per_piece_cost := 0;
       END IF;
 
-      -- Insert into barang_masuk with full audit trail
       INSERT INTO barang_masuk (
         tgl_masuk, id_supplier, id_produk,
         harga_beli, jumlah, total,
@@ -90,7 +84,6 @@ BEGIN
       )
       RETURNING id INTO v_barang_masuk_id;
 
-      -- AVCO uses base_qty and per-piece cost
       v_nilai_masuk    := v_total_cost;
       v_new_stok_gudang := COALESCE(v_prod.stok_gudang, 0) + v_base_qty;
 
@@ -106,8 +99,6 @@ BEGIN
       v_new_nilai_persediaan := (COALESCE(v_prod.stok, 0) + v_new_stok_gudang) * v_new_avco;
 
     ELSE
-      -- === Legacy format: client sends jumlah (base qty) and harga_beli (per unit) ===
-      -- Insert into barang_masuk (without audit columns)
       INSERT INTO barang_masuk (
         tgl_masuk, id_supplier, id_produk, harga_beli, jumlah, total, keterangan
       ) VALUES (
@@ -137,7 +128,6 @@ BEGIN
       v_new_nilai_persediaan := (v_total_stok + (v_item->>'jumlah')::numeric) * v_new_avco;
     END IF;
 
-    -- Insert AVCO history (common to both formats)
     INSERT INTO riwayat_avco (
       id_produk, jenis_mutasi, id_referensi,
       qty_masuk, harga_satuan_transaksi,
@@ -156,7 +146,6 @@ BEGIN
       v_new_nilai_persediaan
     );
 
-    -- Update product (common to both formats)
     UPDATE produk
     SET
       stok_gudang      = v_new_stok_gudang,
@@ -165,7 +154,6 @@ BEGIN
       updated_at       = now()
     WHERE id = (v_item->>'id_produk')::integer;
 
-    -- Collect result
     v_results := v_results || jsonb_build_object(
       'id',         v_barang_masuk_id,
       'id_produk',  (v_item->>'id_produk')::integer,
