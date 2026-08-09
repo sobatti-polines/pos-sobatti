@@ -24,17 +24,20 @@ export default async function ReferenceDataPage() {
   const [
     { data: kategori, error: errKategori },
     { data: satuan, error: errSatuan },
+    { data: merk, error: errMerk },
     { data: metode_bayar, error: errMetodeBayar },
     { data: lokasi_area, error: errLokasiArea }
   ] = await Promise.all([
     supabase.from("kategori").select("id, nama").order("id", { ascending: true }),
     supabase.from("satuan").select("id, nama").order("id", { ascending: true }),
+    supabase.from("merk").select("id, nama, kode").order("id", { ascending: true }),
     supabase.from("metode_bayar").select("id, nama").order("id", { ascending: true }),
     supabase.from("lokasi_area").select("id, nama").order("id", { ascending: true })
   ]);
 
   if (errKategori) console.error("Error fetching kategori:", errKategori);
   if (errSatuan) console.error("Error fetching satuan:", errSatuan);
+  if (errMerk) console.error("Error fetching merk:", errMerk);
   if (errMetodeBayar) console.error("Error fetching metode_bayar:", errMetodeBayar);
   if (errLokasiArea) console.error("Error fetching lokasi_area:", errLokasiArea);
 
@@ -45,13 +48,14 @@ export default async function ReferenceDataPage() {
           Data Referensi
         </h1>
         <p className="text-muted-foreground mt-2">
-          Kelola kategori produk, satuan barang, metode pembayaran, dan lokasi area
+          Kelola kategori produk, satuan barang, merk, metode pembayaran, dan lokasi area
         </p>
       </header>
 
       <ReferenceClient 
         initialKategori={kategori || []}
         initialSatuan={satuan || []}
+        initialMerk={merk || []}
         initialMetodeBayar={metode_bayar || []}
         initialLokasiArea={lokasi_area || []}
       />

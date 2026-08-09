@@ -12,23 +12,26 @@ import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
 import { ExportDropdown } from "@/components/export-dropdown";
 
-type ReferenceItem = { id: number; nama: string };
-type TabType = "kategori" | "satuan" | "metode_bayar" | "lokasi_area";
+type ReferenceItem = { id: number; nama: string; kode?: string };
+type TabType = "kategori" | "satuan" | "merk" | "metode_bayar" | "lokasi_area";
 
 export function ReferenceClient({
   initialKategori,
   initialSatuan,
+  initialMerk,
   initialMetodeBayar,
   initialLokasiArea,
 }: {
   initialKategori: ReferenceItem[];
   initialSatuan: ReferenceItem[];
+  initialMerk: ReferenceItem[];
   initialMetodeBayar: ReferenceItem[];
   initialLokasiArea: ReferenceItem[];
 }) {
   const [activeTab, setActiveTab] = useState<TabType>("kategori");
   const [kategori, setKategori] = useState<ReferenceItem[]>(initialKategori);
   const [satuan, setSatuan] = useState<ReferenceItem[]>(initialSatuan);
+  const [merk, setMerk] = useState<ReferenceItem[]>(initialMerk);
   const [metodeBayar, setMetodeBayar] = useState<ReferenceItem[]>(initialMetodeBayar);
   const [lokasiArea, setLokasiArea] = useState<ReferenceItem[]>(initialLokasiArea);
 
@@ -39,13 +42,14 @@ export function ReferenceClient({
   const [isPending, startTransition] = useTransition();
 
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
-  const [editForm, setEditForm] = useState<{ nama?: string }>({});
+  const [editForm, setEditForm] = useState<{ nama?: string; kode?: string }>({});
 
   const [deleteTarget, setDeleteTarget] = useState<ReferenceItem | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => { setKategori(initialKategori); }, [initialKategori]);
   useEffect(() => { setSatuan(initialSatuan); }, [initialSatuan]);
+  useEffect(() => { setMerk(initialMerk); }, [initialMerk]);
   useEffect(() => { setMetodeBayar(initialMetodeBayar); }, [initialMetodeBayar]);
   useEffect(() => { setLokasiArea(initialLokasiArea); }, [initialLokasiArea]);
 
@@ -61,10 +65,17 @@ export function ReferenceClient({
       setErrorMsg("Nama tidak boleh kosong");
       return;
     }
+    if (activeTab === "merk" && !editForm.kode?.trim()) {
+      setErrorMsg("Kode tidak boleh kosong");
+      return;
+    }
     setErrorMsg("");
     startTransition(async () => {
       const formData = new FormData();
       formData.append("nama", editForm.nama || "");
+      if (activeTab === "merk") {
+        formData.append("kode", editForm.kode || "");
+      }
 
       let res;
       if (editingId === 'new') {
@@ -78,10 +89,11 @@ export function ReferenceClient({
         setErrorMsg(res.error);
       } else {
         if (editingId !== 'new') {
-          const newItem = { id: editingId as number, nama: editForm.nama! };
+          const newItem = { id: editingId as number, nama: editForm.nama!, kode: editForm.kode };
           const updater = (prev: ReferenceItem[]) => prev.map(i => i.id === editingId ? newItem : i);
           if (activeTab === "kategori") setKategori(updater);
           else if (activeTab === "satuan") setSatuan(updater);
+          else if (activeTab === "merk") setMerk(updater);
           else if (activeTab === "lokasi_area") setLokasiArea(updater);
           else setMetodeBayar(updater);
         }
@@ -108,6 +120,7 @@ export function ReferenceClient({
         const filterFn = (prev: ReferenceItem[]) => prev.filter((i) => i.id !== deleteTarget.id);
         if (activeTab === "kategori") setKategori(filterFn);
         else if (activeTab === "satuan") setSatuan(filterFn);
+        else if (activeTab === "merk") setMerk(filterFn);
         else if (activeTab === "lokasi_area") setLokasiArea(filterFn);
         else setMetodeBayar(filterFn);
         setDeleteTarget(null);
@@ -118,6 +131,7 @@ export function ReferenceClient({
   const getActiveData = () => {
     if (activeTab === "kategori") return kategori;
     if (activeTab === "satuan") return satuan;
+    if (activeTab === "merk") return merk;
     if (activeTab === "lokasi_area") return lokasiArea;
     return metodeBayar;
   };
@@ -128,7 +142,7 @@ export function ReferenceClient({
     let result = [...activeData];
     if (deferredSearchQuery.trim()) {
       const q = deferredSearchQuery.toLowerCase();
-      result = result.filter((i) => i.nama.toLowerCase().includes(q) || String(i.id).includes(q));
+      result = result.filter((i) => i.nama.toLowerCase().includes(q) || String(i.id).includes(q) || i.kode?.toLowerCase().includes(q));
     }
     if (sortConfig) {
       result.sort((a, b) => {
@@ -147,31 +161,33 @@ export function ReferenceClient({
   const getTabLabel = (tab: TabType) => {
     if (tab === "kategori") return "Kategori Produk";
     if (tab === "satuan") return "Satuan Barang";
+    if (tab === "merk") return "Merk";
     if (tab === "lokasi_area") return "Lokasi Area";
     return "Metode Pembayaran";
   };
 
   const handleExportCSV = () => {
-    const headers = ["ID", "Nama"];
-    const data = filteredData.map(item => [item.id, item.nama]);
+    const headers = activeTab === "merk" ? ["ID", "Kode", "Nama"] : ["ID", "Nama"];
+    const data = filteredData.map(item => activeTab === "merk" ? [item.id, item.kode || "-", item.nama] : [item.id, item.nama]);
     exportToCSV(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, headers, data);
   };
 
   const handleExportPDF = () => {
-    const headers = ["ID", "Nama"];
-    const data = filteredData.map(item => [item.id, item.nama]);
+    const headers = activeTab === "merk" ? ["ID", "Kode", "Nama"] : ["ID", "Nama"];
+    const data = filteredData.map(item => activeTab === "merk" ? [String(item.id), item.kode || "-", item.nama] : [String(item.id), item.nama]);
     exportToPDF(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, `Laporan ${getTabLabel(activeTab)}`, headers, data);
   };
 
   const columns: Column<ReferenceItem>[] = [
     { key: "id", header: "ID", sortable: true, className: "pl-6", headerClassName: "w-24 pl-6", render: (i) => <span className="text-muted-foreground tabular-nums">{i.id}</span> },
+    ...(activeTab === "merk" ? [{ key: "kode", header: "Kode", sortable: true, headerClassName: "w-24", render: (i: ReferenceItem) => <span className="font-mono text-sm">{i.kode || "-"}</span> }] : []),
     { key: "nama", header: "Nama", sortable: true, render: (i) => <span className="font-medium">{i.nama}</span> },
     {
       key: "actions", header: "", className: "pr-6", headerClassName: "text-right pr-6 w-32",
       render: (item) => (
         <div className="flex justify-end gap-1">
           <Button variant="ghost" size="icon" aria-label="Edit data" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground"
-            onClick={() => { setEditingId(item.id); setEditForm({ nama: item.nama }); setErrorMsg(""); }}
+            onClick={() => { setEditingId(item.id); setEditForm({ nama: item.nama, kode: item.kode }); setErrorMsg(""); }}
           >
             <Edit2 className="h-4 w-4" />
           </Button>
@@ -197,7 +213,7 @@ export function ReferenceClient({
     <div className="flex-1 flex flex-col min-h-0 gap-6">
       {/* Tabs */}
       <div className="shrink-0 flex space-x-1 bg-muted/50 p-1 rounded-[12px] overflow-x-auto custom-scrollbar">
-        {(["kategori", "satuan", "metode_bayar", "lokasi_area"] as TabType[]).map((tab) => (
+        {(["kategori", "satuan", "merk", "metode_bayar", "lokasi_area"] as TabType[]).map((tab) => (
           <button
             key={tab}
             onClick={() => { setActiveTab(tab); setEditingId(null); setEditForm({}); setErrorMsg(""); }}
@@ -241,8 +257,18 @@ export function ReferenceClient({
               <TableCell className="pl-6 align-middle py-4 text-muted-foreground text-sm italic">
                 {isNew ? "(Otomatis)" : c?.id}
               </TableCell>
+              {activeTab === "merk" && (
+                <TableCell className="align-middle py-4">
+                  <Input autoFocus aria-label="Kode" placeholder="Kode (4 char)..."
+                    value={editForm.kode || ""}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, kode: e.target.value.toUpperCase().slice(0, 4) }))}
+                    className="h-8 font-mono"
+                    maxLength={4}
+                  />
+                </TableCell>
+              )}
               <TableCell className="align-middle py-4">
-                <Input autoFocus aria-label="Nama" placeholder="Nama..."
+                <Input autoFocus={activeTab !== "merk"} aria-label="Nama" placeholder="Nama..."
                   value={editForm.nama || ""}
                   onChange={(e) => setEditForm(prev => ({ ...prev, nama: e.target.value }))}
                   className="h-8"
@@ -295,15 +321,19 @@ export function ReferenceClient({
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
         title={`Import Data ${getTabLabel(activeTab)}`}
-        description={`Unggah file CSV dengan kolom Nama ${getTabLabel(activeTab)}.`}
+        description={activeTab === "merk" ? "Unggah file CSV dengan kolom Kode dan Nama Merk." : `Unggah file CSV dengan kolom Nama ${getTabLabel(activeTab)}.`}
         templateFilename={`Template_Import_${getTabLabel(activeTab).replace(" ", "_")}`}
-        templateHeaders={[`Nama ${getTabLabel(activeTab)}`]}
-        sampleRows={[
-          [activeTab === "kategori" ? "Bahan Bangunan" : activeTab === "satuan" ? "Pcs" : activeTab === "lokasi_area" ? "Rak A1" : "Transfer Bank"],
-          [activeTab === "kategori" ? "Alat Pertukangan" : activeTab === "satuan" ? "Dus" : activeTab === "lokasi_area" ? "Gudang Utara" : "QRIS"],
-        ]}
+        templateHeaders={activeTab === "merk" ? ["Kode", "Nama Merk"] : [`Nama ${getTabLabel(activeTab)}`]}
+        sampleRows={
+          activeTab === "merk"
+            ? [["HIOS", "HIOSHI"], ["GOMEO", "GOMEO"]]
+            : [
+                [activeTab === "kategori" ? "Bahan Bangunan" : activeTab === "satuan" ? "Pcs" : activeTab === "lokasi_area" ? "Rak A1" : "Transfer Bank"],
+                [activeTab === "kategori" ? "Alat Pertukangan" : activeTab === "satuan" ? "Dus" : activeTab === "lokasi_area" ? "Gudang Utara" : "QRIS"],
+              ]
+        }
         validateRow={(row) => {
-          const name = row[`Nama ${getTabLabel(activeTab)}`] || row["Nama"] || row["nama"] || "";
+          const name = row[`Nama ${getTabLabel(activeTab)}`] || row["Nama"] || row["nama"] || row["Nama Merk"] || "";
           if (!name.trim()) {
             return `Nama ${getTabLabel(activeTab)} wajib diisi`;
           }

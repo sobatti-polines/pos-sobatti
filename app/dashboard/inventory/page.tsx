@@ -5,7 +5,7 @@ import InventoryClient from "./inventory-client";
 export default async function InventoryPage() {
   const supabase = await createClient();
 
-  const [productsRes, categoriesRes, unitsRes, lokasiRes] = await Promise.all([
+  const [productsRes, categoriesRes, unitsRes, lokasiRes, merksRes] = await Promise.all([
     supabase.from("produk").select(`
       *,
       kategori(nama),
@@ -15,6 +15,7 @@ export default async function InventoryPage() {
     supabase.from("kategori").select("*").order("nama"),
     supabase.from("satuan").select("*").order("nama"),
     supabase.from("lokasi_area").select("*").order("nama"),
+    supabase.from("merk").select("*").order("nama"),
   ]);
 
   interface RawProduct {
@@ -23,6 +24,7 @@ export default async function InventoryPage() {
     nama_produk: string;
     id_kategori: number;
     id_satuan: number;
+    id_merk: number | null;
     hitung_stok: boolean;
     barcode: string | null;
     harga_modal: number;
@@ -43,6 +45,8 @@ export default async function InventoryPage() {
     harga_jual_besar_promo: number | null;
     id_produk_master: number | null;
     qty_per_unit: number | null;
+    isi_satuan: string | null;
+    jenis_isi_paket: string | null;
     id_lokasi_area: number | null;
     kategori: { nama: string } | null;
     satuan: { nama: string } | null;
@@ -58,6 +62,7 @@ export default async function InventoryPage() {
     stok_minimum: p.stok_minimum ?? 5,
     harga_pokok_avco: p.harga_pokok_avco ?? 0,
     nilai_persediaan: p.nilai_persediaan ?? 0,
+    id_merk: p.id_merk ?? null,
     default_purchase_unit: p.default_purchase_unit ?? null,
     conversion_ratio: p.conversion_ratio ?? 1,
     jual_satuan: p.jual_satuan ?? null,
@@ -66,6 +71,8 @@ export default async function InventoryPage() {
     harga_jual_besar_promo: p.harga_jual_besar_promo ?? null,
     id_produk_master: p.id_produk_master ?? null,
     qty_per_unit: p.qty_per_unit ?? null,
+    isi_satuan: p.isi_satuan ?? null,
+    jenis_isi_paket: p.jenis_isi_paket ?? null,
     id_lokasi_area: p.id_lokasi_area ?? null,
     lokasi_area: p.lokasi_area ?? null,
     master: p.master as MasterInfo | null,
@@ -87,6 +94,7 @@ export default async function InventoryPage() {
         categories={categoriesRes.data ?? []} 
         units={unitsRes.data ?? []}
         lokasiAreas={lokasiRes.data ?? []}
+        merks={merksRes.data ?? []}
       />
     </div>
   );

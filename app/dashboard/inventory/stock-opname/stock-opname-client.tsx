@@ -75,6 +75,7 @@ interface Product {
   stok_gudang: number | null;
   barcode: string | null;
   sku?: string | null;
+  lokasi_area: { nama: string } | null;
 }
 
 interface SesiInfo {
@@ -267,8 +268,9 @@ function ProductCombo({
               onMouseEnter={() => setHighlightIdx(i)}
             >
               <span className="truncate">{p.nama_produk}</span>
-              <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
-                Stok: {(p.stok ?? 0) + (p.stok_gudang ?? 0)}
+              <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 flex flex-col items-end gap-0">
+                <span>Stok: {(p.stok ?? 0) + (p.stok_gudang ?? 0)}</span>
+                {p.lokasi_area?.nama && <span className="text-[10px]">{p.lokasi_area.nama}</span>}
               </span>
             </button>
           ))}
@@ -628,6 +630,7 @@ function Step2({
             <tr className="border-b border-border/60 bg-muted/80 backdrop-blur-md sticky top-0 z-10">
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 w-10 text-center px-2">#</th>
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left px-2">Produk</th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left px-2 w-[120px]">Lokasi</th>
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-center w-[100px] px-2">Stok Sistem</th>
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-center w-[100px] px-2">Stok Fisik</th>
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-center w-[90px] px-2">Selisih</th>
@@ -653,6 +656,9 @@ function Step2({
                       products={products}
                       onSelect={(p) => handleProductSelect(idx, p)}
                     />
+                  </td>
+                  <td className="px-2 py-2 text-sm text-muted-foreground align-top pt-4">
+                    {products.find((p) => p.id === item.id_produk)?.lokasi_area?.nama || "-"}
                   </td>
                   <td className="px-2 py-2 text-center align-top pt-4">
                     <span className="tabular-nums font-medium text-foreground">
@@ -845,6 +851,7 @@ function Step3({
       return {
         ...item,
         nama_produk: p?.nama_produk || "Produk dihapus",
+        lokasi: p?.lokasi_area?.nama || "-",
         selisih,
         nilai_rp: nilaiRp,
       };
@@ -977,6 +984,7 @@ function Step3({
                 <tr className="border-b border-border/60 bg-muted/40">
                   <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">#</th>
                   <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-left px-3">Produk</th>
+                  <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-left px-3">Lokasi</th>
                   <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Sistem</th>
                   <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Fisik</th>
                   <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Selisih</th>
@@ -989,6 +997,7 @@ function Step3({
                   <tr key={idx} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
                     <td className="text-center text-sm text-muted-foreground tabular-nums px-3 py-2.5">{idx + 1}</td>
                     <td className="text-sm text-foreground px-3 py-2.5">{item.nama_produk}</td>
+                    <td className="text-sm text-muted-foreground px-3 py-2.5">{item.lokasi}</td>
                     <td className="text-sm text-center tabular-nums px-3 py-2.5">{item.stok_sistem}</td>
                     <td className="text-sm text-center tabular-nums px-3 py-2.5 font-medium">{item.stok_fisik}</td>
                     <td className="text-center px-3 py-2.5">

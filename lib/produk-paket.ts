@@ -9,6 +9,8 @@ export interface MasterInfo {
   stok_gudang: number | null;
   hitung_stok: boolean;
   nama_produk: string | null;
+  harga_pokok_avco: number | null;
+  harga_modal: number | null;
 }
 
 export interface PaketProductLike {
@@ -35,7 +37,7 @@ export async function attachMasterInfo<T extends PaketProductLike>(
   if (masterIds.length > 0) {
     const { data: masters } = await supabase
       .from("produk")
-      .select("id, stok, stok_gudang, hitung_stok, nama_produk")
+      .select("id, stok, stok_gudang, hitung_stok, nama_produk, harga_pokok_avco, harga_modal")
       .in("id", masterIds);
 
     masterMap = new Map(
@@ -46,6 +48,8 @@ export async function attachMasterInfo<T extends PaketProductLike>(
           stok_gudang: m.stok_gudang as number | null,
           hitung_stok: m.hitung_stok as boolean,
           nama_produk: m.nama_produk as string | null,
+          harga_pokok_avco: m.harga_pokok_avco as number | null,
+          harga_modal: m.harga_modal as number | null,
         },
       ])
     );
@@ -59,6 +63,8 @@ export async function attachMasterInfo<T extends PaketProductLike>(
           stok_gudang: null,
           hitung_stok: false,
           nama_produk: null,
+          harga_pokok_avco: null,
+          harga_modal: null,
         }
       : null,
   }));

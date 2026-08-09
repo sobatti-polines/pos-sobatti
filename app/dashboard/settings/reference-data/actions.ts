@@ -12,7 +12,7 @@ export type ReferenceActionState = {
 
 // Generic CRUD functions for reference tables (kategori, satuan, metode_bayar)
 export async function createReferenceData(
-  tableName: "kategori" | "satuan" | "metode_bayar" | "lokasi_area",
+  tableName: "kategori" | "satuan" | "merk" | "metode_bayar" | "lokasi_area",
   prevState: ReferenceActionState,
   formData: FormData
 ): Promise<ReferenceActionState> {
@@ -28,9 +28,16 @@ export async function createReferenceData(
     return { error: "Nama tidak boleh kosong" };
   }
 
+  const insertData: Record<string, string> = { nama: nama.trim() };
+  if (tableName === "merk") {
+    const kode = (formData.get("kode") as string || "").trim();
+    if (!kode) return { error: "Kode tidak boleh kosong" };
+    insertData.kode = kode;
+  }
+
   const { error: dbError } = await supabase
     .from(tableName)
-    .insert({ nama: nama.trim() });
+    .insert(insertData);
 
   if (dbError) {
     if (dbError.code === "23505") { // Unique violation
@@ -43,8 +50,8 @@ export async function createReferenceData(
   await logActivity(supabase, {
     aksi: "CREATE",
     entitas: tableName,
-    deskripsi: buildDeskripsi({ aksi: "CREATE", entitas: tableName, data_baru: { nama: nama.trim() } as unknown as Record<string, unknown> }),
-    data_baru: { nama: nama.trim() } as unknown as Record<string, unknown>,
+    deskripsi: buildDeskripsi({ aksi: "CREATE", entitas: tableName, data_baru: insertData as unknown as Record<string, unknown> }),
+    data_baru: insertData as unknown as Record<string, unknown>,
   });
 
   revalidatePath("/dashboard/settings/reference-data");
@@ -52,7 +59,7 @@ export async function createReferenceData(
 }
 
 export async function updateReferenceData(
-  tableName: "kategori" | "satuan" | "metode_bayar" | "lokasi_area",
+  tableName: "kategori" | "satuan" | "merk" | "metode_bayar" | "lokasi_area",
   prevState: ReferenceActionState,
   formData: FormData
 ): Promise<ReferenceActionState> {
@@ -70,9 +77,16 @@ export async function updateReferenceData(
     return { error: "Data tidak valid" };
   }
 
+  const updateData: Record<string, string> = { nama: nama.trim() };
+  if (tableName === "merk") {
+    const kode = (formData.get("kode") as string || "").trim();
+    if (!kode) return { error: "Kode tidak boleh kosong" };
+    updateData.kode = kode;
+  }
+
   const { error: dbError } = await supabase
     .from(tableName)
-    .update({ nama: nama.trim() })
+    .update(updateData)
     .eq("id", id);
 
   if (dbError) {
@@ -87,8 +101,8 @@ export async function updateReferenceData(
     aksi: "UPDATE",
     entitas: tableName,
     id_entitas: id,
-    deskripsi: buildDeskripsi({ aksi: "UPDATE", entitas: tableName, id_entitas: id, data_baru: { nama: nama.trim() } as unknown as Record<string, unknown> }),
-    data_baru: { nama: nama.trim() } as unknown as Record<string, unknown>,
+    deskripsi: buildDeskripsi({ aksi: "UPDATE", entitas: tableName, id_entitas: id, data_baru: updateData as unknown as Record<string, unknown> }),
+    data_baru: updateData as unknown as Record<string, unknown>,
   });
 
   revalidatePath("/dashboard/settings/reference-data");
@@ -96,7 +110,7 @@ export async function updateReferenceData(
 }
 
 export async function deleteReferenceData(
-  tableName: "kategori" | "satuan" | "metode_bayar" | "lokasi_area",
+  tableName: "kategori" | "satuan" | "merk" | "metode_bayar" | "lokasi_area",
   id: number
 ): Promise<ReferenceActionState> {
   const supabase = await createClient();

@@ -162,6 +162,7 @@ interface Product {
   nama_produk: string;
   id_kategori: number;
   id_satuan: number;
+  id_merk: number | null;
   hitung_stok: boolean;
   barcode: string | null;
   harga_modal: number;
@@ -182,7 +183,9 @@ interface Product {
   harga_jual_besar_promo: number | null;
   id_produk_master: number | null;
   qty_per_unit: number | null;
-  master: { stok: number | null; stok_gudang: number | null; hitung_stok: boolean | null; nama_produk: string | null } | null;
+  isi_satuan: string | null;
+  jenis_isi_paket: string | null;
+  master: { stok: number | null; stok_gudang: number | null; hitung_stok: boolean | null; nama_produk: string | null; harga_pokok_avco: number | null; harga_modal: number | null } | null;
   kategori: { nama: string } | null;
   satuan: { nama: string } | null;
   id_lokasi_area: number | null;
@@ -194,15 +197,18 @@ export default function InventoryClient({
   categories,
   units,
   lokasiAreas,
+  merks,
 }: {
   initialProducts: Product[];
   categories: { id: number; nama: string }[];
   units: { id: number; nama: string }[];
   lokasiAreas: { id: number; nama: string }[];
+  merks: { id: number; nama: string }[];
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [merkFilter, setMerkFilter] = useState("all");
   const [lokasiFilter, setLokasiFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -224,8 +230,8 @@ export default function InventoryClient({
     open: false, product: null, qty: "1", error: "",
   });
 
-  const [fillPaketModal, setFillPaketModal] = useState<{ open: boolean; product: Product | null; qty: string; error: string }>({
-    open: false, product: null, qty: "1", error: "",
+  const [fillPaketModal, setFillPaketModal] = useState<{ open: boolean; product: Product | null; qty: string; totalBerat: string; error: string }>({
+    open: false, product: null, qty: "1", totalBerat: "", error: "",
   });
 
   const [showAvcoCols, setShowAvcoCols] = useState(false);
@@ -242,12 +248,21 @@ export default function InventoryClient({
           p.barcode?.toLowerCase().includes(q) ||
           p.sku?.toLowerCase().includes(q) ||
           p.kategori?.nama.toLowerCase().includes(q) ||
-          p.lokasi_area?.nama.toLowerCase().includes(q)
+          p.lokasi_area?.nama.toLowerCase().includes(q) ||
+          merks.find((m) => m.id === p.id_merk)?.nama.toLowerCase().includes(q)
       );
     }
 
     if (categoryFilter !== "all") {
       result = result.filter((p) => p.id_kategori.toString() === categoryFilter);
+    }
+
+    if (merkFilter !== "all") {
+      if (merkFilter === "none") {
+        result = result.filter((p) => !p.id_merk);
+      } else {
+        result = result.filter((p) => p.id_merk?.toString() === merkFilter);
+      }
     }
 
     if (lokasiFilter !== "all") {
@@ -276,7 +291,7 @@ export default function InventoryClient({
     }
 
     return result;
-  }, [initialProducts, deferredSearchQuery, categoryFilter, lokasiFilter, stockFilter]);
+  }, [initialProducts, deferredSearchQuery, categoryFilter, merkFilter, lokasiFilter, stockFilter, merks]);
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 25 });
 
@@ -304,8 +319,10 @@ export default function InventoryClient({
 
     const data = {
       nama_produk: editForm.nama_produk, id_kategori: Number(editForm.id_kategori),
-      id_satuan: Number(editForm.id_satuan), hitung_stok: true,
+      id_satuan: Number(editForm.id_satuan), id_merk: editForm.id_merk ?? null, hitung_stok: true,
       id_lokasi_area: editForm.id_lokasi_area ? Number(editForm.id_lokasi_area) : null,
+      jenis_isi_paket: isPaketMode ? (editForm.jenis_isi_paket || 'FIXED_RATIO') : null,
+      isi_satuan: isPaketMode ? (editForm.isi_satuan || null) : null,
       sku: editForm.sku || null,
       barcode: editForm.barcode || null, harga_modal: Number(editForm.harga_modal || 0),
       harga_jual_satuan: Number(editForm.harga_jual_satuan || 0),
@@ -368,17 +385,34 @@ export default function InventoryClient({
     const qty = parseInt(fillPaketModal.qty, 10);
     if (isNaN(qty) || qty <= 0) { setFillPaketModal(prev => ({ ...prev, error: "Jumlah harus lebih dari 0" })); return; }
     const product = fillPaketModal.product;
-    const qtyPerUnit = product.qty_per_unit ?? 1;
-    const masterStock = product.master ? (product.master.stok ?? 0) + (product.master.stok_gudang ?? 0) : 0;
-    if (qty * qtyPerUnit > masterStock) {
-      setFillPaketModal(prev => ({ ...prev, error: `Stok master tidak mencukupi. ${qty} paket × ${qtyPerUnit} satuan = ${qty * qtyPerUnit}, tapi master hanya punya ${masterStock} satuan` }));
-      return;
+    const isActualWeight = product.jenis_isi_paket === 'ACTUAL_WEIGHT';
+
+    if (isActualWeight) {
+      const totalBerat = parseFloat(fillPaketModal.totalBerat);
+      if (isNaN(totalBerat) || totalBerat <= 0) { setFillPaketModal(prev => ({ ...prev, error: "Total berat harus lebih dari 0" })); return; }
+      const masterStock = product.master ? (product.master.stok ?? 0) + (product.master.stok_gudang ?? 0) : 0;
+      if (totalBerat > masterStock) {
+        setFillPaketModal(prev => ({ ...prev, error: `Stok master tidak mencukupi. Total berat ${totalBerat} satuan, tapi master hanya punya ${masterStock} satuan` }));
+        return;
+      }
+      setFillPaketModal(prev => ({ ...prev, error: "" }));
+      startTransition(async () => {
+        const res = await isiStokPaket(product.id, qty, totalBerat);
+        if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else { setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" }); }
+      });
+    } else {
+      const qtyPerUnit = product.qty_per_unit ?? 1;
+      const masterStock = product.master ? (product.master.stok ?? 0) + (product.master.stok_gudang ?? 0) : 0;
+      if (qty * qtyPerUnit > masterStock) {
+        setFillPaketModal(prev => ({ ...prev, error: `Stok master tidak mencukupi. ${qty} paket × ${qtyPerUnit} satuan = ${qty * qtyPerUnit}, tapi master hanya punya ${masterStock} satuan` }));
+        return;
+      }
+      setFillPaketModal(prev => ({ ...prev, error: "" }));
+      startTransition(async () => {
+        const res = await isiStokPaket(product.id, qty);
+        if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else { setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" }); }
+      });
     }
-    setFillPaketModal(prev => ({ ...prev, error: "" }));
-    startTransition(async () => {
-      const res = await isiStokPaket(product.id, qty);
-      if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else { setFillPaketModal({ open: false, product: null, qty: "1", error: "" }); }
-    });
   };
 
   const handleEditClick = (e: React.MouseEvent, product: Product) => {
@@ -444,6 +478,7 @@ export default function InventoryClient({
       </div>
     ) },
     { key: "kategori", header: "Kategori", sortable: true, sortKey: "kategori.nama", headerClassName: "w-[160px]", render: (p) => p.kategori?.nama || "-" },
+    { key: "merk", header: "Merk", sortable: true, headerClassName: "w-[120px]", render: (p) => { const m = merks.find((mk) => mk.id === p.id_merk); return m?.nama || "-"; } },
     { key: "lokasi_area", header: "Lokasi", sortable: true, sortKey: "lokasi_area.nama", className: "text-muted-foreground", headerClassName: "w-[130px]", render: (p) => p.lokasi_area?.nama || "-" },
     {
       key: "stock", header: "Status Stok", sortable: true, headerClassName: "w-[140px]",
@@ -454,7 +489,7 @@ export default function InventoryClient({
             {getStockBadge(p.hitung_stok, p.stock, p.stok_minimum, isPaket, p.stok_gudang)}
             {isPaket ? (
               <div className="text-[11px] text-muted-foreground mt-0.5">
-                {p.qty_per_unit ?? 1} {p.satuan?.nama ?? ""} = 1 paket · Dari: {p.master?.nama_produk || "-"}
+                {p.qty_per_unit ?? 1}{p.isi_satuan ? ` ${p.isi_satuan}` : ""} = 1 {p.satuan?.nama ?? "paket"} · Dari: {p.master?.nama_produk || "-"}
                 {(p.stok_gudang ?? 0) > 0 ? ` · Gudang: ${p.stok_gudang}` : ""}
               </div>
             ) : p.hitung_stok && (
@@ -480,7 +515,7 @@ export default function InventoryClient({
     render: (p) => (
       <div className="flex justify-end gap-2 xl:gap-1">
         {p.id_produk_master !== null && (
-          <Button variant="outline" size="icon" aria-label="Isi Stok Paket" title="Isi Stok Paket" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); setFillPaketModal({ open: true, product: p, qty: "1", error: "" }); }} disabled={editingId !== null}>
+          <Button variant="outline" size="icon" aria-label="Isi Stok Paket" title="Isi Stok Paket" className="h-11 w-11 xl:h-8 xl:w-8 xl:border-transparent xl:bg-transparent text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); setFillPaketModal({ open: true, product: p, qty: "1", totalBerat: "", error: "" }); }} disabled={editingId !== null}>
             <PackagePlus className="h-4 w-4" />
           </Button>
         )}
@@ -510,6 +545,7 @@ export default function InventoryClient({
 
   const filters: FilterDef[] = [
     { type: "select", label: "Kategori", value: categoryFilter, onChange: setCategoryFilter, options: categories.map((c) => ({ value: String(c.id), label: c.nama })) },
+    { type: "select", label: "Merk", value: merkFilter, onChange: setMerkFilter, options: [{ value: "none", label: "Tanpa Merk" }, ...merks.map((m) => ({ value: String(m.id), label: m.nama }))] },
     { type: "select", label: "Lokasi", value: lokasiFilter, onChange: setLokasiFilter, options: [{ value: "none", label: "Tanpa Lokasi" }, ...lokasiAreas.map((l) => ({ value: String(l.id), label: l.nama }))] },
     {
       type: "select", label: "Stok", value: stockFilter, onChange: setStockFilter,
@@ -690,19 +726,52 @@ export default function InventoryClient({
                   </div>
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Jenis Isi Paket
+                    </label>
+                    <select
+                      value={editForm.jenis_isi_paket || "FIXED_RATIO"}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, jenis_isi_paket: e.target.value }))}
+                      className="h-11 text-sm border border-input bg-background rounded-[6px] px-3 focus:border-primary focus:ring-[3px] focus:ring-primary/20"
+                    >
+                      <option value="FIXED_RATIO">FIXED RATIO (Jumlah tetap per paket)</option>
+                      <option value="ACTUAL_WEIGHT">ACTUAL WEIGHT (Berat per bungkus)</option>
+                    </select>
+                    <span className="text-xs text-muted-foreground">
+                      {editForm.jenis_isi_paket === 'ACTUAL_WEIGHT'
+                        ? 'Master dikurangi sesuai berat aktual, harga paket rata-rata'
+                        : 'Master dikurangi qty_paket × qty_per_unit (stok tetap)'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Jumlah per Paket <span className="text-destructive">*</span>
                     </label>
                     <Input
                       type="number"
                       min={0.01}
                       step="any"
-                      placeholder="Contoh: 3"
+                      placeholder="Contoh: 5"
                       value={editForm.qty_per_unit ?? ""}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, qty_per_unit: Number(e.target.value) }))}
                       className="h-11 tabular-nums text-sm font-medium bg-background px-3"
                     />
                     <span className="text-xs text-muted-foreground">
-                      Berapa satuan master dalam 1 satuan paket (misal: 1 BUNGKUS = 3 PCS)
+                      Isi per paket (misal: 5 PCS per bungkus)
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Satuan Isi <span className="text-muted-foreground font-normal">(opsional)</span>
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="PCS, MTR, LBR"
+                      value={editForm.isi_satuan ?? ""}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, isi_satuan: e.target.value || null }))}
+                      className="h-11 text-sm font-medium bg-background px-3"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Satuan isi per paket (contoh: PCS, MTR, LBR). Kosongkan jika tidak diperlukan.
                     </span>
                   </div>
                 </div>
@@ -807,6 +876,24 @@ export default function InventoryClient({
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Merk
+                    </label>
+                    <select
+                      value={editForm.id_merk || ""}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, id_merk: e.target.value ? Number(e.target.value) : null }))}
+                      className="w-full h-11 rounded-md border border-input bg-background px-3.5 text-sm shadow-2xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                    >
+                      <option value="">Pilih Merk (Opsional)</option>
+                      {merks.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nama}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -1011,7 +1098,20 @@ export default function InventoryClient({
                     </div>
                   </div>
                   <div className="p-4 rounded-xl border border-border bg-muted/15 text-sm text-muted-foreground leading-relaxed">
-                    1 paket = <span className="font-medium text-foreground">{editForm.qty_per_unit || "-"} satuan</span> produk master.
+                    {(editForm.jenis_isi_paket === 'ACTUAL_WEIGHT') ? (
+                      <>
+                        Mode <span className="font-medium text-foreground">ACTUAL WEIGHT</span> — stok master dikurangi sesuai berat aktual.
+                        Harga per paket = (total berat × HPP master) ÷ jumlah bungkus.
+                        {editForm.qty_per_unit && editForm.isi_satuan && (
+                          <> Setiap paket berisi <span className="font-medium text-foreground">{editForm.qty_per_unit} {editForm.isi_satuan}</span>.</>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        Mode <span className="font-medium text-foreground">FIXED RATIO</span> — 1 paket = <span className="font-medium text-foreground">{editForm.qty_per_unit || "-"} {editForm.isi_satuan || "satuan"}</span> produk master.
+                        Master dikurangi otomatis sesuai jumlah paket × qty_per_unit.
+                      </>
+                    )}
                     Gunakan tombol <span className="font-medium text-foreground">Isi Stok Paket</span> (di daftar inventaris) untuk
                     mengonversi stok master menjadi stok paket. Stok paket terlacak sendiri sehingga bisa dijual &amp; dihitung stok opname secara mandiri.
                   </div>
@@ -1127,7 +1227,7 @@ export default function InventoryClient({
               </div>
               <h2 className="text-[22px] font-light tracking-tight text-foreground mb-2 text-center">Isi Stok Paket</h2>
               <p className="text-sm text-muted-foreground text-center mb-6">
-                Konversi stok <strong className="text-foreground">{fillPaketModal.product.master?.nama_produk || "master"}</strong> menjadi paket <strong className="text-foreground">{fillPaketModal.product.nama_produk}</strong> (1 paket = {fillPaketModal.product.qty_per_unit ?? 1} {fillPaketModal.product.satuan?.nama ?? "satuan"})
+                Konversi stok <strong className="text-foreground">{fillPaketModal.product.master?.nama_produk || "master"}</strong> menjadi paket <strong className="text-foreground">{fillPaketModal.product.nama_produk}</strong> (1 {fillPaketModal.product.satuan?.nama ?? "paket"} = {fillPaketModal.product.qty_per_unit ?? 1}{fillPaketModal.product.isi_satuan ? ` ${fillPaketModal.product.isi_satuan}` : ""})
                 <span className="block mt-1 text-xs text-muted-foreground">Stok paket masuk ke <strong>gudang</strong>. Pindahkan ke display lewat tombol <strong>Pindah ke Display</strong> saat dibutuhkan.</span>
               </p>
               <div className="flex gap-4 mb-6">
@@ -1150,6 +1250,20 @@ export default function InventoryClient({
               <Input type="number" min={1} value={fillPaketModal.qty}
                 onChange={(e) => setFillPaketModal(prev => ({ ...prev, qty: e.target.value, error: "" }))}
                 className="h-12 text-lg text-center tabular-nums" autoFocus />
+              {fillPaketModal.product.jenis_isi_paket === 'ACTUAL_WEIGHT' && (
+                <>
+                  <label className="text-sm font-medium text-foreground mt-4 mb-2 block">
+                    Total Berat (satuan master)
+                  </label>
+                  <Input type="number" min={0.01} step="any" value={fillPaketModal.totalBerat}
+                    onChange={(e) => setFillPaketModal(prev => ({ ...prev, totalBerat: e.target.value, error: "" }))}
+                    placeholder="Contoh: 10.5"
+                    className="h-12 text-lg text-center tabular-nums" />
+                  <span className="text-xs text-muted-foreground mt-1 text-center">
+                    Harga per paket = (Total Berat × HPP Master) ÷ Jumlah Paket
+                  </span>
+                </>
+              )}
               {fillPaketModal.error && (
                 <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive text-sm">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1158,7 +1272,7 @@ export default function InventoryClient({
               )}
             </div>
             <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex justify-end gap-3">
-              <Button variant="outline" className="rounded-full px-6 bg-background" onClick={() => setFillPaketModal({ open: false, product: null, qty: "1", error: "" })} disabled={isPending}>
+              <Button variant="outline" className="rounded-full px-6 bg-background" onClick={() => setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" })} disabled={isPending}>
                 Batal
               </Button>
               <Button variant="default" className="rounded-full px-6 shadow-sm" onClick={handleFillPaket} disabled={isPending}>

@@ -46,6 +46,7 @@ export interface ProductWithAvco {
   barcode: string | null;
   id_kategori: number;
   id_satuan: number;
+  id_merk: number | null;
   hitung_stok: boolean;
   stock: number | null;
   stok_gudang: number;
@@ -59,6 +60,7 @@ export interface ProductWithAvco {
   nilai_persediaan: number;
   id_produk_master: number | null;
   qty_per_unit: number | null;
+  isi_satuan: string | null;
   master: { stok: number | null; stok_gudang: number | null; hitung_stok: boolean | null; nama_produk: string | null } | null;
   kategori: { nama: string } | null;
   satuan: { nama: string } | null;
@@ -177,7 +179,7 @@ export default function ProductDetailSheet({
       },
       ...(product.id_produk_master
         ? [
-            { label: "Qty per Paket", value: String(product.qty_per_unit ?? 1) },
+            { label: "Qty per Paket", value: `${product.qty_per_unit ?? 1}${product.isi_satuan ? " " + product.isi_satuan : ""}` },
           ]
         : []),
       { label: "Harga Modal", value: formatIDR(product.harga_modal), mono: true },

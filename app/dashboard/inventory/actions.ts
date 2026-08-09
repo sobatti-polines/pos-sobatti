@@ -37,6 +37,8 @@ interface ProductData {
   harga_jual_besar_promo?: number | null;
   id_produk_master?: number | null;
   qty_per_unit?: number | null;
+  isi_satuan?: string | null;
+  jenis_isi_paket?: string | null;
   id_lokasi_area?: number | null;
 }
 
@@ -237,7 +239,7 @@ export async function moveToWarehouse(productId: number, qty: number) {
   return { success: true };
 }
 
-export async function isiStokPaket(paketId: number, qtyPaket: number) {
+export async function isiStokPaket(paketId: number, qtyPaket: number, totalBerat?: number) {
   const ok = await requireAuth();
   if (!ok) return { error: "Unauthorized" };
 
@@ -247,10 +249,16 @@ export async function isiStokPaket(paketId: number, qtyPaket: number) {
     return { error: "Jumlah paket harus bilangan bulat lebih dari 0" };
   }
 
-  const { data, error } = await supabase.rpc("process_isi_stok_paket", {
+  const params: Record<string, number> = {
     p_id_paket: paketId,
     p_qty_paket: qtyPaket,
-  });
+  };
+
+  if (totalBerat !== undefined && totalBerat > 0) {
+    params.p_total_berat = totalBerat;
+  }
+
+  const { data, error } = await supabase.rpc("process_isi_stok_paket", params);
 
   if (error) {
     console.error("process_isi_stok_paket failed:", error);
@@ -265,9 +273,9 @@ export async function isiStokPaket(paketId: number, qtyPaket: number) {
     aksi: "UPDATE",
     entitas: "produk",
     id_entitas: paketId,
-    deskripsi: `Isi stok paket: ${qtyPaket} paket`,
+    deskripsi: `Isi stok paket: ${qtyPaket} paket${totalBerat ? `, total berat ${totalBerat}` : ''}`,
     data_lama: null,
-    data_baru: { qty_paket: qtyPaket } as unknown as Record<string, unknown>,
+    data_baru: { qty_paket: qtyPaket, total_berat: totalBerat ?? null } as unknown as Record<string, unknown>,
   });
 
   revalidatePath("/dashboard/inventory");
@@ -447,6 +455,31 @@ export async function importProducts(
     const default_purchase_unit = (r["Satuan Beli"] || r["default_purchase_unit"] || "").trim() || null;
     const conversion_ratio = parseNum(r["Rasio Konversi"] || r["conversion_ratio"], 1);
 
+    // Paket fields
+    const id_produk_master_raw = (r["ID Master"] || r["id_produk_master"] || "").trim();
+    let id_produk_master: number | null = null;
+    if (id_produk_master_raw) {
+      const parsed = parseInt(id_produk_master_raw, 10);
+      if (!isNaN(parsed)) {
+        id_produk_master = parsed;
+      } else {
+        // Try find by name
+        const { data: masterProd } = await supabase
+          .from("produk")
+          .select("id")
+          .ilike("nama_produk", id_produk_master_raw)
+          .is("id_produk_master", null)
+          .limit(1)
+          .single();
+        if (masterProd) id_produk_master = masterProd.id;
+      }
+    }
+    const qty_per_unit_raw = r["Qty Per Unit"] || r["qty_per_unit"];
+    const qty_per_unit = qty_per_unit_raw ? parseNum(qty_per_unit_raw) : null;
+    const jenis_isi_paket_raw = (r["Jenis Isi Paket"] || r["jenis_isi_paket"] || "").trim().toUpperCase();
+    const jenis_isi_paket = (jenis_isi_paket_raw === "ACTUAL_WEIGHT" || jenis_isi_paket_raw === "FIXED_RATIO") ? jenis_isi_paket_raw : null;
+    const isi_satuan = (r["Satuan Isi"] || r["isi_satuan"] || "").trim() || null;
+
     const totalStok = stok + stok_gudang;
     const harga_pokok_avco = harga_modal;
     const nilai_persediaan = harga_modal * totalStok;
@@ -467,7 +500,11 @@ export async function importProducts(
       stok,
       stok_gudang,
       stok_minimum,
-      hitung_stok,
+      hitung_stok: id_produk_master ? true : hitung_stok,
+      id_produk_master,
+      qty_per_unit,
+      isi_satuan,
+      jenis_isi_paket,
       default_purchase_unit,
       conversion_ratio,
       harga_pokok_avco,
