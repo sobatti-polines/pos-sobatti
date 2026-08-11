@@ -52,6 +52,7 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
   const { data: cashPurchases } = await supabase
     .from("barang_masuk")
     .select("total")
+    .eq("status", "AKTIF")
     .gte("tgl_masuk", dateStr)
     .lte("tgl_masuk", dateStr);
   

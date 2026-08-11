@@ -119,12 +119,26 @@ export async function deleteProduct(id: number) {
     .eq("id", id)
     .single();
 
+  // Cek: produk masih menjadi master dari produk paket lain?
+  const { data: paketRefs } = await supabase
+    .from("produk")
+    .select("id")
+    .eq("id_produk_master", id)
+    .limit(1);
+
+  if (paketRefs && paketRefs.length > 0) {
+    return { error: "Produk tidak bisa dihapus karena masih menjadi master dari produk paket" };
+  }
+
+  // Bersihkan riwayat AVCO produk (paket atau master) sebelum hapus
+  await supabase.from("riwayat_avco").delete().eq("id_produk", id);
+
   const { error } = await supabase.from("produk").delete().eq("id", id);
   if (error) {
     console.error("Failed to delete product:", error);
-    // FK violation: produk masih menjadi master dari produk paket
     if (error.code === "23503") {
-      return { error: "Produk tidak bisa dihapus karena masih menjadi master dari produk paket" };
+      // FK lain (mis. transactional history) — hanya jika ada transaksi terkait
+      return { error: "Produk tidak bisa dihapus karena memiliki riwayat transaksi atau referensi lainnya" };
     }
     return { error: "Gagal menghapus produk" };
   }

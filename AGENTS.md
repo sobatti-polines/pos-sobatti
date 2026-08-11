@@ -300,6 +300,7 @@ public/
 - Tabel `riwayat_avco` mencatat setiap mutasi dengan stok sebelum/sesudah dan avco sebelum/sesudah
 - **HPP per transaksi** = `harga_pokok_avco` × qty terjual
 - **Profit** = (harga_jual - diskon_item - harga_pokok_avco) × qty
+- **Kebijakan `harga_modal`** (T1-19, keputusan owner): `harga_modal` di-sinkronkan dari `harga_pokok_avco` **hanya saat nilai saat ini IS NULL atau = 0** (di RPC `process_barang_masuk`, `cancel_barang_masuk`, `process_retur_pembelian`). Manual override di form/import produk **tetap dipertahankan dan tidak ditimpa** RPC. `harga_modal` berfungsi sebagai fallback HPP di checkout: `COALESCE(NULLIF(harga_pokok_avco, 0), harga_modal)`.
 - Fungsi di `lib/avco.ts`: `calculateNewAVCO()` untuk kalkulasi, `recordAVCOMutation()` untuk pencatatan + update produk
 - **Migration ke-9** (20260606000001) menambahkan kolom HPP ke transaksi; **migration ke-10** (20260606000002) menambahkan AVCO + update process_checkout
 

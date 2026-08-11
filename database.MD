@@ -1,3 +1,4 @@
+
 ## Table `kategori`
 
 ### Columns
@@ -94,9 +95,17 @@
 | `stok_gudang` | `numeric` |  Nullable |
 | `sku` | `varchar` |  Nullable Unique |
 | `id_merk` | `int4` |  Nullable |
-| `base_unit` | `varchar` |  |
 | `default_purchase_unit` | `varchar` |  Nullable |
 | `conversion_ratio` | `numeric` |  |
+| `jual_satuan` | `text` |  Nullable |
+| `harga_jual_besar_satuan` | `numeric` |  Nullable |
+| `harga_jual_besar_grosir` | `numeric` |  Nullable |
+| `harga_jual_besar_promo` | `numeric` |  Nullable |
+| `id_produk_master` | `int4` |  Nullable |
+| `qty_per_unit` | `numeric` |  Nullable |
+| `id_lokasi_area` | `int4` |  Nullable |
+| `jenis_isi_paket` | `text` |  Nullable |
+| `isi_satuan` | `text` |  Nullable |
 
 ## Table `transaksi_keluar`
 
@@ -143,6 +152,9 @@
 | `profit` | `numeric` |  |
 | `harga_pokok_satuan` | `numeric` |  Nullable |
 | `total_harga_pokok` | `numeric` |  Nullable |
+| `satuan_jual` | `text` |  Nullable |
+| `qty_satuan` | `int4` |  Nullable |
+| `jual_ratio` | `numeric` |  Nullable |
 
 ## Table `barang_masuk`
 
@@ -165,6 +177,11 @@
 | `base_qty_added` | `numeric` |  Nullable |
 | `total_cost` | `numeric` |  Nullable |
 | `base_cost_per_piece` | `numeric` |  Nullable |
+| `no_surat` | `text` |  Nullable |
+| `status` | `text` |  |
+| `voided_at` | `timestamptz` |  Nullable |
+| `voided_by` | `int8` |  Nullable |
+| `alasan_void` | `text` |  Nullable |
 
 ## Table `stok_opname`
 
@@ -180,6 +197,10 @@
 | `selisih` | `numeric` |  |
 | `keterangan` | `text` |  Nullable |
 | `created_at` | `timestamp` |  |
+| `id_sesi` | `uuid` |  Nullable |
+| `id_pengguna` | `int8` |  Nullable |
+| `klasifikasi` | `text` |  Nullable |
+| `harga_pokok_snap` | `numeric` |  Nullable |
 
 ## Table `pengaturan`
 
@@ -247,75 +268,6 @@
 | `created_by` | `int4` |  Nullable |
 | `created_at` | `timestamp` |  Nullable |
 
-## Table `hutang_dagang`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `id_barang_masuk` | `int4` |  Nullable |
-| `id_supplier` | `int4` |  |
-| `tanggal_hutang` | `date` |  |
-| `tanggal_jatuh_tempo` | `date` |  Nullable |
-| `jumlah_awal` | `numeric` |  |
-| `jumlah_terbayar` | `numeric` |  |
-| `sisa_hutang` | `numeric` |  Nullable |
-| `status` | `text` |  |
-| `catatan` | `text` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `pembayaran_hutang`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `id_hutang` | `uuid` |  |
-| `tanggal_bayar` | `date` |  |
-| `jumlah_bayar` | `numeric` |  |
-| `metode_bayar` | `text` |  |
-| `bukti_bayar` | `text` |  Nullable |
-| `id_pengguna` | `int4` |  |
-| `catatan` | `text` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `piutang_dagang`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `id_transaksi_keluar` | `int4` |  Nullable |
-| `id_pelanggan` | `int4` |  |
-| `tanggal_piutang` | `date` |  |
-| `tanggal_jatuh_tempo` | `date` |  Nullable |
-| `jumlah_awal` | `numeric` |  |
-| `jumlah_terbayar` | `numeric` |  |
-| `sisa_piutang` | `numeric` |  Nullable |
-| `status` | `text` |  |
-| `catatan` | `text` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `pembayaran_piutang`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `id_piutang` | `uuid` |  |
-| `tanggal_bayar` | `date` |  |
-| `jumlah_bayar` | `numeric` |  |
-| `metode_bayar` | `text` |  |
-| `id_pengguna` | `int4` |  |
-| `catatan` | `text` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
 ## Table `riwayat_avco`
 
 ### Columns
@@ -335,6 +287,7 @@
 | `stok_sesudah` | `numeric` |  |
 | `avco_sesudah` | `numeric` |  |
 | `nilai_persediaan_sesudah` | `numeric` |  |
+| `id_referensi_uuid` | `uuid` |  Nullable |
 
 ## Table `saldo_kas_harian`
 
@@ -393,6 +346,63 @@
 | `data_baru` | `jsonb` |  Nullable |
 | `ip_address` | `text` |  Nullable |
 | `created_at` | `timestamptz` |  |
+
+## Table `sesi_stok_opname`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `no_sesi` | `text` |  Unique |
+| `tgl_sesi` | `date` |  |
+| `status` | `text` |  |
+| `id_pengguna` | `int8` |  Nullable |
+| `total_item` | `int4` |  Nullable |
+| `total_selisih` | `numeric` |  Nullable |
+| `total_nilai` | `numeric` |  Nullable |
+| `keterangan` | `text` |  Nullable |
+| `created_at` | `timestamptz` |  Nullable |
+| `applied_at` | `timestamptz` |  Nullable |
+
+## Table `lokasi_area`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `int4` | Primary |
+| `nama` | `varchar` |  Unique |
+
+## Table `retur_pembelian`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `no_retur` | `text` |  Unique |
+| `tgl_retur` | `date` |  |
+| `id_barang_masuk` | `int8` |  |
+| `id_supplier` | `int8` |  Nullable |
+| `id_pengguna` | `int8` |  Nullable |
+| `total_nilai` | `numeric` |  Nullable |
+| `keterangan` | `text` |  Nullable |
+| `created_at` | `timestamptz` |  Nullable |
+
+## Table `detail_retur_pembelian`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `id_retur` | `uuid` |  |
+| `id_produk` | `int8` |  |
+| `qty_retur` | `numeric` |  |
+| `harga_pokok` | `numeric` |  |
+| `jumlah` | `numeric` |  |
+| `keterangan` | `text` |  Nullable |
 
 ## RLS Policies
 
@@ -455,6 +465,10 @@
 | Policy | Command | Roles | Action | USING | WITH CHECK |
 |--------|---------|-------|--------|-------|------------|
 | `auth_all` | ALL | authenticated | PERMISSIVE | `true` | `true` |
+| `authenticated users can select stok_opname` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert stok_opname` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update stok_opname` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+| `authenticated users can delete stok_opname` | DELETE | authenticated | PERMISSIVE | `true` | — |
 
 ### `supplier`
 
@@ -487,40 +501,68 @@
 | `Authenticated users can insert riwayat_avco` | INSERT | authenticated | PERMISSIVE | — | `true` |
 | `Authenticated users can select riwayat_avco` | SELECT | authenticated | PERMISSIVE | `true` | — |
 
-### `hutang_dagang`
-
-| Policy | Command | Roles | Action | USING | WITH CHECK |
-|--------|---------|-------|--------|-------|------------|
-| `authenticated users can select hutang_dagang` | SELECT | authenticated | PERMISSIVE | `true` | — |
-| `authenticated users can insert hutang_dagang` | INSERT | authenticated | PERMISSIVE | — | `true` |
-| `authenticated users can update hutang_dagang` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
-
-### `pembayaran_hutang`
-
-| Policy | Command | Roles | Action | USING | WITH CHECK |
-|--------|---------|-------|--------|-------|------------|
-| `authenticated users can select pembayaran_hutang` | SELECT | authenticated | PERMISSIVE | `true` | — |
-| `authenticated users can insert pembayaran_hutang` | INSERT | authenticated | PERMISSIVE | — | `true` |
-
-### `piutang_dagang`
-
-| Policy | Command | Roles | Action | USING | WITH CHECK |
-|--------|---------|-------|--------|-------|------------|
-| `authenticated users can select piutang_dagang` | SELECT | authenticated | PERMISSIVE | `true` | — |
-| `authenticated users can insert piutang_dagang` | INSERT | authenticated | PERMISSIVE | — | `true` |
-| `authenticated users can update piutang_dagang` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
-
-### `pembayaran_piutang`
-
-| Policy | Command | Roles | Action | USING | WITH CHECK |
-|--------|---------|-------|--------|-------|------------|
-| `authenticated users can select pembayaran_piutang` | SELECT | authenticated | PERMISSIVE | `true` | — |
-| `authenticated users can insert pembayaran_piutang` | INSERT | authenticated | PERMISSIVE | — | `true` |
-
 ### `log_aktivitas`
 
 | Policy | Command | Roles | Action | USING | WITH CHECK |
 |--------|---------|-------|--------|-------|------------|
 | `auth_can_select_log_aktivitas` | SELECT | authenticated | PERMISSIVE | `true` | — |
 
+### `sesi_stok_opname`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select sesi_stok_opname` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert sesi_stok_opname` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update sesi_stok_opname` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+| `authenticated users can delete sesi_stok_opname` | DELETE | authenticated | PERMISSIVE | `true` | — |
+
+### `lokasi_area`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select lokasi_area` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert lokasi_area` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update lokasi_area` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+| `authenticated users can delete lokasi_area` | DELETE | authenticated | PERMISSIVE | `true` | — |
+
+### `merk`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select merk` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert merk` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update merk` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+| `authenticated users can delete merk` | DELETE | authenticated | PERMISSIVE | `true` | — |
+
+### `saldo_kas_harian`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select saldo_kas_harian` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert saldo_kas_harian` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update saldo_kas_harian` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+| `authenticated users can delete saldo_kas_harian` | DELETE | authenticated | PERMISSIVE | `true` | — |
+
+### `pengaturan_keuangan`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select pengaturan_keuangan` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert pengaturan_keuangan` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update pengaturan_keuangan` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+| `authenticated users can delete pengaturan_keuangan` | DELETE | authenticated | PERMISSIVE | `true` | — |
+
+### `retur_pembelian`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select retur_pembelian` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert retur_pembelian` | INSERT | authenticated | PERMISSIVE | — | `true` |
+
+### `detail_retur_pembelian`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select detail_retur_pembelian` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert detail_retur_pembelian` | INSERT | authenticated | PERMISSIVE | — | `true` |
 

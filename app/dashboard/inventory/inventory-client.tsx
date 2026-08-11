@@ -12,6 +12,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { addProduct, updateProduct, deleteProduct, restockDisplay, moveToWarehouse, importProducts, isiStokPaket } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ProductDetailSheet from "@/components/product-detail-sheet";
+import { Highlight } from "@/components/highlight";
 import ImportCSVModal from "@/components/import-csv-modal";
 import { ExportDropdown } from "@/components/export-dropdown";
 import {
@@ -207,6 +208,10 @@ export default function InventoryClient({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
+
+  const hl = (text: string) => (
+    <Highlight text={text} query={deferredSearchQuery} />
+  );
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [merkFilter, setMerkFilter] = useState("all");
   const [lokasiFilter, setLokasiFilter] = useState("all");
@@ -465,11 +470,11 @@ export default function InventoryClient({
   };
 
   const baseColumns: Column<Product>[] = [
-    { key: "sku", header: "SKU", sortable: true, className: "xl:pl-6", headerClassName: "xl:pl-6 w-[130px]", render: (p) => <span className="font-mono text-[14px]">{p.sku || "-"}</span> },
-    { key: "barcode", header: "Barcode", sortable: true, headerClassName: "w-[140px]", render: (p) => <span className="font-mono text-[14px]">{p.barcode || "-"}</span> },
+    { key: "sku", header: "SKU", sortable: true, className: "xl:pl-6", headerClassName: "xl:pl-6 w-[130px]", render: (p) => <span className="font-mono text-[14px]">{hl(p.sku || "-")}</span> },
+    { key: "barcode", header: "Barcode", sortable: true, headerClassName: "w-[140px]", render: (p) => <span className="font-mono text-[14px]">{hl(p.barcode || "-")}</span> },
     { key: "nama_produk", header: "Item", sortable: true, render: (p) => (
       <div className="flex items-center gap-2">
-        <p className="text-foreground text-[15px] xl:text-[14px] font-medium xl:font-normal line-clamp-2 xl:line-clamp-1">{p.nama_produk}</p>
+        <p className="text-foreground text-[15px] xl:text-[14px] font-medium xl:font-normal line-clamp-2 xl:line-clamp-1">{hl(p.nama_produk)}</p>
         {p.id_produk_master && (
           <Badge variant="secondary" className="shrink-0 bg-primary/10 text-primary font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">
             Paket
@@ -477,9 +482,9 @@ export default function InventoryClient({
         )}
       </div>
     ) },
-    { key: "kategori", header: "Kategori", sortable: true, sortKey: "kategori.nama", headerClassName: "w-[160px]", render: (p) => p.kategori?.nama || "-" },
-    { key: "merk", header: "Merk", sortable: true, headerClassName: "w-[120px]", render: (p) => { const m = merks.find((mk) => mk.id === p.id_merk); return m?.nama || "-"; } },
-    { key: "lokasi_area", header: "Lokasi", sortable: true, sortKey: "lokasi_area.nama", className: "text-muted-foreground", headerClassName: "w-[130px]", render: (p) => p.lokasi_area?.nama || "-" },
+    { key: "kategori", header: "Kategori", sortable: true, sortKey: "kategori.nama", headerClassName: "w-[160px]", render: (p) => hl(p.kategori?.nama || "-") },
+    { key: "merk", header: "Merk", sortable: true, sortKey: "id_merk", headerClassName: "w-[120px]", render: (p) => { const m = merks.find((mk) => mk.id === p.id_merk); return hl(m?.nama || "-"); } },
+    { key: "lokasi_area", header: "Lokasi", sortable: true, sortKey: "lokasi_area.nama", className: "text-muted-foreground", headerClassName: "w-[130px]", render: (p) => hl(p.lokasi_area?.nama || "-") },
     {
       key: "stock", header: "Status Stok", sortable: true, headerClassName: "w-[140px]",
       render: (p) => {

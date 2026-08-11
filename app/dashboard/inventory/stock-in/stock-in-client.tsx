@@ -28,6 +28,7 @@ const itemSchema = z.object({
 const formSchema = z.object({
   id_supplier: z.string().min(1, "Supplier harus dipilih"),
   tgl_masuk: z.string().min(1, "Tanggal harus diisi"),
+  no_surat: z.string().optional(),
   items: z.array(itemSchema).min(1, "Minimal 1 item"),
 });
 
@@ -386,6 +387,7 @@ function FormBody({
         tgl_masuk: data.tgl_masuk,
         id_supplier: Number(data.id_supplier),
         keterangan: item.keterangan || "",
+        no_surat: data.no_surat?.trim() || "",
       }));
 
     if (payload.length === 0) {
@@ -412,6 +414,7 @@ function FormBody({
     /* Reset form to defaults */
     setValue("id_supplier", "");
     setValue("tgl_masuk", today);
+    setValue("no_surat", "");
     setValue("items", [
       { id_produk: 0, supplied_qty: 1, supplied_unit: "", total_cost: 0, keterangan: "" },
     ]);
@@ -486,6 +489,22 @@ function FormBody({
             id="tgl_masuk"
             type="date"
             {...register("tgl_masuk")}
+            className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5 w-full md:w-auto">
+          <label
+            htmlFor="no_surat"
+            className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+          >
+            No. Faktur/Nota
+          </label>
+          <input
+            id="no_surat"
+            type="text"
+            placeholder="Opsional"
+            {...register("no_surat")}
             className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
           />
         </div>
@@ -693,6 +712,7 @@ export default function StockInClient({
     defaultValues: {
       id_supplier: "",
       tgl_masuk: today,
+      no_surat: "",
       items: [{ id_produk: 0, supplied_qty: 1, supplied_unit: "", total_cost: 0, keterangan: "" }],
     },
   });
