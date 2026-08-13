@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { Printer, Search, Loader2, Scale, AlertCircle } from "lucide-react";
+import { Printer, Search, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchNeraca } from "./actions";
 import { exportToCSV } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
+import { terbilangRupiah } from "@/lib/terbilang";
+import type { StoreSettings } from "@/lib/store-settings";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -20,7 +22,7 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
-export default function NeracaClient({ initialData }: { initialData: any }) {
+export default function NeracaClient({ initialData, store }: { initialData: any; store?: StoreSettings | null }) {
   const [date, setDate] = useState(initialData?.tanggal || new Date().toISOString().slice(0, 10));
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
@@ -42,13 +44,17 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
     if (!data) return;
     const headers = ["Kategori", "Sub-Kategori", "Item", "Jumlah"];
     const rows = [
-      ["ASET (AKTIVA)", "Aset Lancar", "Kas & Setara Kas", data.aset.kas],
+      ["ASET (AKTIVA)", "Aset Lancar", "Kas Tunai (Laci)", data.aset.kas_tunai],
+      ["ASET (AKTIVA)", "Aset Lancar", "Kas Bank / QRIS", data.aset.kas_bank],
       ["ASET (AKTIVA)", "Aset Lancar", "Persediaan Barang", data.aset.persediaan],
       ["ASET (AKTIVA)", "", "TOTAL ASET", data.aset.total_aset],
       ["KEWAJIBAN (PASIVA)", "Kewajiban", "Total Kewajiban", data.kewajiban.total_kewajiban],
       ["MODAL (EKUITAS)", "Ekuitas", "Modal Awal", data.ekuitas.modal_awal],
       ["MODAL (EKUITAS)", "Ekuitas", "Laba Ditahan", data.ekuitas.laba_ditahan],
+      ["MODAL (EKUITAS)", "Ekuitas", "Selisih Kas (Kumulatif)", data.ekuitas.selisih_kas],
+      ["MODAL (EKUITAS)", "Ekuitas", "Penyesuaian Stok (Opname/Retur)", data.ekuitas.penyesuaian_stok],
       ["MODAL (EKUITAS)", "", "Total Modal", data.ekuitas.total_ekuitas],
+      ["PENYESUAIAN", "", "Penyesuaian Neraca", data.penyesuaian_neraca],
       ["RINGKASAN", "", "TOTAL KEWAJIBAN + MODAL", data.kewajiban.total_kewajiban + data.ekuitas.total_ekuitas],
     ];
     exportToCSV(`neraca-${date}`, headers, rows);
@@ -110,7 +116,16 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
         <div className="max-w-7xl mx-auto w-full p-6 lg:p-10">
           {/* Print Header */}
           <div className="hidden print:block pb-8 mb-10 text-center border-b border-border">
-            <h1 className="text-2xl font-bold uppercase tracking-widest">Neraca</h1>
+            {store?.nama_toko && <p className="text-lg font-semibold uppercase tracking-widest">{store.nama_toko}</p>}
+            {store?.alamat && <p className="text-sm text-muted-foreground mt-1">{store.alamat}</p>}
+            {(store?.telepon || store?.email) && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {store.telepon && <span>Telp: {store.telepon}</span>}
+                {store.telepon && store.email && <span className="mx-2">|</span>}
+                {store.email && <span>Email: {store.email}</span>}
+              </p>
+            )}
+            <h1 className="text-2xl font-bold uppercase tracking-widest mt-4">Neraca</h1>
             <p className="text-muted-foreground mt-1">
               Per Tanggal: {format(new Date(data.tanggal), "dd MMMM yyyy", { locale: id })}
             </p>
@@ -125,8 +140,12 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
                 <h4 className="text-[11px] font-bold text-muted-foreground uppercase mb-3">Aset Lancar</h4>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span>Kas & Setara Kas</span>
-                    <span className="tabular-nums">{formatIDR(data.aset.kas)}</span>
+                    <span>Kas Tunai (Laci)</span>
+                    <span className="tabular-nums">{formatIDR(data.aset.kas_tunai)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Kas Bank / QRIS</span>
+                    <span className="tabular-nums">{formatIDR(data.aset.kas_bank)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Persediaan Barang</span>
@@ -170,6 +189,14 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
                     <span>Laba Ditahan</span>
                     <span className="tabular-nums">{formatIDR(data.ekuitas.laba_ditahan)}</span>
                   </div>
+                  <div className="flex justify-between items-center text-muted-foreground text-[13px]">
+                    <span className="pl-3">Selisih Kas (Kumulatif)</span>
+                    <span className="tabular-nums">{formatIDR(data.ekuitas.selisih_kas)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-muted-foreground text-[13px]">
+                    <span className="pl-3">Penyesuaian Stok (Opname/Retur)</span>
+                    <span className="tabular-nums">{formatIDR(data.ekuitas.penyesuaian_stok)}</span>
+                  </div>
                   <div className="flex justify-between items-center pt-4 border-t border-border mt-2">
                     <span className="font-medium">Total Ekuitas</span>
                     <span className="font-medium tabular-nums">{formatIDR(data.ekuitas.total_ekuitas)}</span>
@@ -184,14 +211,18 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
                   {formatIDR(data.kewajiban.total_kewajiban + data.ekuitas.total_ekuitas)}
                 </span>
               </div>
-              
-              {/* BALANCE CHECK */}
-              {Math.abs(data.aset.total_aset - (data.kewajiban.total_kewajiban + data.ekuitas.total_ekuitas)) > 1 && (
-                <div className="p-3 bg-destructive/10 text-destructive text-[10px] rounded-md border border-destructive/20 flex items-center gap-2 uppercase font-bold tracking-widest mt-6">
-                  <Scale className="w-4 h-4" />
-                  Neraca tidak seimbang (Selisih: {formatIDR(data.aset.total_aset - (data.kewajiban.total_kewajiban + data.ekuitas.total_ekuitas))})
-                </div>
-              )}
+
+              {/* PENYESUAIAN NERACA (residual) */}
+              <div className={`flex justify-between items-center pt-3 text-[13px] ${
+                Math.abs(data.penyesuaian_neraca) < 1 ? 'text-emerald-600' : 'text-amber-600'
+              }`}>
+                <span className="font-medium">Penyesuaian Neraca</span>
+                <span className="font-medium tabular-nums">{formatIDR(data.penyesuaian_neraca)}</span>
+              </div>
+
+              <p className="hidden print:block text-sm text-muted-foreground mt-2">
+                Terbilang: {terbilangRupiah(data.aset.total_aset)}
+              </p>
             </div>
           </div>
           
@@ -207,6 +238,14 @@ export default function NeracaClient({ initialData }: { initialData: any }) {
               <div className="border-t border-border mx-auto w-40"></div>
               <p className="font-bold">( Kasir / Admin )</p>
             </div>
+          </div>
+
+          {/* Catatan atas Laporan Keuangan (CaLK) */}
+          <div className="text-[11px] text-muted-foreground border-t border-dashed border-border pt-4 mt-10 space-y-1">
+            <p className="font-semibold uppercase tracking-wider text-[10px]">Catatan atas Laporan Keuangan</p>
+            <p>1. Disusun menggunakan basis kas (cash basis); persediaan dinilai dengan metode biaya rata-rata (AVCO).</p>
+            <p>2. Piutang dan hutang dalam keadaan normal = 0 karena seluruh transaksi diselesaikan pada saat itu.</p>
+            <p>3. Kas Bank / QRIS merupakan akumulasi penjualan non-tunai (Transfer / QRIS).</p>
           </div>
         </div>
       )}

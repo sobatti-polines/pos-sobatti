@@ -68,6 +68,8 @@ const ENTITY_LABELS: Record<string, string> = {
   stok_opname: "Stok Opname",
   saldo_kas_harian: "Saldo Kas Harian",
   transaksi_keluar: "Transaksi",
+  pengeluaran: "Pengeluaran",
+  kategori_beban: "Kategori Beban",
 };
 
 const COLUMN_LABELS: Record<string, string> = {
@@ -139,6 +141,11 @@ const COLUMN_LABELS: Record<string, string> = {
   point: "Poin",
   poin_min_pembelian: "Min. Pembelian Poin",
   poin_ditukar: "Poin Ditukar",
+  nama_pengeluaran: "Nama Pengeluaran",
+  jumlah: "Jumlah",
+  metode_bayar: "Metode Bayar",
+  id_kategori_beban: "Kategori Beban",
+  status_pengeluaran: "Status Pengeluaran",
   updated_at: "",
   created_at: "",
 };

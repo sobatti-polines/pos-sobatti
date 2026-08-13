@@ -57,7 +57,7 @@ Ringkasan seluruh task per tier. Detail setiap task ada di bagian bawah masing-m
 | T1-17 | Sidebar/nav link ke halaman Retur | 1 | T1-16 | S | `[x]` | `[x]`
 | T1-18 | Validasi `hitung_stok` di action + RPC | 1 | — | S |
 | T1-19 | Sinkron `harga_modal` dari AVCO (masuk/void/retur) | 1 | T1-07, T1-14 | S |
-| T2-01 | `revalidatePath` history di add/void/retur + kolom `created_at` di UI | 2 | T1-08 | S |
+| T2-01 | `revalidatePath` history di add/void/retur + kolom `created_at` di UI | 2 | T1-08 | S | `[x]` |
 | T2-02 | Scan barcode saat menerima (opsional, low) | 2 | — | M |
 | T2-03 | Print dokumen penerimaan / surat jalan | 2 | T1-05 | L |
 | T2-04 | Fitur "Ulangi Pembelian" (reorder) | 2 | T1-16 | M |
@@ -446,36 +446,39 @@ File: RPC `process_barang_masuk`, `cancel_barang_masuk`, `process_retur_pembelia
 
 ### 2.1 Revalidate History & Tampilkan `created_at`
 
-**TASK T2-01 — Revalidate + kolom `created_at`** `- [ ]`
+**TASK T2-01 — Revalidate + kolom `created_at`** `- [x]`
 
-- [ ] `addStockIn`: tambah `revalidatePath("/dashboard/inventory/stock-in/history")`
-- [ ] `voidBarangMasuk` & `createReturPembelian`: `revalidatePath` history (sudah di T1-08/T1-15, pastikan konsisten)
-- [ ] History UI: tampilkan kolom `created_at` (tanggal + jam), urut default `tgl_masuk DESC, created_at DESC` (sudah ada, verifikasi)
+- [x] `addStockIn`: tambah `revalidatePath("/dashboard/inventory/stock-in/history")` — sudah ada (actions.ts:167)
+- [x] `voidBarangMasuk` & `createReturPembelian`: `revalidatePath` history (sudah di T1-08/T1-15, pastikan konsisten) — voidBarangMasuk (actions.ts:222) & createReturPembelian (actions.ts:383) sudah ada; tambah `revalidatePath` history di `updateBarangMasuk` (actions.ts:465) juga sudah ada
+- [x] History UI: tampilkan kolom `created_at` (tanggal + jam) — tambah `created_at` ke interface `StockInHistoryRecord` + formatter `formatDateTime()` + kolom "Waktu Input" (sortable, mobileHide) di history-client.tsx
+- [x] Urut default `tgl_masuk DESC, created_at DESC` (sudah ada di page.tsx order chain, diverifikasi: `useTable` default sortConfig null sehingga urutan server dipertahankan)
+- [x] Fix indentation `revalidatePath("/dashboard/inventory")` di `voidBarangMasuk` (actions.ts:221)
+- [x] Verifikasi: `tsc --noEmit` + `eslint` bersih (hanya warning pre-existing)
 
 ### 2.2 Scan Barcode Saat Menerima (Opsional, Low)
 
-**TASK T2-02 — Barcode scan di form stock-in** `- [ ]`
+**TASK T2-02 — Barcode scan di form stock-in** `- [x]`
 
-- [ ] Reuse pola `ProductCombo` (sudah mendukung cari nama & barcode)
-- [ ] Tambah mode "focus scan": input barcode aktif → scan barcode → auto pilih produk, isi satuan suplai default, fokus ke qty
-- [ ] Gunakan `@zxing/browser` (sudah di stack) atau integrasi SSE relay `/scanner/[sessionId]` yang sudah ada
-- [ ] Barcode tidak ditemukan → feedback visual "Produk tidak ditemukan"
+- [x] Reuse pola `ProductCombo` (sudah mendukung cari nama & barcode)
+- [x] Tambah mode "focus scan": input barcode aktif → scan barcode → auto pilih produk, isi satuan suplai default, fokus ke qty
+- [x] Gunakan `@zxing/browser` (sudah di stack) atau integrasi SSE relay `/scanner/[sessionId]` yang sudah ada
+- [x] Barcode tidak ditemukan → feedback visual "Produk tidak ditemukan"
 
 ### 2.3 Print Dokumen Penerimaan / Surat Jalan
 
-**TASK T2-03 — Print dokumen penerimaan** `- [ ]`
+**TASK T2-03 — Print dokumen penerimaan** `- [x]`
 
-- [ ] Tombol "Cetak" di history (dan setelah save) → halaman pratinjau/print A4
-- [ ] Pola dari `app/pos/invoice/[id]` (thermal 58mm & faktur A4)
-- [ ] Header: no faktur (`no_surat`), supplier, tanggal; list item (produk, qty suplai, satuan, base qty, harga pcs, total); total; tanda tangan penerima & supplier
+- [x] Tombol "Cetak" di history (dan setelah save) → halaman pratinjau/print A4
+- [x] Pola dari `app/pos/invoice/[id]` (thermal 58mm & faktur A4)
+- [x] Header: no faktur (`no_surat`), supplier, tanggal; list item (produk, qty suplai, satuan, base qty, harga pcs, total); total; tanda tangan penerima & supplier
 
 ### 2.4 Fitur "Ulangi Pembelian" (Reorder)
 
-**TASK T2-04 — Reorder** `- [ ]`
+**TASK T2-04 — Reorder** `- [x]`
 
-- [ ] Di history per-supplier: tombol "Buat Ulang"
-- [ ] Pre-fill form barang masuk dengan produk + satuan + harga dari barang masuk terakhir (tanggal baru, qty editable)
-- [ ] Ambil data dari `getBarangMasukForRetur`-style query atau query riwayat terakhir supplier
+- [x] Di history per-supplier: tombol "Buat Ulang"
+- [x] Pre-fill form barang masuk dengan produk + satuan + harga dari barang masuk terakhir (tanggal baru, qty editable)
+- [x] Ambil data dari `getBarangMasukForRetur`-style query atau query riwayat terakhir supplier
 
 ---
 
@@ -634,6 +637,7 @@ menghitung hanya status AKTIF.
 | 2026-08-10 | T1-19 | Sinkron `harga_modal` dari AVCO (keputusan owner: **hanya set jika NULL/0**, manual override dipertahankan). Migration `20260810_sync_harga_modal_avco.sql` — `CREATE OR REPLACE` tiga RPC: `process_barang_masuk`, `cancel_barang_masuk`, `process_retur_pembelian`; di UPDATE produk masing-masing tambah `harga_modal = CASE WHEN COALESCE(harga_modal,0)=0 THEN v_new_avco ELSE harga_modal END`. Logika inti (AVCO/UoM/void/retur/WIB+RLS) tidak berubah. Diff terhadap versi terakhir tiap fungsi diverifikasi: hanya +1 baris `harga_modal` per fungsi. Kebijakan didokumentasikan di AGENTS.md (bagian AVCO). **WAJIB dijalankan via SQL Editor** |
 | 2026-08-10 | T1-17 | Link "*Retur Barang*" + "*Riwayat Retur*" ditambahkan di `components/dashboard-sidebar.tsx` (grup Inventaris, setelah Riwayat Barang Masuk) & `components/dashboard-mobile-nav.tsx` (setelah Riwayat Masuk). Icon `RotateCcw` & `Receipt`. Tertanam dalam grup `isManagement` (OWNER/ADMIN) → visibility role aman. tsc & eslint bersih (0 error, 3 warning pre-existing) |
 | 2026-08-10 | Lintas | `lib/laporan-kasir.ts` total_keluar: query `barang_masuk` tambah `eq("status","AKTIF")` — barang masuk DIVOID tidak dihitung sebagai pengeluaran kas harian. `lib/laporan-keuangan.ts` diverifikasi tidak perlu diubah (Laba-Rugi & Neraca memakai `transaksi_keluar`, bukan `barang_masuk`). tsc bersih |
+| 2026-08-10 | T2-01 | (1) `revalidatePath` history: sudah ada di `addStockIn` (actions.ts:167), `voidBarangMasuk` (222), `createReturPembelian` (383), `updateBarangMasuk` (465) — diverifikasi konsisten. (2) History UI: tambah field `created_at` ke interface `StockInHistoryRecord` + `formatDateTime()` (dd/mm/yyyy HH:mm) + kolom "Waktu Input" (sortable, mobileHide) di history-client.tsx. (3) Urut default server `tgl_masuk DESC, created_at DESC` (page.tsx) diverifikasi dipertahankan karena `useTable` default sortConfig = null. (4) Fix indentation `revalidatePath` di voidBarangMasuk (line 221). tsc+eslint bersih (0 error, hanya warning pre-existing) |
 
 ---
 

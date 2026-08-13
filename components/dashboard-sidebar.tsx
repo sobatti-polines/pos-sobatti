@@ -32,6 +32,8 @@ import {
   Printer,
   History,
   RotateCcw,
+  Wallet,
+  ArrowLeftRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -233,6 +235,14 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role }: {
                 <Link href="/dashboard/laporan-kasir" className={linkClass("/dashboard/laporan-kasir")}>
                   <FileText className="w-5 h-5" />
                   <span className="text-sm">Riwayat Kas Harian</span>
+                </Link>
+                <Link href="/dashboard/keuangan/pengeluaran" className={linkClass("/dashboard/keuangan/pengeluaran")}>
+                  <Wallet className="w-5 h-5" />
+                  <span className="text-sm">Pengeluaran</span>
+                </Link>
+                <Link href="/dashboard/keuangan/arus-kas" className={linkClass("/dashboard/keuangan/arus-kas")}>
+                  <ArrowLeftRight className="w-5 h-5" />
+                  <span className="text-sm">Arus Kas</span>
                 </Link>
               </div>
             </div>

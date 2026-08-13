@@ -34,6 +34,8 @@ import {
   Landmark,
   Printer,
   RotateCcw,
+  Wallet,
+  ArrowLeftRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -272,6 +274,14 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                         <Link href="/dashboard/laporan-kasir" className={linkClass("/dashboard/laporan-kasir")} onClick={() => setIsOpen(false)}>
                           <FileText className="w-5 h-5" />
                           <span>Riwayat Kas Harian</span>
+                        </Link>
+                        <Link href="/dashboard/keuangan/pengeluaran" className={linkClass("/dashboard/keuangan/pengeluaran")} onClick={() => setIsOpen(false)}>
+                          <Wallet className="w-5 h-5" />
+                          <span>Pengeluaran</span>
+                        </Link>
+                        <Link href="/dashboard/keuangan/arus-kas" className={linkClass("/dashboard/keuangan/arus-kas")} onClick={() => setIsOpen(false)}>
+                          <ArrowLeftRight className="w-5 h-5" />
+                          <span>Arus Kas</span>
                         </Link>
                       </div>
                     </div>

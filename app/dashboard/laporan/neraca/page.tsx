@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { generateNeraca } from "@/lib/laporan-keuangan";
+import { getStoreSettings } from "@/lib/store-settings";
 import { format } from "date-fns";
 import NeracaClient from "./neraca-client";
 
@@ -14,6 +15,8 @@ export default async function NeracaPage() {
     console.error(e);
   }
 
+  const store = await getStoreSettings(supabase);
+
   return (
     <div className="flex-1 p-8 lg:p-12 w-full flex flex-col gap-8 mx-auto h-full overflow-y-auto print:p-0 print:overflow-visible">
       <header className="shrink-0 print:hidden">
@@ -25,7 +28,7 @@ export default async function NeracaPage() {
         </p>
       </header>
 
-      <NeracaClient initialData={initialData} />
+      <NeracaClient initialData={initialData} store={store} />
     </div>
   );
 }

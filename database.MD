@@ -404,6 +404,36 @@
 | `jumlah` | `numeric` |  |
 | `keterangan` | `text` |  Nullable |
 
+## Table `kategori_beban`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `int4` | Primary |
+| `nama` | `varchar` |  Unique |
+| `kelompok` | `text` |  Nullable |
+
+## Table `pengeluaran`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `tanggal` | `date` |  |
+| `id_kategori_beban` | `int4` |  |
+| `nama_pengeluaran` | `text` |  |
+| `jumlah` | `numeric` |  |
+| `metode_bayar` | `text` |  |
+| `id_pengguna` | `int4` |  |
+| `keterangan` | `text` |  Nullable |
+| `status` | `text` |  |
+| `created_at` | `timestamptz` |  |
+| `voided_at` | `timestamptz` |  Nullable |
+| `voided_by` | `int4` |  Nullable |
+| `alasan_void` | `text` |  Nullable |
+
 ## RLS Policies
 
 ### `barang_masuk`
@@ -516,23 +546,19 @@
 | `authenticated users can update sesi_stok_opname` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
 | `authenticated users can delete sesi_stok_opname` | DELETE | authenticated | PERMISSIVE | `true` | — |
 
-### `lokasi_area`
+### `retur_pembelian`
 
 | Policy | Command | Roles | Action | USING | WITH CHECK |
 |--------|---------|-------|--------|-------|------------|
-| `authenticated users can select lokasi_area` | SELECT | authenticated | PERMISSIVE | `true` | — |
-| `authenticated users can insert lokasi_area` | INSERT | authenticated | PERMISSIVE | — | `true` |
-| `authenticated users can update lokasi_area` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
-| `authenticated users can delete lokasi_area` | DELETE | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can select retur_pembelian` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert retur_pembelian` | INSERT | authenticated | PERMISSIVE | — | `true` |
 
-### `merk`
+### `detail_retur_pembelian`
 
 | Policy | Command | Roles | Action | USING | WITH CHECK |
 |--------|---------|-------|--------|-------|------------|
-| `authenticated users can select merk` | SELECT | authenticated | PERMISSIVE | `true` | — |
-| `authenticated users can insert merk` | INSERT | authenticated | PERMISSIVE | — | `true` |
-| `authenticated users can update merk` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
-| `authenticated users can delete merk` | DELETE | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can select detail_retur_pembelian` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert detail_retur_pembelian` | INSERT | authenticated | PERMISSIVE | — | `true` |
 
 ### `saldo_kas_harian`
 
@@ -552,17 +578,39 @@
 | `authenticated users can update pengaturan_keuangan` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
 | `authenticated users can delete pengaturan_keuangan` | DELETE | authenticated | PERMISSIVE | `true` | — |
 
-### `retur_pembelian`
+### `merk`
 
 | Policy | Command | Roles | Action | USING | WITH CHECK |
 |--------|---------|-------|--------|-------|------------|
-| `authenticated users can select retur_pembelian` | SELECT | authenticated | PERMISSIVE | `true` | — |
-| `authenticated users can insert retur_pembelian` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can select merk` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert merk` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update merk` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+| `authenticated users can delete merk` | DELETE | authenticated | PERMISSIVE | `true` | — |
 
-### `detail_retur_pembelian`
+### `lokasi_area`
 
 | Policy | Command | Roles | Action | USING | WITH CHECK |
 |--------|---------|-------|--------|-------|------------|
-| `authenticated users can select detail_retur_pembelian` | SELECT | authenticated | PERMISSIVE | `true` | — |
-| `authenticated users can insert detail_retur_pembelian` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can select lokasi_area` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert lokasi_area` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update lokasi_area` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+| `authenticated users can delete lokasi_area` | DELETE | authenticated | PERMISSIVE | `true` | — |
+
+### `kategori_beban`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select kategori_beban` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert kategori_beban` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update kategori_beban` | UPDATE | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can delete kategori_beban` | DELETE | authenticated | PERMISSIVE | `true` | — |
+
+### `pengeluaran`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select pengeluaran` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert pengeluaran` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update pengeluaran` | UPDATE | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can delete pengeluaran` | DELETE | authenticated | PERMISSIVE | `true` | — |
 

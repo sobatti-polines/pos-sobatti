@@ -2,7 +2,7 @@
 -- 01_ROLLBACK_SETELAH_TEST.sql
 -- ----------------------------------------------------------------------------
 -- Jalankan di Supabase SQL Editor SETELAH selesai testing
--- (TESTING-TIER-1-BARANG-MASUK.md).
+-- (docs/testing/TESTING-BARANG-MASUK.md).
 --
 -- Fungsi: menghapus SEMUA data transaksional yang dibuat selama testing dan
 -- mengembalikan stok/AVCO/harga_modal produk ke nilai baseline (pre-test).

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { exportToCSV } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
+import type { StoreSettings } from "@/lib/store-settings";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -17,7 +18,7 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
-export default function LaporanKasirClient({ data }: { data: any[] }) {
+export default function LaporanKasirClient({ data, store }: { data: any[]; store?: StoreSettings | null }) {
   const handleExport = () => {
     const headers = ["Tanggal", "Saldo Awal", "Total Masuk", "Total Keluar", "Saldo Sistem", "Uang Aktual", "Selisih", "Kasir"];
     const rows = data.map(r => [
@@ -50,6 +51,23 @@ export default function LaporanKasirClient({ data }: { data: any[] }) {
       </div>
 
       <div className="bg-background border border-border rounded-xl shadow-sm overflow-hidden">
+        {/* Print Header */}
+        <div className="hidden print:block pb-8 mb-10 text-center border-b border-border">
+          {store?.nama_toko && <p className="text-lg font-semibold uppercase tracking-widest">{store.nama_toko}</p>}
+          {store?.alamat && <p className="text-sm text-muted-foreground mt-1">{store.alamat}</p>}
+          {(store?.telepon || store?.email) && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {store.telepon && <span>Telp: {store.telepon}</span>}
+              {store.telepon && store.email && <span className="mx-2">|</span>}
+              {store.email && <span>Email: {store.email}</span>}
+            </p>
+          )}
+          <h1 className="text-2xl font-bold uppercase tracking-widest mt-4">Laporan Kasir Harian</h1>
+          <p className="text-muted-foreground mt-1">
+            Riwayat penutupan kas dan rekonsiliasi harian
+          </p>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-sm">
             <thead className="bg-muted/50 border-b border-border">
@@ -96,6 +114,20 @@ export default function LaporanKasirClient({ data }: { data: any[] }) {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Footer for print */}
+        <div className="hidden print:grid grid-cols-2 gap-20 p-12 text-center text-sm border-t border-border mt-10">
+          <div className="space-y-20">
+            <p>Disetujui oleh,</p>
+            <div className="border-t border-border mx-auto w-40"></div>
+            <p className="font-bold">( Pemilik )</p>
+          </div>
+          <div className="space-y-20">
+            <p>Dibuat oleh,</p>
+            <div className="border-t border-border mx-auto w-40"></div>
+            <p className="font-bold">( Kasir / Admin )</p>
+          </div>
         </div>
       </div>
     </div>

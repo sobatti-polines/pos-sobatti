@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { id } from "date-fns/locale";
 import { Printer, Search, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { fetchLabaRugi } from "./actions";
 import { exportToCSV } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
+import { terbilangRupiah } from "@/lib/terbilang";
+import type { StoreSettings } from "@/lib/store-settings";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -20,7 +21,7 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
-export default function LabaRugiClient({ initialData }: { initialData: any }) {
+export default function LabaRugiClient({ initialData, store }: { initialData: any; store?: StoreSettings | null }) {
   const [start, setStart] = useState(initialData?.periode?.start || "");
   const [end, setEnd] = useState(initialData?.periode?.end || "");
   const [data, setData] = useState(initialData);
@@ -42,15 +43,33 @@ export default function LabaRugiClient({ initialData }: { initialData: any }) {
   const handleExport = () => {
     if (!data) return;
     const headers = ["Kategori", "Item", "Jumlah"];
-    const rows = [
+    const rows: Array<[string, string, number]> = [
       ["PENDAPATAN", "Penjualan Kotor", data.pendapatan.penjualan_kotor],
       ["PENDAPATAN", "Diskon Penjualan (-)", data.pendapatan.diskon],
       ["PENDAPATAN", "Total Pendapatan Bersih", data.pendapatan.pendapatan_bersih],
       ["BIAYA", "Total HPP / Beban Pokok (-)", data.biaya.hpp],
       ["HASIL", "Laba Kotor", data.hasil.laba_kotor],
-      ["HASIL", "Beban Operasional", data.hasil.beban_operasional],
-      ["HASIL", "Laba / Rugi Bersih", data.hasil.laba_bersih],
     ];
+
+    // Beban per kategori
+    if (data.biaya.beban && data.biaya.beban.length > 0) {
+      for (const b of data.biaya.beban) {
+        rows.push(["BEBAN", b.nama, b.jumlah]);
+      }
+    }
+    rows.push(["BEBAN", "Total Beban Operasional (-)", data.hasil.beban_operasional]);
+
+    // Penyesuaian
+    if (data.penyesuaian) {
+      if (data.penyesuaian.selisih_kas !== 0) {
+        rows.push(["PENYESUAIAN", "Selisih Kas", data.penyesuaian.selisih_kas]);
+      }
+      if (data.penyesuaian.koreksi_stok !== 0) {
+        rows.push(["PENYESUAIAN", "Koreksi / Selisih Stok", data.penyesuaian.koreksi_stok]);
+      }
+    }
+
+    rows.push(["HASIL", "Laba / Rugi Bersih", data.hasil.laba_bersih]);
     exportToCSV(`laba-rugi-${start}-to-${end}`, headers, rows);
   };
 
@@ -114,7 +133,16 @@ export default function LabaRugiClient({ initialData }: { initialData: any }) {
           <div className="max-w-7xl mx-auto w-full p-6 lg:p-10">
             {/* Print Header */}
             <div className="hidden print:block pb-8 mb-10 text-center border-b border-border">
-              <h1 className="text-2xl font-bold uppercase tracking-widest">Laporan Laba Rugi</h1>
+              {store?.nama_toko && <p className="text-lg font-semibold uppercase tracking-widest">{store.nama_toko}</p>}
+              {store?.alamat && <p className="text-sm text-muted-foreground mt-1">{store.alamat}</p>}
+              {(store?.telepon || store?.email) && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {store.telepon && <span>Telp: {store.telepon}</span>}
+                  {store.telepon && store.email && <span className="mx-2">|</span>}
+                  {store.email && <span>Email: {store.email}</span>}
+                </p>
+              )}
+              <h1 className="text-2xl font-bold uppercase tracking-widest mt-4">Laporan Laba Rugi</h1>
               <p className="text-muted-foreground mt-1">
                 Periode: {format(new Date(data.periode.start), "dd MMM yyyy")} - {format(new Date(data.periode.end), "dd MMM yyyy")}
               </p>
@@ -159,12 +187,50 @@ export default function LabaRugiClient({ initialData }: { initialData: any }) {
               <div className="space-y-6">
                 <h3 className="font-bold text-base uppercase border-b border-foreground pb-2">Beban Operasional</h3>
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span>Total Beban Operasional</span>
-                    <span className="tabular-nums">({formatIDR(data.hasil.beban_operasional)})</span>
+                  {data.biaya.beban && data.biaya.beban.length > 0 ? (
+                    data.biaya.beban.map((b: { nama: string; jumlah: number }, idx: number) => (
+                      <div key={idx} className="flex justify-between items-center text-muted-foreground">
+                        <span className="pl-3">{b.nama}</span>
+                        <span className="tabular-nums">({formatIDR(b.jumlah)})</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex justify-between items-center text-muted-foreground">
+                      <span>Belum ada pengeluaran tercatat</span>
+                      <span className="tabular-nums">(Rp 0)</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-4 border-t border-border mt-2">
+                    <span className="font-medium">Total Beban Operasional</span>
+                    <span className="font-medium tabular-nums">({formatIDR(data.hasil.beban_operasional)})</span>
                   </div>
                 </div>
               </div>
+
+              {/* PENYESUAIAN */}
+              {data.penyesuaian && (data.penyesuaian.selisih_kas !== 0 || data.penyesuaian.koreksi_stok !== 0) && (
+                <div className="space-y-6">
+                  <h3 className="font-bold text-base uppercase border-b border-foreground pb-2">Penyesuaian</h3>
+                  <div className="space-y-3">
+                    {data.penyesuaian.selisih_kas !== 0 && (
+                      <div className="flex justify-between items-center">
+                        <span>Selisih Kas (Tutup Kasir)</span>
+                        <span className={`tabular-nums ${data.penyesuaian.selisih_kas >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {data.penyesuaian.selisih_kas >= 0 ? '+' : ''}{formatIDR(data.penyesuaian.selisih_kas)}
+                        </span>
+                      </div>
+                    )}
+                    {data.penyesuaian.koreksi_stok !== 0 && (
+                      <div className="flex justify-between items-center">
+                        <span>Koreksi / Selisih Stok (Opname & Retur)</span>
+                        <span className={`tabular-nums ${data.penyesuaian.koreksi_stok >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {data.penyesuaian.koreksi_stok >= 0 ? '+' : ''}{formatIDR(data.penyesuaian.koreksi_stok)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* LABA BERSIH */}
               <div className="flex justify-between items-center pt-6 border-t-2 border-foreground mt-8">
@@ -172,6 +238,17 @@ export default function LabaRugiClient({ initialData }: { initialData: any }) {
                 <span className={`font-bold text-xl tabular-nums border-b-2 border-foreground ${data.hasil.laba_bersih >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                   {formatIDR(data.hasil.laba_bersih)}
                 </span>
+              </div>
+              <p className="hidden print:block text-sm text-muted-foreground text-right mt-2">
+                Terbilang: {terbilangRupiah(data.hasil.laba_bersih)}
+              </p>
+
+              {/* Catatan atas Laporan Keuangan (CaLK) */}
+              <div className="text-[11px] text-muted-foreground border-t border-dashed border-border pt-4 mt-8 space-y-1">
+                <p className="font-semibold uppercase tracking-wider text-[10px]">Catatan atas Laporan Keuangan</p>
+                <p>1. Disusun menggunakan basis kas (cash basis); persediaan dinilai dengan metode biaya rata-rata (AVCO).</p>
+                <p>2. Piutang dan hutang dalam keadaan normal = 0 karena seluruh transaksi diselesaikan pada saat itu.</p>
+                <p>3. Kas Bank / QRIS merupakan akumulasi penjualan non-tunai (Transfer / QRIS).</p>
               </div>
             </div>
 

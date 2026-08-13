@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { getStoreSettings } from "@/lib/store-settings";
 import LaporanKasirClient from "./laporan-kasir-client";
 
 export default async function LaporanKasirPage() {
@@ -19,7 +20,9 @@ export default async function LaporanKasirPage() {
     `)
     .order("tanggal", { ascending: false });
 
+  const store = await getStoreSettings(supabase);
+
   return (
-    <LaporanKasirClient data={reports || []} />
+    <LaporanKasirClient data={reports || []} store={store} />
   );
 }

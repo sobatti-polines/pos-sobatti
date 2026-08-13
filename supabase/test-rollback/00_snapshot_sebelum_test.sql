@@ -2,7 +2,7 @@
 -- 00_SNAPSHOT_SEBELUM_TEST.sql
 -- ----------------------------------------------------------------------------
 -- Jalankan SEKALI di Supabase SQL Editor SEBELUM mulai testing
--- (TESTING-TIER-1-BARANG-MASUK.md).
+-- (docs/testing/TESTING-BARANG-MASUK.md).
 --
 -- Fungsi: membuat tabel _snap_* yang menyimpan baseline seluruh data
 -- transaksional + kolom stok/AVCO/harga_modal produk. Baseline ini dipakai

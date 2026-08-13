@@ -132,8 +132,20 @@ export default function TutupKasirClient({ initialSummary }: { initialSummary: a
                     <div className="grid grid-cols-2 gap-y-3 text-sm text-muted-foreground">
                       <span>Penjualan</span>
                       <span className="text-right tabular-nums">{formatIDR(summary.detail.sales_tunai)}</span>
+                      {Number(summary.detail?.penerimaan_retur || 0) > 0 && (
+                        <>
+                          <span>Penerimaan Retur</span>
+                          <span className="text-right tabular-nums">{formatIDR(Number(summary.detail.penerimaan_retur))}</span>
+                        </>
+                      )}
                       <span>Pembelian</span>
                       <span className="text-right tabular-nums">{formatIDR(summary.detail.pembelian_tunai)}</span>
+                      {Number(summary.detail?.pengeluaran_operasional || 0) > 0 && (
+                        <>
+                          <span>Pengeluaran Operasional</span>
+                          <span className="text-right tabular-nums">{formatIDR(Number(summary.detail.pengeluaran_operasional))}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

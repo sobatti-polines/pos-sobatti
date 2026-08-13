@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useDeferredValue, useTransition, useRef } from "react";
-import { PackagePlus, Pencil, Ban, AlertCircle } from "lucide-react";
+import { PackagePlus, Pencil, Ban, Printer, Repeat, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
@@ -39,6 +39,20 @@ function formatDate(dateStr: string) {
   }).format(date);
 }
 
+function formatDateTime(dateStr: string | null) {
+  if (!dateStr) return "-";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 interface StockInHistoryRecord {
   id: number;
   tgl_masuk: string;
@@ -56,6 +70,7 @@ interface StockInHistoryRecord {
   total_cost: number | null;
   base_cost_per_piece: number | null;
   status?: string;
+  created_at: string | null;
 }
 
 interface SupplierRecord {
@@ -265,6 +280,7 @@ export default function StockInHistoryClient({
 
   const columns: Column<StockInHistoryRecord>[] = [
     { key: "tgl_masuk", header: "Tanggal", sortable: true, className: "pl-6", headerClassName: "pl-6 w-[120px]", render: (h) => rowText(h, formatDate(h.tgl_masuk)) },
+    { key: "created_at", header: "Waktu Input", sortable: true, mobileHide: true, headerClassName: "w-[140px]", render: (h) => rowText(h, formatDateTime(h.created_at)) },
     { key: "no_surat", header: "No. Faktur", sortable: true, mobileHide: true, render: (h) => rowText(h, h.no_surat || "-") },
     { key: "supplier", header: "Supplier", sortable: true, sortKey: "supplier.nama_supplier", render: (h) => rowText(h, h.supplier?.nama_supplier || "Umum") },
     { key: "produk", header: "Produk", sortable: true, sortKey: "produk.nama_produk", render: (h) => rowText(h, h.produk?.nama_produk || "Produk dihapus") },
@@ -290,33 +306,64 @@ export default function StockInHistoryClient({
       render: (h) => <div className="flex justify-center">{statusBadge(h)}</div>,
     },
     {
-      key: "aksi", header: "", headerClassName: "w-[100px] pr-6", className: "pr-6",
+      key: "aksi", header: "", headerClassName: "w-[150px] pr-6", className: "pr-6",
       render: (h) => {
-        if (isVoided(h)) {
-          return <span className="text-muted-foreground/50 text-xs">-</span>;
-        }
         return (
           <div className="flex justify-end gap-1">
             <Button
+              asChild
               variant="ghost"
               size="icon"
-              aria-label="Edit"
               className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
-              disabled={isPending}
-              onClick={() => handleOpenEdit(h)}
             >
-              <Pencil className="h-4 w-4" />
+              <a
+                href={`/dashboard/inventory/stock-in/print/${h.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Cetak Dokumen"
+                title="Cetak Dokumen"
+              >
+                <Printer className="h-4 w-4" />
+              </a>
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Batalkan"
-              className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              disabled={isPending}
-              onClick={() => handleOpenVoid(h)}
-            >
-              <Ban className="h-4 w-4" />
-            </Button>
+            {!isVoided(h) && (
+              <>
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+                >
+                  <a
+                    href={`/dashboard/inventory/stock-in?reorder=${h.id}`}
+                    aria-label="Buat Ulang (Ulangi Pembelian)"
+                    title="Buat Ulang (Ulangi Pembelian ini)"
+                  >
+                    <Repeat className="h-4 w-4" />
+                  </a>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Edit"
+                  className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+                  disabled={isPending}
+                  onClick={() => handleOpenEdit(h)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Batalkan"
+                  className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  disabled={isPending}
+                  onClick={() => handleOpenVoid(h)}
+                >
+                  <Ban className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
         );
       },

@@ -45,7 +45,15 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
     return acc + (Number(s.bayar) - Number(s.kembali));
   }, 0);
 
-  const totalMasuk = salesInflow;
+  // 2b. Retur Pembelian Refund (asumsi refund tunai — uang dikembalikan supplier)
+  const { data: returRefunds } = await supabase
+    .from("retur_pembelian")
+    .select("total_nilai")
+    .eq("tgl_retur", dateStr);
+
+  const returRefund = (returRefunds || []).reduce((acc, r) => acc + Number(r.total_nilai || 0), 0);
+
+  const totalMasuk = salesInflow + returRefund;
 
   // 3. Calculate Outflow (Total Keluar)
   // All purchases are cash now (hutang feature removed)
@@ -58,7 +66,27 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
   
   const purchaseOutflow = (cashPurchases || []).reduce((acc, cp) => acc + Number(cp.total), 0);
 
-  const totalKeluar = purchaseOutflow;
+  // K2-06: Pengeluaran operasional tunai sebagai outflow.
+  // Gunakan try/catch agar aman bila tabel `pengeluaran` belum dijalankan (Fase B).
+  let pengeluaranOutflow = 0;
+  try {
+    const { data: operasional } = await supabase
+      .from("pengeluaran")
+      .select("jumlah")
+      .eq("status", "AKTIF")
+      .eq("metode_bayar", "Tunai")
+      .gte("tanggal", dateStr)
+      .lte("tanggal", dateStr);
+
+    pengeluaranOutflow = (operasional || []).reduce(
+      (acc, p) => acc + Number(p.jumlah || 0),
+      0
+    );
+  } catch {
+    pengeluaranOutflow = 0;
+  }
+
+  const totalKeluar = purchaseOutflow + pengeluaranOutflow;
 
   const expectedSaldoAkhir = Number(saldoAwal) + totalMasuk - totalKeluar;
 
@@ -70,9 +98,11 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
     saldo_akhir_sistem: expectedSaldoAkhir,
     detail: {
       sales_tunai: salesInflow,
+      penerimaan_retur: returRefund,
       piutang_tunai: 0,
       hutang_tunai: 0,
-      pembelian_tunai: purchaseOutflow
+      pembelian_tunai: purchaseOutflow,
+      pengeluaran_operasional: pengeluaranOutflow,
     }
   };
 }

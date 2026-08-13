@@ -125,7 +125,7 @@ export async function addStockIn(
 
   // Call the atomic RPC — all inserts, AVCO calculation, UoM conversion,
   // and stock update happen in a single advisory-locked transaction
-  const { error: rpcError } = await supabase.rpc(
+  const { data, error: rpcError } = await supabase.rpc(
     "process_barang_masuk",
     {
       p_items: rows.map((r) => ({
@@ -165,7 +165,16 @@ export async function addStockIn(
 
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/stock-in/history");
-  return { success: true };
+
+  // Inserted row ids (from RPC { success, inserted: [{ id, ... }] }) —
+  // used by the form to offer "Cetak Dokumen" right after saving.
+  const inserted = Array.isArray(
+    (data as { inserted?: { id: number }[] } | null)?.inserted
+  )
+    ? (data as { inserted: { id: number }[] }).inserted.map((r) => r.id)
+    : [];
+
+  return { success: true, inserted };
 }
 
 export async function voidBarangMasuk(id: number, alasan: string) {
@@ -218,7 +227,7 @@ export async function voidBarangMasuk(id: number, alasan: string) {
     data_lama: { id: parsed.data.id, alasan: parsed.data.alasan } as unknown as Record<string, unknown>,
   });
 
-revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/stock-in/history");
   return { success: true };
 }

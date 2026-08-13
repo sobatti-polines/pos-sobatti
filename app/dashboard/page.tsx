@@ -2,6 +2,7 @@ import { getDashboardData } from "@/lib/dashboard";
 import { TrendingUp, TrendingDown, CheckCircle2, Clock, CalendarDays } from "lucide-react";
 import { DashboardLowStock } from "@/components/dashboard-low-stock";
 import { DashboardRecentActivity } from "@/components/dashboard-recent-activity";
+import { DashboardFinanceSummary } from "@/components/dashboard-finance-summary";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ export default async function DashboardPage() {
 
   const role = user?.user_metadata?.role;
   const isOwner = role === "OWNER";
+  const isAdmin = role === "ADMIN";
   const isKaryawan = role === "KARYAWAN";
 
   if (isKaryawan) {
@@ -174,6 +176,13 @@ export default async function DashboardPage() {
 
         <DashboardLowStock />
       </div>
+
+      {(isOwner || isAdmin) && (
+        <DashboardFinanceSummary
+          labaBersih={dashboardData.monthLabaBersih}
+          bebanOperasional={dashboardData.monthBebanOperasional}
+        />
+      )}
 
       <section>
         <h3 className="text-sm font-medium text-muted-foreground mb-6 uppercase tracking-widest">Transaksi Terbaru</h3>

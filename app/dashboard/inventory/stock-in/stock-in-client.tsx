@@ -7,7 +7,20 @@ import {
   useFormContext,
   FormProvider,
 } from "react-hook-form";
-import { Plus, Trash2, Check, AlertCircle, PackagePlus, Loader2, Info } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Check,
+  AlertCircle,
+  PackagePlus,
+  Loader2,
+  Info,
+  ScanBarcode,
+  Smartphone,
+  X,
+  Printer,
+} from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addStockIn } from "./actions";
@@ -33,6 +46,20 @@ const formSchema = z.object({
 });
 
 type StockInFormValues = z.infer<typeof formSchema>;
+
+export interface ReorderPrefillItem {
+  id_produk: number;
+  supplied_qty: number;
+  supplied_unit: string;
+  total_cost: number;
+}
+
+export interface ReorderPrefill {
+  supplierId: number;
+  supplierName: string;
+  noSurat: string | null;
+  items: ReorderPrefillItem[];
+}
 
 /* ------------------------------------------------------------------ */
 /*  Inline zodResolver (no @hookform/resolvers dependency)             */
@@ -274,6 +301,267 @@ function ProductCombo({
 }
 
 /* ------------------------------------------------------------------ */
+/*  BarcodeScanBar — focus-scan mode (keyboard/USB + phone via SSE)    */
+/* ------------------------------------------------------------------ */
+
+function BarcodeScanBar({ products }: { products: Product[] }) {
+  const { setValue, control, getValues } = useFormContext<StockInFormValues>();
+  const { fields, append } = useFieldArray({ control, name: "items" });
+
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [sessionId] = useState(() => crypto.randomUUID());
+  const [scannerConnected, setScannerConnected] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
+  const showFeedback = useCallback((ok: boolean, text: string) => {
+    setFeedback({ ok, text });
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => setFeedback(null), 4000);
+  }, []);
+
+  const focusQty = useCallback((index: number) => {
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLInputElement>(`[data-qty-index="${index}"]`)
+        ?.focus();
+    });
+  }, []);
+
+  const resolveProduct = useCallback(
+    (code: string): Product | null => {
+      const q = code.trim();
+      if (!q) return null;
+      return (
+        products.find((p) => p.barcode === q) ??
+        products.find((p) => String(p.id) === q) ??
+        products.find((p) => p.nama_produk.toLowerCase().includes(q.toLowerCase())) ??
+        null
+      );
+    },
+    [products]
+  );
+
+  const handleBarcode = useCallback(
+    (raw: string) => {
+      const code = raw.trim();
+      if (!code) return;
+
+      const product = resolveProduct(code);
+      if (!product) {
+        setBarcodeInput("");
+        showFeedback(false, `Produk "${code}" tidak ditemukan`);
+        inputRef.current?.focus();
+        return;
+      }
+
+      const autoUnit =
+        product.default_purchase_unit || product.inventory_unit || "";
+      const currentItems = getValues("items") ?? [];
+      const emptyIdx = currentItems.findIndex((it) => !it?.id_produk);
+
+      if (emptyIdx >= 0) {
+        setValue(`items.${emptyIdx}.id_produk`, product.id, {
+          shouldValidate: false,
+        });
+        setValue(`items.${emptyIdx}.supplied_unit`, autoUnit, {
+          shouldValidate: false,
+        });
+        setBarcodeInput("");
+        showFeedback(
+          true,
+          `${product.nama_produk} ditambahkan (baris ${emptyIdx + 1})`
+        );
+        focusQty(emptyIdx);
+      } else {
+        append({
+          id_produk: product.id,
+          supplied_qty: 1,
+          supplied_unit: autoUnit,
+          total_cost: 0,
+          keterangan: "",
+        });
+        setBarcodeInput("");
+        showFeedback(
+          true,
+          `${product.nama_produk} ditambahkan (baris ${fields.length + 1})`
+        );
+        focusQty(fields.length);
+      }
+    },
+    [resolveProduct, getValues, setValue, append, fields.length, showFeedback, focusQty]
+  );
+
+  // Keep the latest handler without reconnecting SSE on every scan
+  const handleBarcodeRef = useRef(handleBarcode);
+  useEffect(() => {
+    handleBarcodeRef.current = handleBarcode;
+  }, [handleBarcode]);
+
+  // Phone scanner SSE relay (reuses /scanner/[sessionId] endpoint)
+  useEffect(() => {
+    const es = new EventSource(`/api/scanner/${sessionId}/events`);
+    es.onopen = () => setScannerConnected(true);
+    es.onerror = () => setScannerConnected(false);
+    es.onmessage = (e) => {
+      const { barcode } = JSON.parse(e.data);
+      if (barcode) handleBarcodeRef.current(barcode);
+    };
+    return () => es.close();
+  }, [sessionId]);
+
+  // Generate QR pointing to the phone scanner page when modal opens
+  useEffect(() => {
+    if (!scannerOpen || qrDataUrl) return;
+    const generateQr = async () => {
+      try {
+        const res = await fetch("/api/network-ip");
+        const { ip } = await res.json();
+        const protocol = "https:";
+        const port = window.location.port ? `:${window.location.port}` : "";
+        const url = `${protocol}//${ip}${port}/scanner/${sessionId}`;
+        setQrDataUrl(
+          `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=0a0a0a&margin=2`
+        );
+      } catch {
+        /* network-ip unreachable → QR stays blank */
+      }
+    };
+    generateQr();
+  }, [scannerOpen, sessionId, qrDataUrl]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleBarcode(e.currentTarget.value);
+    }
+  };
+
+  return (
+    <>
+      <div className="shrink-0 px-6 py-3 border-b border-border bg-muted/30">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 shrink-0">
+            <ScanBarcode className="w-4 h-4 text-primary" />
+            <label
+              htmlFor="barcode-scan-input"
+              className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+            >
+              Scan Barcode
+            </label>
+          </div>
+          <div className="relative flex-1 sm:max-w-md">
+            <input
+              id="barcode-scan-input"
+              ref={inputRef}
+              autoFocus
+              value={barcodeInput}
+              onChange={(e) => {
+                setBarcodeInput(e.target.value);
+                if (feedback) setFeedback(null);
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder="Scan atau ketik barcode produk lalu Enter"
+              className={inputBase + " tabular-nums"}
+              autoComplete="off"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full px-4 h-9 w-max text-muted-foreground hover:text-foreground"
+            onClick={() => setScannerOpen(true)}
+          >
+            <Smartphone className="w-4 h-4 mr-1.5" />
+            Scan via HP
+          </Button>
+        </div>
+        {feedback && (
+          <p
+            className={`mt-2 flex items-center gap-1.5 text-sm ${
+              feedback.ok ? "text-emerald-600" : "text-destructive"
+            }`}
+          >
+            {feedback.ok ? (
+              <Check className="w-3.5 h-3.5 shrink-0" />
+            ) : (
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            )}
+            {feedback.text}
+          </p>
+        )}
+      </div>
+
+      {scannerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setScannerOpen(false)}
+        >
+          <div
+            className="relative bg-background border border-border shadow-[0_8px_24px_rgba(0,55,112,0.08),0_2px_6px_rgba(0,55,112,0.04)] rounded-[12px] p-6 sm:p-8 flex flex-col items-center gap-5 sm:gap-6 w-[340px] max-w-[calc(100vw-32px)] animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setScannerOpen(false)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex flex-col items-center gap-1 text-center">
+              <p className="text-base font-semibold text-foreground">
+                Scan dengan HP
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Buka kamera HP dan scan barcode produk
+              </p>
+            </div>
+
+            <div className="bg-white p-3 rounded-xl shadow-inner">
+              {qrDataUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={qrDataUrl}
+                  alt="Scanner QR code"
+                  width={220}
+                  height={220}
+                  className="w-full max-w-[220px] h-auto"
+                />
+              ) : (
+                <div className="w-full max-w-[220px] aspect-square animate-pulse bg-muted rounded-lg" />
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 text-sm">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  scannerConnected
+                    ? "bg-emerald-500 animate-pulse"
+                    : "bg-muted-foreground"
+                }`}
+              />
+              <span className="text-muted-foreground">
+                {scannerConnected ? "Terhubung" : "Menunggu koneksi..."}
+              </span>
+            </div>
+
+            <p className="text-xs text-muted-foreground text-center leading-relaxed">
+              Gunakan Chrome di Android · Barcode yang tidak dikenal akan
+              ditandai &quot;Produk tidak ditemukan&quot;
+            </p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  UoM Conversion Indicator                                          */
 /* ------------------------------------------------------------------ */
 
@@ -312,10 +600,12 @@ function FormBody({
   products,
   suppliers,
   satuanOptions,
+  reorderInfo,
 }: {
   products: Product[];
   suppliers: Supplier[];
   satuanOptions: { id: number; nama: string }[];
+  reorderInfo: { supplierName: string; noSurat: string | null; itemCount: number } | null;
 }) {
   const {
     register,
@@ -335,6 +625,8 @@ function FormBody({
   const [serverError, setServerError] = useState("");
   const [success, setSuccess] = useState(false);
   const [warning, setWarning] = useState("");
+  const [lastInsertId, setLastInsertId] = useState<number | null>(null);
+  const [reorderActive, setReorderActive] = useState(!!reorderInfo);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -406,6 +698,10 @@ function FormBody({
 
     setSuccess(true);
     setLoading(false);
+    setReorderActive(false);
+    setLastInsertId(
+      (res as { inserted?: number[] } | null)?.inserted?.[0] ?? null
+    );
 
     if ((res as { warning?: string })?.warning) {
       setWarning((res as { warning?: string }).warning!);
@@ -449,9 +745,45 @@ function FormBody({
 
       {/* Success banner */}
       {success && !warning && (
-        <div className="shrink-0 flex items-center gap-2 px-6 py-4 bg-emerald-50 text-emerald-700 text-sm border-b border-border">
-          <Check className="w-4 h-4 shrink-0" />
-          Barang masuk berhasil disimpan
+        <div className="shrink-0 flex items-center justify-between gap-4 px-6 py-4 bg-emerald-50 text-emerald-700 text-sm border-b border-border">
+          <span className="flex items-center gap-2">
+            <Check className="w-4 h-4 shrink-0" />
+            Barang masuk berhasil disimpan
+          </span>
+          {lastInsertId && (
+            <Link
+              href={`/dashboard/inventory/stock-in/print/${lastInsertId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-4 h-8 rounded-full text-xs font-medium text-emerald-700 bg-emerald-100 hover:bg-emerald-200 transition-colors shrink-0"
+            >
+              <Printer className="w-4 h-4" />
+              Cetak Dokumen
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* Reorder banner */}
+      {reorderInfo && reorderActive && (
+        <div className="shrink-0 flex items-center justify-between gap-4 px-6 py-3 bg-primary/5 text-sm border-b border-border">
+          <span className="flex items-center gap-2 text-foreground/80 min-w-0">
+            <Info className="w-4 h-4 shrink-0 text-primary" />
+            <span className="truncate">
+              <span className="font-semibold text-foreground">Ulangi Pembelian</span>
+              {reorderInfo.supplierName && ` — ${reorderInfo.supplierName}`}
+              {reorderInfo.noSurat ? ` · No. Faktur ${reorderInfo.noSurat}` : ""}
+              {" · "}
+              {reorderInfo.itemCount} item terisi. Sesuaikan qty & harga bila perlu.
+            </span>
+          </span>
+          <Link
+            href="/dashboard/inventory/stock-in"
+            className="inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 transition-colors shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+            Buat Baru
+          </Link>
         </div>
       )}
 
@@ -509,6 +841,9 @@ function FormBody({
           />
         </div>
       </div>
+
+      {/* Barcode focus-scan */}
+      <BarcodeScanBar products={products} />
 
       {/* Table */}
       <div className="flex-1 overflow-auto min-h-0">
@@ -582,6 +917,7 @@ function FormBody({
                       type="number"
                       min={0}
                       step="any"
+                      data-qty-index={index}
                       {...register(`items.${index}.supplied_qty`, {
                         valueAsNumber: true,
                       })}
@@ -699,23 +1035,43 @@ export default function StockInClient({
   products,
   suppliers,
   satuanOptions,
+  initialReorder = null,
 }: {
   products: Product[];
   suppliers: Supplier[];
   satuanOptions: { id: number; nama: string }[];
+  initialReorder?: ReorderPrefill | null;
 }) {
   const today = new Date().toISOString().slice(0, 10);
+
+  const prefilledItems = initialReorder
+    ? initialReorder.items.map((it) => ({
+        id_produk: it.id_produk,
+        supplied_qty: it.supplied_qty,
+        supplied_unit: it.supplied_unit,
+        total_cost: it.total_cost,
+        keterangan: "",
+      }))
+    : [{ id_produk: 0, supplied_qty: 1, supplied_unit: "", total_cost: 0, keterangan: "" }];
 
   const form = useForm<StockInFormValues>({
     resolver: makeResolver(formSchema) as any,
     mode: "onSubmit",
     defaultValues: {
-      id_supplier: "",
+      id_supplier: initialReorder ? String(initialReorder.supplierId) : "",
       tgl_masuk: today,
       no_surat: "",
-      items: [{ id_produk: 0, supplied_qty: 1, supplied_unit: "", total_cost: 0, keterangan: "" }],
+      items: prefilledItems,
     },
   });
+
+  const reorderInfo = initialReorder
+    ? {
+        supplierName: initialReorder.supplierName,
+        noSurat: initialReorder.noSurat,
+        itemCount: initialReorder.items.length,
+      }
+    : null;
 
   return (
     <FormProvider {...form}>
@@ -730,7 +1086,12 @@ export default function StockInClient({
         </header>
 
         <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden">
-          <FormBody products={products} suppliers={suppliers} satuanOptions={satuanOptions} />
+          <FormBody
+            products={products}
+            suppliers={suppliers}
+            satuanOptions={satuanOptions}
+            reorderInfo={reorderInfo}
+          />
         </div>
       </div>
     </FormProvider>

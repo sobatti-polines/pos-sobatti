@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { generateLabaRugi } from "@/lib/laporan-keuangan";
+import { startOfMonth, format } from "date-fns";
 
 export interface DashboardData {
   todayRevenue: number;
@@ -11,6 +13,8 @@ export interface DashboardData {
   lowStockItems: LowStockItem[];
   sparklineData: number[];
   recentActivity: ActivityRow[];
+  monthLabaBersih: number;
+  monthBebanOperasional: number;
 }
 
 export interface ActivityRow {
@@ -216,6 +220,19 @@ export async function getDashboardData(): Promise<DashboardData> {
     };
   });
 
+  // K3-04: ringkasan keuangan bulan berjalan (Laba Rugi + beban operasional)
+  let monthLabaBersih = 0;
+  let monthBebanOperasional = 0;
+  try {
+    const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
+    const today = format(new Date(), "yyyy-MM-dd");
+    const labaRugi = await generateLabaRugi(supabase, monthStart, today);
+    monthLabaBersih = Number(labaRugi.hasil.laba_bersih || 0);
+    monthBebanOperasional = Number(labaRugi.hasil.beban_operasional || 0);
+  } catch (e) {
+    console.error("Failed to load month finance summary:", e);
+  }
+
   return {
     todayRevenue,
     yesterdayRevenue,
@@ -227,5 +244,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     lowStockItems,
     sparklineData,
     recentActivity,
+    monthLabaBersih,
+    monthBebanOperasional,
   };
 }
