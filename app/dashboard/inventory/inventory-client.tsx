@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { addProduct, updateProduct, deleteProduct, restockDisplay, moveToWarehouse, importProducts, isiStokPaket } from "./actions";
+import { addProduct, updateProduct, deleteProduct, deleteProducts, restockDisplay, moveToWarehouse, importProducts, isiStokPaket } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ProductDetailSheet from "@/components/product-detail-sheet";
 import { Highlight } from "@/components/highlight";
@@ -226,6 +226,8 @@ export default function InventoryClient({
   const [isPaket, setIsPaket] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<number[] | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
   const [displayModal, setDisplayModal] = useState<{ open: boolean; product: Product | null; qty: string; error: string }>({
@@ -352,10 +354,31 @@ export default function InventoryClient({
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget?.id) return;
+    const id = deleteTarget.id;
     setErrorMsg("");
     startTransition(async () => {
-      const res = await deleteProduct(deleteTarget.id);
-      if (res?.error) { setErrorMsg(res.error); } else { setDeleteTarget(null); }
+      const res = await deleteProduct(id);
+      if (res?.error) { setErrorMsg(res.error); } else {
+        setDeleteTarget(null);
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    });
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (!bulkDeleteIds || bulkDeleteIds.length === 0) return;
+    setErrorMsg("");
+    startTransition(async () => {
+      const res = await deleteProducts(bulkDeleteIds);
+      if (res?.error) { setErrorMsg(res.error); } else {
+        setBulkDeleteIds(null);
+        setSelectedIds(new Set());
+        table.setCurrentPage(1);
+      }
     });
   };
 
@@ -588,12 +611,23 @@ export default function InventoryClient({
       ],
     },
   ];
-  const deleteModal: DeleteModalConfig | undefined = deleteTarget ? {
-    open: true, title: "Hapus Produk?", itemName: deleteTarget.nama_produk,
-    onConfirm: handleDeleteConfirm,
-    onCancel: () => { setDeleteTarget(null); setErrorMsg(""); },
-    isPending, error: errorMsg,
-  } : undefined;
+  const deleteModal: DeleteModalConfig | undefined = bulkDeleteIds
+    ? {
+        open: true,
+        title: "Hapus Produk Terpilih?",
+        itemName: `${bulkDeleteIds.length} produk`,
+        confirmLabel: "Hapus Semua",
+        onConfirm: handleBulkDeleteConfirm,
+        onCancel: () => { setBulkDeleteIds(null); setErrorMsg(""); },
+        isPending, error: errorMsg,
+      }
+    : deleteTarget ? {
+        open: true, title: "Hapus Produk?", itemName: deleteTarget.nama_produk,
+        onConfirm: handleDeleteConfirm,
+        onCancel: () => { setDeleteTarget(null); setErrorMsg(""); },
+        isPending, error: errorMsg,
+      }
+    : undefined;
 
   return (
     <>
@@ -626,6 +660,17 @@ export default function InventoryClient({
               />
             ),
           },
+          ...(selectedIds.size > 0
+            ? [
+                {
+                  label: `Hapus ${selectedIds.size} item`,
+                  icon: <Trash2 className="w-4 h-4" />,
+                  variant: "destructive" as const,
+                  onClick: () => { setBulkDeleteIds([...selectedIds]); setErrorMsg(""); },
+                  disabled: isPending || editingId !== null,
+                },
+              ]
+            : []),
           {
             label: showAvcoCols ? "Sembunyikan HPP" : "Tampilkan HPP",
             icon: showAvcoCols ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />,
@@ -639,6 +684,8 @@ export default function InventoryClient({
           },
         ]}
         errorBanner={errorMsg && editingId === 'new' ? errorMsg : null}
+        selectedKeys={selectedIds}
+        onSelectionChange={setSelectedIds}
         deleteModal={deleteModal}
         emptyState={{
           icon: PackageOpen,

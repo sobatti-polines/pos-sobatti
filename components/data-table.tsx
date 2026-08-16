@@ -99,11 +99,11 @@ export interface EmptyStateConfig {
   description?: string
 }
 
-export interface DataTableProps<T> {
+export interface DataTableProps<T, K extends string | number = string | number> {
   data: T[]
   total: number
   columns: Column<T>[]
-  rowKey: (item: T) => string | number
+  rowKey: (item: T) => K
 
   search?: string
   onSearchChange?: (value: string) => void
@@ -133,6 +133,9 @@ export interface DataTableProps<T> {
 
   deleteModal?: DeleteModalConfig
 
+  selectedKeys?: Set<K>
+  onSelectionChange?: (keys: Set<K>) => void
+
   mobileCards?: boolean
   mobileBreakpoint?: "md" | "lg" | "xl"
 
@@ -157,7 +160,7 @@ function SortIcon({
   )
 }
 
-export default function DataTable<T>({
+export default function DataTable<T, K extends string | number = string | number>({
   data,
   total,
   columns,
@@ -181,11 +184,13 @@ export default function DataTable<T>({
   renderEditExpanded,
   onRowClick,
   deleteModal,
+  selectedKeys,
+  onSelectionChange,
   mobileCards = false,
   mobileBreakpoint = "md",
   loading,
   className,
-}: DataTableProps<T>) {
+}: DataTableProps<T, K>) {
   const bp = mobileBreakpoint
   const perPage = itemsPerPage || 25
   const page = currentPage || 1
@@ -200,6 +205,34 @@ export default function DataTable<T>({
   const endRecord = Math.min(page * perPage, total)
 
   const isInEditMode = editingId !== undefined && editingId !== null
+
+  const selectable =
+    selectedKeys !== undefined && onSelectionChange !== undefined
+  const totalCols = columns.length + (selectable ? 1 : 0)
+  const pageIds = data.map((item) => rowKey(item))
+  const isRowSelected = (id: K) => selectedKeys?.has(id) ?? false
+  const pageAllSelected =
+    pageIds.length > 0 && pageIds.every((id) => isRowSelected(id))
+  const pageSomeSelected = pageIds.some((id) => isRowSelected(id))
+
+  const handleToggleRow = (id: K, checked: boolean) => {
+    if (selectedKeys === undefined || onSelectionChange === undefined) return
+    const next = new Set(selectedKeys)
+    if (checked) next.add(id)
+    else next.delete(id)
+    onSelectionChange(next)
+  }
+
+  const handleToggleAll = () => {
+    if (selectedKeys === undefined || onSelectionChange === undefined) return
+    const next = new Set(selectedKeys)
+    if (pageAllSelected) {
+      for (const id of pageIds) next.delete(id)
+    } else {
+      for (const id of pageIds) next.add(id)
+    }
+    onSelectionChange(next)
+  }
 
   const dateFilters = (filters ?? []).filter((f) => f.type === "date-range")
   const selectFilters = (filters ?? []).filter((f) => f.type === "select")
@@ -437,6 +470,24 @@ export default function DataTable<T>({
             className={cn(getHeaderVisibilityClass(), "sticky top-0 z-10 bg-background shadow-sm")}
           >
             <TableRow>
+              {selectable && (
+                <TableHead
+                  className={cn("w-10 text-center", getMobileHideClass())}
+                >
+                  <input
+                    type="checkbox"
+                    aria-label="Pilih semua item di halaman ini"
+                    className="h-4 w-4 cursor-pointer accent-primary"
+                    checked={pageAllSelected}
+                    ref={(el) => {
+                      if (el)
+                        el.indeterminate = pageSomeSelected && !pageAllSelected
+                    }}
+                    onChange={handleToggleAll}
+                    disabled={isInEditMode || data.length === 0}
+                  />
+                </TableHead>
+              )}
               {columns.map((col) => (
                 <TableHead
                   key={col.key}
@@ -465,7 +516,7 @@ export default function DataTable<T>({
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={totalCols}
                   className="text-center py-32 hover:bg-transparent"
                 >
                   <div className="flex items-center justify-center gap-2">
@@ -479,7 +530,7 @@ export default function DataTable<T>({
             ) : data.length === 0 && editingId !== "new" ? (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={totalCols}
                   className="text-center py-32 hover:bg-transparent"
                 >
                   {emptyState ? (
@@ -521,10 +572,30 @@ export default function DataTable<T>({
                     key={id}
                     className={cn(
                       getRowBaseClass(),
-                      onRowClick && "cursor-pointer"
+                      onRowClick && "cursor-pointer",
+                      selectable && isRowSelected(id) && "bg-primary/5"
                     )}
                     onClick={() => onRowClick?.(item)}
                   >
+                    {selectable && (
+                      <TableCell
+                        key="__selection"
+                        className={cn(getCellBaseClass(), "text-center")}
+                      >
+                        <input
+                          type="checkbox"
+                          aria-label="Pilih item"
+                          className="h-4 w-4 cursor-pointer accent-primary"
+                          checked={isRowSelected(id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation()
+                            handleToggleRow(id, e.target.checked)
+                          }}
+                          disabled={isInEditMode}
+                        />
+                      </TableCell>
+                    )}
                     {columns.map((col) => {
                       const cellContent = col.render
                         ? col.render(item)

@@ -180,6 +180,108 @@ export async function deleteProduct(id: number) {
   return { success: true };
 }
 
+export async function deleteProducts(ids: number[]) {
+  const ok = await requireAuth();
+  if (!ok) return { error: "Unauthorized" };
+
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return { error: "Tidak ada produk yang dipilih" };
+
+  const supabase = await createClient();
+
+  // Ambil data lama untuk keperluan log
+  const { data: oldProducts } = await supabase
+    .from("produk")
+    .select("id, nama_produk, sku, barcode")
+    .in("id", uniqueIds);
+
+  const oldMap = new Map((oldProducts ?? []).map((p) => [p.id, p]));
+  const namesOf = (prodIds: number[]) =>
+    prodIds.map((id) => oldMap.get(id)?.nama_produk ?? `#${id}`);
+
+  // 1. Cek: produk terpilih masih menjadi master dari produk paket?
+  const { data: paketRefs } = await supabase
+    .from("produk")
+    .select("id_produk_master")
+    .in("id_produk_master", uniqueIds);
+
+  if (paketRefs && paketRefs.length > 0) {
+    const masterIds = [
+      ...new Set(
+        paketRefs
+          .map((r) => r.id_produk_master)
+          .filter((v): v is number => v != null)
+      ),
+    ];
+    return {
+      error: `Produk tidak bisa dihapus karena masih menjadi master dari produk paket: ${namesOf(masterIds).join(", ")}`,
+    };
+  }
+
+  // 2. Cek referensi lain (transaksi, barang masuk, opname, retur) —
+  //    semua dicek DULU agar delete bersifat atomic (tidak ada partial delete
+  //    dan riwayat_avco tidak hilang untuk produk yang gagal dihapus).
+  const refChecks: {
+    table:
+      | "detail_transaksi_keluar"
+      | "barang_masuk"
+      | "stok_opname"
+      | "detail_retur_pembelian";
+    label: string;
+  }[] = [
+    { table: "detail_transaksi_keluar", label: "riwayat transaksi penjualan" },
+    { table: "barang_masuk", label: "riwayat barang masuk" },
+    { table: "stok_opname", label: "riwayat stok opname" },
+    { table: "detail_retur_pembelian", label: "riwayat retur pembelian" },
+  ];
+
+  const blocked: string[] = [];
+  for (const { table, label } of refChecks) {
+    const { data: refs } = await supabase
+      .from(table)
+      .select("id_produk")
+      .in("id_produk", uniqueIds);
+    if (refs && refs.length > 0) {
+      const prodIds = [
+        ...new Set(refs.map((r) => r.id_produk as number)),
+      ];
+      blocked.push(`${label} — ${namesOf(prodIds).join(", ")}`);
+    }
+  }
+
+  if (blocked.length > 0) {
+    return {
+      error: `Produk berikut tidak bisa dihapus karena memiliki referensi terkait: ${blocked.join("; ")}. Tidak ada produk yang dihapus.`,
+    };
+  }
+
+  // 3. Bersihkan riwayat AVCO produk terkait
+  await supabase.from("riwayat_avco").delete().in("id_produk", uniqueIds);
+
+  // 4. Hapus produk (satu statement — atomic, semua atau tidak sama sekali)
+  const { error } = await supabase.from("produk").delete().in("id", uniqueIds);
+  if (error) {
+    console.error("Failed to delete products:", error);
+    if (error.code === "23503") {
+      return {
+        error: "Produk tidak bisa dihapus karena memiliki riwayat transaksi atau referensi lainnya. Tidak ada produk yang dihapus.",
+      };
+    }
+    return { error: "Gagal menghapus produk" };
+  }
+
+  await logActivity(supabase, {
+    aksi: "DELETE",
+    entitas: "produk",
+    id_entitas: uniqueIds.length === 1 ? uniqueIds[0] : null,
+    deskripsi: `Hapus massal ${uniqueIds.length} produk: ${namesOf(uniqueIds).join(", ")}`,
+    data_lama: { count: uniqueIds.length, ids: uniqueIds } as unknown as Record<string, unknown>,
+  });
+
+  revalidatePath("/dashboard/inventory");
+  return { success: true, count: uniqueIds.length };
+}
+
 export async function restockDisplay(productId: number, qty: number) {
   const ok = await requireAuth();
   if (!ok) return { error: "Unauthorized" };
