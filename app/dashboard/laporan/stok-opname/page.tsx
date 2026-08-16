@@ -1,6 +1,8 @@
 import { fetchLaporanStokOpname } from "./actions";
 import LaporanStokOpnameClient from "./page-client";
 
+export const dynamic = "force-dynamic";
+
 export default async function LaporanStokOpnamePage() {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
