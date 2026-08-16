@@ -55,28 +55,84 @@ export default async function InventoryPage() {
 
   const withMaster = await attachMasterInfo(supabase, (productsRes.data ?? []) as RawProduct[]);
 
-  const productsWithStock = withMaster.map((p) => ({
-    ...p,
-    stock: p.hitung_stok ? (p.stok ?? 0) : null,
-    stok_gudang: p.stok_gudang ?? 0,
-    stok_minimum: p.stok_minimum ?? 5,
-    harga_pokok_avco: p.harga_pokok_avco ?? 0,
-    nilai_persediaan: p.nilai_persediaan ?? 0,
-    id_merk: p.id_merk ?? null,
-    default_purchase_unit: p.default_purchase_unit ?? null,
-    conversion_ratio: p.conversion_ratio ?? 1,
-    jual_satuan: p.jual_satuan ?? null,
-    harga_jual_besar_satuan: p.harga_jual_besar_satuan ?? null,
-    harga_jual_besar_grosir: p.harga_jual_besar_grosir ?? null,
-    harga_jual_besar_promo: p.harga_jual_besar_promo ?? null,
-    id_produk_master: p.id_produk_master ?? null,
-    qty_per_unit: p.qty_per_unit ?? null,
-    isi_satuan: p.isi_satuan ?? null,
-    jenis_isi_paket: p.jenis_isi_paket ?? null,
-    id_lokasi_area: p.id_lokasi_area ?? null,
-    lokasi_area: p.lokasi_area ?? null,
-    master: p.master as MasterInfo | null,
-  }));
+  const today = new Date().toLocaleDateString('en-CA');
+  const { data: activePromos } = await supabase
+    .from('event_promo')
+    .select('id, nama, tipe_diskon, nilai_diskon, event_promo_produk!inner(id_produk)')
+    .eq('aktif', true)
+    .lte('tanggal_mulai', today)
+    .gte('tanggal_selesai', today);
+
+  const promoMap = new Map();
+  if (activePromos && activePromos.length > 0) {
+    for (const promo of activePromos) {
+      for (const ep of promo.event_promo_produk) {
+        if (!promoMap.has(ep.id_produk)) {
+          promoMap.set(ep.id_produk, promo);
+        }
+      }
+    }
+  }
+
+  const productsWithStock = withMaster.map((p) => {
+    let harga_asli_satuan = p.harga_jual_satuan;
+    let harga_asli_besar_satuan = p.harga_jual_besar_satuan;
+    let harga_jual_satuan = p.harga_jual_satuan;
+    let harga_jual_grosir = p.harga_jual_grosir;
+    let harga_jual_promo = p.harga_jual_promo;
+    let harga_jual_besar_satuan = p.harga_jual_besar_satuan;
+    let harga_jual_besar_grosir = p.harga_jual_besar_grosir;
+    let harga_jual_besar_promo = p.harga_jual_besar_promo;
+    let nama_event_promo = undefined;
+
+    const promo = promoMap.get(p.id);
+    if (promo) {
+      const calc = (harga: number | null) => {
+        if (!harga) return harga;
+        if (promo.tipe_diskon === 'persen') {
+          return Math.max(0, harga - (harga * promo.nilai_diskon / 100));
+        }
+        return Math.max(0, harga - promo.nilai_diskon);
+      };
+      
+      harga_jual_satuan = calc(p.harga_jual_satuan)!;
+      harga_jual_grosir = calc(p.harga_jual_grosir)!;
+      harga_jual_promo = calc(p.harga_jual_promo);
+      harga_jual_besar_satuan = calc(p.harga_jual_besar_satuan);
+      harga_jual_besar_grosir = calc(p.harga_jual_besar_grosir);
+      harga_jual_besar_promo = calc(p.harga_jual_besar_promo);
+      nama_event_promo = promo.nama;
+    }
+
+    return {
+      ...p,
+      stock: p.hitung_stok ? (p.stok ?? 0) : null,
+      stok_gudang: p.stok_gudang ?? 0,
+      stok_minimum: p.stok_minimum ?? 5,
+      harga_pokok_avco: p.harga_pokok_avco ?? 0,
+      nilai_persediaan: p.nilai_persediaan ?? 0,
+      id_merk: p.id_merk ?? null,
+      default_purchase_unit: p.default_purchase_unit ?? null,
+      conversion_ratio: p.conversion_ratio ?? 1,
+      jual_satuan: p.jual_satuan ?? null,
+      harga_jual_besar_satuan,
+      harga_jual_besar_grosir,
+      harga_jual_besar_promo,
+      id_produk_master: p.id_produk_master ?? null,
+      qty_per_unit: p.qty_per_unit ?? null,
+      isi_satuan: p.isi_satuan ?? null,
+      jenis_isi_paket: p.jenis_isi_paket ?? null,
+      id_lokasi_area: p.id_lokasi_area ?? null,
+      lokasi_area: p.lokasi_area ?? null,
+      master: p.master as MasterInfo | null,
+      harga_asli_satuan,
+      harga_asli_besar_satuan,
+      harga_jual_satuan,
+      harga_jual_grosir,
+      harga_jual_promo,
+      nama_event_promo,
+    };
+  });
 
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">

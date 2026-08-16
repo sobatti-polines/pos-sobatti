@@ -260,6 +260,10 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role }: {
                   <Printer className="w-5 h-5" />
                   <span className="text-sm">Cetak Label Produk</span>
                 </Link>
+                <Link href="/dashboard/event-promo" className={linkClass("/dashboard/event-promo")}>
+                  <Tag className="w-5 h-5" />
+                  <span className="text-sm">Event Promo</span>
+                </Link>
                 <Link href="/dashboard/log-aktivitas" className={linkClass("/dashboard/log-aktivitas")}>
                   <History className="w-5 h-5" />
                   <span className="text-sm">Log Aktivitas</span>

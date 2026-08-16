@@ -475,6 +475,11 @@ export default function InventoryClient({
     { key: "nama_produk", header: "Item", sortable: true, render: (p) => (
       <div className="flex items-center gap-2">
         <p className="text-foreground text-[15px] xl:text-[14px] font-medium xl:font-normal line-clamp-2 xl:line-clamp-1">{hl(p.nama_produk)}</p>
+        {(p as any).nama_event_promo && (
+          <Badge variant="secondary" className="shrink-0 bg-red-100 text-red-600 border-red-200 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">
+            {(p as any).nama_event_promo}
+          </Badge>
+        )}
         {p.id_produk_master && (
           <Badge variant="secondary" className="shrink-0 bg-primary/10 text-primary font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">
             Paket
@@ -505,7 +510,16 @@ export default function InventoryClient({
       },
     },
     { key: "harga_modal", header: "Harga Modal", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{formatIDR(p.harga_modal)}</span> },
-    { key: "harga_jual_satuan", header: "Harga Retail", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{formatIDR(p.harga_jual_satuan)}</span> },
+    { key: "harga_jual_satuan", header: "Harga Retail", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => (
+      <div className="flex flex-col">
+        {(p as any).nama_event_promo && (
+          <span className="text-[10px] text-muted-foreground line-through tabular-nums -mb-1">
+            {formatIDR((p as any).harga_asli_satuan ?? p.harga_jual_satuan)}
+          </span>
+        )}
+        <span className="tabular-nums">{formatIDR(p.harga_jual_satuan)}</span>
+      </div>
+    )},
     { key: "harga_jual_grosir", header: "Harga Grosir", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{formatIDR(p.harga_jual_grosir)}</span> },
     { key: "harga_jual_promo", header: "Harga Promo", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{p.harga_jual_promo != null ? formatIDR(p.harga_jual_promo) : "-"}</span> },
   ];
@@ -1129,7 +1143,7 @@ export default function InventoryClient({
                   <div>
                     <h4 className="text-base font-semibold text-foreground tracking-wide">Penetapan Harga & Diskon (IDR)</h4>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Kelola harga modal beli, tier penjualan retail, grosir, promo, dan diskon potongan item
+                      Tier harga (Retail / Grosir / Promo) dipilih kasir saat transaksi. Diskon Item adalah potongan Rp per satuan yang otomatis mengurangi harga berapapun tier-nya.
                     </p>
                   </div>
                 </div>
@@ -1144,6 +1158,7 @@ export default function InventoryClient({
                       onChange={(e) => setEditForm((prev) => ({ ...prev, harga_modal: Number(e.target.value) }))}
                       className="h-11 tabular-nums font-mono text-sm bg-background"
                     />
+                    <p className="text-[10px] leading-snug text-muted-foreground/80">Harga beli/pokok — fallback HPP jika AVCO kosong</p>
                   </div>
 
                   <div className="flex flex-col gap-2 bg-muted/15 p-4 rounded-xl border border-border/60">
@@ -1155,6 +1170,7 @@ export default function InventoryClient({
                       onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_satuan: Number(e.target.value) }))}
                       className="h-11 tabular-nums font-mono text-sm font-semibold text-foreground bg-background"
                     />
+                    <p className="text-[10px] leading-snug text-muted-foreground/80">Harga normal — tier default di POS</p>
                   </div>
 
                   <div className="flex flex-col gap-2 bg-muted/15 p-4 rounded-xl border border-border/60">
@@ -1166,6 +1182,7 @@ export default function InventoryClient({
                       onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_grosir: Number(e.target.value) }))}
                       className="h-11 tabular-nums font-mono text-sm bg-background"
                     />
+                    <p className="text-[10px] leading-snug text-muted-foreground/80">Harga untuk pembelian jumlah besar</p>
                   </div>
 
                   <div className="flex flex-col gap-2 bg-muted/15 p-4 rounded-xl border border-border/60">
@@ -1177,6 +1194,7 @@ export default function InventoryClient({
                       onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_promo: Number(e.target.value) }))}
                       className="h-11 tabular-nums font-mono text-sm bg-background"
                     />
+                    <p className="text-[10px] leading-snug text-muted-foreground/80">Tier harga promo — dipilih kasir di POS. Kosongkan jika tidak ada</p>
                   </div>
 
                   <div className="flex flex-col gap-2 bg-primary/5 p-4 rounded-xl border border-primary/25">
@@ -1188,6 +1206,7 @@ export default function InventoryClient({
                       onChange={(e) => setEditForm((prev) => ({ ...prev, diskon: Number(e.target.value) }))}
                       className="h-11 tabular-nums font-mono text-sm font-semibold border-primary/30 bg-background text-primary"
                     />
+                    <p className="text-[10px] leading-snug text-muted-foreground/80">Potongan Rp tetap per satuan — otomatis dikurangi dari semua tier</p>
                   </div>
                 </div>
               </div>
@@ -1391,27 +1410,35 @@ export default function InventoryClient({
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
         title="Import Data Produk / Inventaris"
-        description="Unggah file CSV berisi data produk. Kategori, Satuan, dan Merk baru akan dibuat otomatis jika belum ada."
+        description="Unggah file Excel (.xlsx) atau CSV berisi data produk. Kategori, Satuan, Merk, dan Lokasi baru akan dibuat otomatis jika belum ada."
         templateFilename="Template_Import_Produk"
         templateHeaders={[
           "Nama Produk",
-          "SKU",
+          "SKU / Kode Produk",
           "Barcode",
           "Kategori",
-          "Satuan",
-          "Merk",
-          "Hitung Stok",
-          "Harga Modal",
-          "Harga Jual Satuan",
+          "Satuan Dasar",
+          "Merk / Brand",
+          "Lokasi / Rak",
+          "Hitung Stok (ya/tidak)",
+          "Harga Modal / Beli",
+          "Harga Jual Eceran",
           "Harga Jual Grosir",
           "Harga Jual Promo",
-          "Diskon",
-          "Stok Display",
-          "Stok Gudang",
+          "Diskon per Item (Rp)",
+          "Stok di Rak / Display",
+          "Stok di Gudang",
           "Stok Minimum",
-          "Satuan Dasar",
-          "Satuan Beli",
-          "Rasio Konversi",
+          "Satuan Beli dari Supplier",
+          "Isi per Satuan Beli",
+          "Satuan Jual Besar",
+          "Harga Jual Besar - Eceran",
+          "Harga Jual Besar - Grosir",
+          "Harga Jual Besar - Promo",
+          "Produk Master (ID)",
+          "Qty Isi per Paket",
+          "Jenis Isi Paket",
+          "Satuan Isi Paket",
         ]}
         sampleRows={[
           [
@@ -1421,6 +1448,7 @@ export default function InventoryClient({
             "Semen",
             "Zak",
             "Semen Indonesia",
+            "Rak A1",
             "ya",
             "62000",
             "68000",
@@ -1430,9 +1458,16 @@ export default function InventoryClient({
             "50",
             "200",
             "10",
-            "zak",
-            "zak",
+            "Zak",
             "1",
+            "Dus",
+            "270000",
+            "260000",
+            "",
+            "",
+            "",
+            "",
+            "",
           ],
           [
             "Paku Kayu 3 inchi",
@@ -1441,18 +1476,63 @@ export default function InventoryClient({
             "Paku & Baut",
             "Kg",
             "Lokal",
+            "Rak B2",
             "ya",
             "15000",
             "20000",
-            "18000",,
+            "18000",
+            "",
             "0",
             "20",
             "50",
             "5",
-            "kg",
-            "dus",
+            "Dus",
             "10",
+            "Dus",
+            "190000",
+            "175000",
+            "",
+            "",
+            "",
+            "",
+            "",
           ],
+        ]}
+        templateInstructions={[
+          "1. Isi data produk pada sheet \"Data Produk\". Baris contoh boleh dihapus sebelum mengisi data asli.",
+          "2. Kolom yang WAJIB diisi: Nama Produk. Kolom lain boleh dikosongkan (memakai nilai default).",
+          "3. Kategori, Satuan, Merk, dan Lokasi dibuat otomatis jika belum ada — gunakan nama yang sama persis agar tidak dobel.",
+          "4. Harga ditulis angka Rupiah tanpa titik/koma ribuan (contoh: 68000, bukan 68.000).",
+          "5. Untuk penjelasan lengkap setiap kolom, lihat tabel \"TABEL PENJELASAN KOLOM\" di bawah.",
+          "6. Simpan file sebagai .xlsx lalu unggah melalui tombol \"Import Data\".",
+        ]}
+        templateColumnGuide={[
+          { kolom: "Nama Produk", wajib: true, penjelasan: "Nama barang yang dijual. Satu-satunya kolom wajib.", contoh: "Semen Gresik 50kg" },
+          { kolom: "SKU / Kode Produk", penjelasan: "Kode unik produk (disarankan diisi). Boleh kombinasi huruf, angka, dan tanda hubung. Kosongkan jika tidak ada.", contoh: "SMN-GRS-50" },
+          { kolom: "Barcode", penjelasan: "Nomor barcode produk. Harus unik — jangan sama dengan produk lain. Kosongkan jika produk tidak punya barcode.", contoh: "8991234567890" },
+          { kolom: "Kategori", penjelasan: "Jenis / kelompok produk, misal Semen, Cat, Paku & Baut. Jika belum ada, dibuat otomatis. Gunakan nama yang sama persis agar tidak dobel.", contoh: "Semen" },
+          { kolom: "Satuan Dasar", penjelasan: "Satuan terkecil untuk stok dan harga (per 1 item). Contoh: Zak, Kg, Pcs, Meter, Lembar, Dus.", contoh: "Zak" },
+          { kolom: "Merk / Brand", penjelasan: "Merek produk (opsional). Dibuat otomatis jika belum ada.", contoh: "Semen Indonesia" },
+          { kolom: "Lokasi / Rak", penjelasan: "Letak penyimpanan produk di toko / gudang (opsional). Dibuat otomatis jika belum ada.", contoh: "Rak A1" },
+          { kolom: "Hitung Stok (ya/tidak)", penjelasan: "Isi \"ya\" jika stok dihitung otomatis, \"tidak\" untuk produk yang stoknya tidak perlu dihitung (misal jasa). Default: ya.", contoh: "ya" },
+          { kolom: "Harga Modal / Beli", penjelasan: "Harga beli / harga pokok per satuan dasar, dalam Rupiah. Dipakai untuk menghitung laba. Angka tanpa titik ribuan.", contoh: "62000" },
+          { kolom: "Harga Jual Eceran", penjelasan: "Harga jual normal per satuan dasar — harga yang muncul pertama di kasir (tier default).", contoh: "68000" },
+          { kolom: "Harga Jual Grosir", penjelasan: "Harga untuk pembelian jumlah besar per satuan dasar (opsional, boleh sama dengan eceran).", contoh: "65000" },
+          { kolom: "Harga Jual Promo", penjelasan: "Harga tier promo per satuan dasar (opsional). Kosongkan jika tidak ada harga promo.", contoh: "60000" },
+          { kolom: "Diskon per Item (Rp)", penjelasan: "Potongan harga tetap dalam Rupiah per 1 satuan, otomatis dikurangi dari harga berapapun tier-nya. Isi 0 jika tidak ada.", contoh: "0" },
+          { kolom: "Stok di Rak / Display", penjelasan: "Jumlah stok yang tersedia di rak toko (opsional — stok biasanya ditambah lewat menu Barang Masuk).", contoh: "50" },
+          { kolom: "Stok di Gudang", penjelasan: "Jumlah stok yang tersimpan di gudang (opsional).", contoh: "200" },
+          { kolom: "Stok Minimum", penjelasan: "Batas stok untuk peringatan \"stok menipis\" di dashboard. Default: 5.", contoh: "10" },
+          { kolom: "Satuan Beli dari Supplier", penjelasan: "Satuan saat membeli dari supplier, jika berbeda dari satuan dasar (opsional). Contoh: beli per Dus padahal satuan dasar Kg.", contoh: "Dus" },
+          { kolom: "Isi per Satuan Beli", penjelasan: "Berapa satuan dasar dalam 1 satuan beli. Contoh: 1 Dus = 10 Kg, isi \"10\". Default: 1.", contoh: "10" },
+          { kolom: "Satuan Jual Besar", penjelasan: "Satuan besar untuk menjual produk (opsional), misal Dus, Roll, Set. Kosongkan jika hanya dijual per satuan dasar.", contoh: "Dus" },
+          { kolom: "Harga Jual Besar - Eceran", penjelasan: "Harga jual normal untuk 1 satuan jual besar. Hanya diisi jika kolom \"Satuan Jual Besar\" diisi.", contoh: "190000" },
+          { kolom: "Harga Jual Besar - Grosir", penjelasan: "Harga grosir untuk 1 satuan jual besar (opsional).", contoh: "175000" },
+          { kolom: "Harga Jual Besar - Promo", penjelasan: "Harga promo untuk 1 satuan jual besar (opsional). Kosongkan jika tidak ada.", contoh: "" },
+          { kolom: "Produk Master (ID)", penjelasan: "Khusus produk PAKET: isi ID produk induk/master (angka). Kosongkan untuk produk biasa. Lihat ID produk di halaman Inventaris.", contoh: "12" },
+          { kolom: "Qty Isi per Paket", penjelasan: "Jumlah isi dalam 1 paket — khusus produk paket (opsional).", contoh: "50" },
+          { kolom: "Jenis Isi Paket", penjelasan: "Cara menghitung isi paket: FIXED_RATIO (isi tetap) atau ACTUAL_WEIGHT (dihitung dari berat asli). Khusus produk paket.", contoh: "FIXED_RATIO" },
+          { kolom: "Satuan Isi Paket", penjelasan: "Satuan untuk isi paket, misal kg, pcs, lembar (khusus produk paket).", contoh: "kg" },
         ]}
         validateRow={(row) => {
           const name = row["Nama Produk"] || row["nama_produk"] || "";

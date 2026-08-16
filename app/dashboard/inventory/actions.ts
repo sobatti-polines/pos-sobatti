@@ -433,17 +433,17 @@ export async function importProducts(
     const nama_produk = r["Nama Produk"] || r["nama_produk"] || "";
     if (!nama_produk.trim()) continue;
 
-    const catName = r["Kategori"] || r["kategori"] || "";
-    const unitName = r["Satuan"] || r["satuan"] || r["Satuan Dasar"] || r["base_unit"] || "";
-    const brandName = r["Merk"] || r["merk"] || "";
-    const lokName = r["Lokasi"] || r["lokasi"] || r["Lokasi Area"] || r["lokasi_area"] || "";
+    const catName = r["Kategori Produk"] || r["Kategori"] || r["kategori"] || "";
+    const unitName = r["Satuan Dasar"] || r["Satuan"] || r["satuan"] || r["base_unit"] || "";
+    const brandName = r["Merk / Brand"] || r["Merk"] || r["merk"] || "";
+    const lokName = r["Lokasi / Rak"] || r["Lokasi"] || r["lokasi"] || r["Lokasi Area"] || r["lokasi_area"] || "";
 
     const id_kategori = catName ? (await getOrCreateRef("kategori", categoryMap, catName)) || defaultCatId : defaultCatId;
     const id_satuan = unitName ? (await getOrCreateRef("satuan", unitMap, unitName)) || defaultUnitId : defaultUnitId;
     const id_merk = brandName ? await getOrCreateRef("merk", brandMap, brandName) : null;
     const id_lokasi_area = lokName ? await getOrCreateRef("lokasi_area", lokasiMap, lokName) : null;
 
-    const sku = (r["SKU"] || r["sku"] || "").trim() || null;
+    const sku = (r["SKU / Kode Produk"] || r["SKU"] || r["sku"] || "").trim() || null;
     const barcode = (r["Barcode"] || r["barcode"] || "").trim() || null;
 
     const parseNum = (val: string | undefined, def: number = 0) => {
@@ -453,24 +453,30 @@ export async function importProducts(
       return isNaN(parsed) ? def : parsed;
     };
 
-    const harga_modal = parseNum(r["Harga Modal"] || r["harga_modal"]);
-    const harga_jual_satuan = parseNum(r["Harga Jual Satuan"] || r["harga_jual_satuan"]);
+    const harga_modal = parseNum(r["Harga Modal / Beli"] || r["Harga Modal"] || r["harga_modal"]);
+    const harga_jual_satuan = parseNum(r["Harga Jual Eceran"] || r["Harga Jual Satuan"] || r["harga_jual_satuan"]);
     const harga_jual_grosir = parseNum(r["Harga Jual Grosir"] || r["harga_jual_grosir"], harga_jual_satuan);
     const harga_jual_promo = r["Harga Jual Promo"] || r["harga_jual_promo"] ? parseNum(r["Harga Jual Promo"] || r["harga_jual_promo"]) : null;
-    const diskon = parseNum(r["Diskon"] || r["diskon"]);
+    const diskon = parseNum(r["Diskon per Item (Rp)"] || r["Diskon"] || r["diskon"]);
 
-    const stok = parseNum(r["Stok Display"] || r["Stok"] || r["stok"]);
-    const stok_gudang = parseNum(r["Stok Gudang"] || r["stok_gudang"]);
+    const stok = parseNum(r["Stok di Rak / Display"] || r["Stok Display"] || r["Stok"] || r["stok"]);
+    const stok_gudang = parseNum(r["Stok di Gudang"] || r["Stok Gudang"] || r["stok_gudang"]);
     const stok_minimum = parseNum(r["Stok Minimum"] || r["stok_minimum"], 5);
 
-    const hitungStokRaw = (r["Hitung Stok"] || r["hitung_stok"] || "ya").toString().toLowerCase().trim();
+    const hitungStokRaw = (r["Hitung Stok (ya/tidak)"] || r["Hitung Stok"] || r["hitung_stok"] || "ya").toString().toLowerCase().trim();
     const hitung_stok = hitungStokRaw === "ya" || hitungStokRaw === "true" || hitungStokRaw === "1";
 
-    const default_purchase_unit = (r["Satuan Beli"] || r["default_purchase_unit"] || "").trim() || null;
-    const conversion_ratio = parseNum(r["Rasio Konversi"] || r["conversion_ratio"], 1);
+    const default_purchase_unit = (r["Satuan Beli dari Supplier"] || r["Satuan Beli"] || r["default_purchase_unit"] || "").trim() || null;
+    const conversion_ratio = parseNum(r["Isi per Satuan Beli"] || r["Rasio Konversi"] || r["conversion_ratio"], 1);
+
+    // Satuan jual besar (multi-unit selling)
+    const jual_satuan = (r["Satuan Jual Besar"] || r["jual_satuan"] || "").trim() || null;
+    const harga_jual_besar_satuan = r["Harga Jual Besar - Eceran"] || r["Harga Jual Besar Satuan"] || r["harga_jual_besar_satuan"] ? parseNum(r["Harga Jual Besar - Eceran"] || r["Harga Jual Besar Satuan"] || r["harga_jual_besar_satuan"]) : null;
+    const harga_jual_besar_grosir = r["Harga Jual Besar - Grosir"] || r["Harga Jual Besar Grosir"] || r["harga_jual_besar_grosir"] ? parseNum(r["Harga Jual Besar - Grosir"] || r["Harga Jual Besar Grosir"] || r["harga_jual_besar_grosir"]) : null;
+    const harga_jual_besar_promo = r["Harga Jual Besar - Promo"] || r["Harga Jual Besar Promo"] || r["harga_jual_besar_promo"] ? parseNum(r["Harga Jual Besar - Promo"] || r["Harga Jual Besar Promo"] || r["harga_jual_besar_promo"]) : null;
 
     // Paket fields
-    const id_produk_master_raw = (r["ID Master"] || r["id_produk_master"] || "").trim();
+    const id_produk_master_raw = (r["Produk Master (ID)"] || r["ID Master"] || r["id_produk_master"] || "").trim();
     let id_produk_master: number | null = null;
     if (id_produk_master_raw) {
       const parsed = parseInt(id_produk_master_raw, 10);
@@ -488,11 +494,11 @@ export async function importProducts(
         if (masterProd) id_produk_master = masterProd.id;
       }
     }
-    const qty_per_unit_raw = r["Qty Per Unit"] || r["qty_per_unit"];
+    const qty_per_unit_raw = r["Qty Isi per Paket"] || r["Qty Per Unit"] || r["qty_per_unit"];
     const qty_per_unit = qty_per_unit_raw ? parseNum(qty_per_unit_raw) : null;
     const jenis_isi_paket_raw = (r["Jenis Isi Paket"] || r["jenis_isi_paket"] || "").trim().toUpperCase();
     const jenis_isi_paket = (jenis_isi_paket_raw === "ACTUAL_WEIGHT" || jenis_isi_paket_raw === "FIXED_RATIO") ? jenis_isi_paket_raw : null;
-    const isi_satuan = (r["Satuan Isi"] || r["isi_satuan"] || "").trim() || null;
+    const isi_satuan = (r["Satuan Isi Paket"] || r["Satuan Isi"] || r["isi_satuan"] || "").trim() || null;
 
     const totalStok = stok + stok_gudang;
     const harga_pokok_avco = harga_modal;
@@ -521,6 +527,10 @@ export async function importProducts(
       jenis_isi_paket,
       default_purchase_unit,
       conversion_ratio,
+      jual_satuan,
+      harga_jual_besar_satuan,
+      harga_jual_besar_grosir,
+      harga_jual_besar_promo,
       harga_pokok_avco,
       nilai_persediaan,
     });

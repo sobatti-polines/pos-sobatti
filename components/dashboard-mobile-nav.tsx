@@ -299,6 +299,10 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                           <Printer className="w-5 h-5" />
                           <span>Cetak Label Produk</span>
                         </Link>
+                        <Link href="/dashboard/event-promo" className={linkClass("/dashboard/event-promo")} onClick={() => setIsOpen(false)}>
+                          <Tag className="w-5 h-5" />
+                          <span>Event Promo</span>
+                        </Link>
                         <Link href="/dashboard/log-aktivitas" className={linkClass("/dashboard/log-aktivitas")} onClick={() => setIsOpen(false)}>
                           <History className="w-5 h-5" />
                           <span>Log Aktivitas</span>

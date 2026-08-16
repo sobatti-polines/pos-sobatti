@@ -35,6 +35,7 @@ The interface is intentionally calm and professional — built for daily use by 
 **POS (Point of Sale)**
 - Product search by name/SKU/barcode, on-screen numpad, three-tier pricing (Satuan/Grosir/Promo)
 - Item-level discount, global discount percentage, automatic tax calculation
+- **Event Promo**: Automated time-based discounts (percentage or nominal) affecting product pricing system-wide, preserving original prices.
 - Multiple payment methods, DP support with automatic receivable tracking
 - Real-time barcode scanning via camera (ZXing) or USB scanner (SSE relay) — scan from your phone, ring up on the POS
 - Auto-print receipt (thermal 58mm or full A4 invoice)
@@ -242,11 +243,13 @@ The schema follows the original Excel sheet structure, normalized to relational 
 | `saldo_kas_harian` | Daily cash balance |
 | `pengaturan_keuangan` | Financial settings |
 | `piutang_dagang` | Trade receivables (auto-created on credit sales) |
+| `event_promo`, `event_promo_produk` | Automated time-based promo campaigns |
 
 **Key RPC functions** (PostgreSQL, SECURITY DEFINER):
 - `process_checkout` — Atomic checkout with `pg_advisory_xact_lock(987654321)`, generates sequential transaction numbers, handles AVCO and receivable creation
 - `process_barang_masuk` — Atomic stock-in with `pg_advisory_xact_lock(987654322)`, dual-format (UoM + legacy)
 - `get_inventory_value_at_date` — Inventory valuation at a given date
+- `get_harga_efektif_produk` — Calculates the effective price of a product dynamically by resolving the active Event Promo based on the date.
 
 > Transaction numbers follow `YYYYMMNNNN` format (sequential per month), generated in `Asia/Jakarta` timezone.
 

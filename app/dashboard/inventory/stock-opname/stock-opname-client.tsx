@@ -801,7 +801,7 @@ function Step2({
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
         title="Import Hasil Stok Opname dari CSV"
-        description="Unggah file CSV berisi hasil penghitungan fisik lapangan (SKU / Barcode, Stok Fisik, Keterangan)."
+        description="Unggah file Excel (.xlsx) atau CSV berisi hasil penghitungan fisik lapangan (SKU / Barcode, Stok Fisik, Keterangan)."
         templateFilename="Template_Import_Stok_Opname"
         templateHeaders={["SKU / Barcode", "Stok Fisik", "Keterangan"]}
         sampleRows={[

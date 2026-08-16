@@ -24,6 +24,10 @@ export interface Product {
   // Produk paket fields
   id_produk_master: number | null;        // NULL = master; set = produk paket
   qty_per_unit: number | null;            // berapa satuan master dalam 1 paket
+  // Event promo fields
+  harga_asli_satuan?: number;
+  harga_asli_besar_satuan?: number | null;
+  nama_event_promo?: string;
 }
 
 export interface Customer {

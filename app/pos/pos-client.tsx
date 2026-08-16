@@ -289,7 +289,42 @@ export function PosClient() {
         supabase.from("pengaturan").select("pajak_persen").eq("id", 1).single()
       ]);
       const prodJson = await prodRes.json();
-      setProducts(prodJson.data ?? prodJson ?? []);
+      let data = prodJson.data ?? prodJson ?? [];
+      
+      const pIds = data.map((p: any) => p.id);
+      if (pIds.length > 0) {
+        try {
+          const res = await fetch("/api/event-promo/efektif", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id_produk: pIds })
+          });
+          if (res.ok) {
+            const promo = await res.json();
+            const promoMap = new Map<number, any>(promo.map((p: any) => [p.id_produk, p]));
+            data = data.map((p: any) => {
+              const pr = promoMap.get(p.id);
+              if (pr && pr.id_event_promo) {
+                return {
+                  ...p,
+                  harga_asli_satuan: p.harga_jual_satuan,
+                  harga_asli_besar_satuan: p.harga_jual_besar_satuan,
+                  harga_jual_satuan: pr.harga_jual_satuan,
+                  harga_jual_grosir: pr.harga_jual_grosir,
+                  harga_jual_promo: pr.harga_jual_promo,
+                  harga_jual_besar_satuan: pr.harga_jual_besar_satuan,
+                  harga_jual_besar_grosir: pr.harga_jual_besar_grosir,
+                  harga_jual_besar_promo: pr.harga_jual_besar_promo,
+                  nama_event_promo: pr.nama_event
+                };
+              }
+              return p;
+            });
+          }
+        } catch (e) {
+          console.error("Failed to fetch promo", e);
+        }
+      }
+      setProducts(data);
       setCustomers(await custRes.json());
       setPaymentMethods(await pmRes.json());
       
@@ -315,7 +350,41 @@ export function PosClient() {
         });
         if (!res.ok) return;
         const json = await res.json();
-        setServerSearch({ q, data: json.data ?? [] });
+        let sdata = json.data ?? [];
+        
+        const spIds = sdata.map((p: any) => p.id);
+        if (spIds.length > 0) {
+          try {
+            const pres = await fetch("/api/event-promo/efektif", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id_produk: spIds })
+            });
+            if (pres.ok) {
+              const promo = await pres.json();
+              const promoMap = new Map<number, any>(promo.map((p: any) => [p.id_produk, p]));
+              sdata = sdata.map((p: any) => {
+                const pr = promoMap.get(p.id);
+                if (pr && pr.id_event_promo) {
+                  return {
+                    ...p,
+                    harga_asli_satuan: p.harga_jual_satuan,
+                    harga_asli_besar_satuan: p.harga_jual_besar_satuan,
+                    harga_jual_satuan: pr.harga_jual_satuan,
+                    harga_jual_grosir: pr.harga_jual_grosir,
+                    harga_jual_promo: pr.harga_jual_promo,
+                    harga_jual_besar_satuan: pr.harga_jual_besar_satuan,
+                    harga_jual_besar_grosir: pr.harga_jual_besar_grosir,
+                    harga_jual_besar_promo: pr.harga_jual_besar_promo,
+                    nama_event_promo: pr.nama_event
+                  };
+                }
+                return p;
+              });
+            }
+          } catch (e) {}
+        }
+
+        setServerSearch({ q, data: sdata });
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           setServerSearch(null);
@@ -545,17 +614,31 @@ export function PosClient() {
                             openAddItemDialog(product);
                           }}
                         >
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-1 items-start">
                             <span className="text-base font-medium text-foreground group-hover:text-primary transition-colors">
                               {product.nama_produk}
                             </span>
-                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full w-fit ${colorClass}`}>
-                              {cat}
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full w-fit ${colorClass}`}>
+                                {cat}
+                              </span>
+                              {product.nama_event_promo && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200">
+                                  {product.nama_event_promo}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end justify-center pr-2">
+                            {product.nama_event_promo && (
+                              <span className="text-xs text-muted-foreground line-through tabular-nums -mb-1">
+                                {formatIDR(product.harga_asli_satuan ?? product.harga_jual_satuan)}
+                              </span>
+                            )}
+                            <span className="text-base tabular-nums text-foreground font-medium">
+                              {formatIDR(product.harga_jual_satuan)}
                             </span>
                           </div>
-                          <span className="text-base tabular-nums text-foreground font-medium pr-2">
-                            {formatIDR(product.harga_jual_satuan)}
-                          </span>
                         </button>
                       );
                     })}

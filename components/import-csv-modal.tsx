@@ -21,7 +21,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { downloadCSVTemplate } from "@/lib/export-utils";
+import {
+  downloadExcelTemplate,
+  parseExcelToRows,
+  type TemplateColumnGuide,
+} from "@/lib/export-utils";
 
 export interface ImportCSVModalProps {
   open: boolean;
@@ -31,6 +35,10 @@ export interface ImportCSVModalProps {
   templateFilename: string;
   templateHeaders: string[];
   sampleRows: any[][];
+  /** Catatan umum pengisian yang disertakan di sheet "Petunjuk" pada template Excel */
+  templateInstructions?: string[];
+  /** Tabel penjelasan per kolom yang disertakan di sheet "Petunjuk" pada template Excel */
+  templateColumnGuide?: TemplateColumnGuide[];
   /**
    * Validate a row parsed from CSV.
    * Return error message string if invalid, or null if valid.
@@ -62,6 +70,8 @@ export default function ImportCSVModal({
   validateRow,
   onImport,
   onSuccess,
+  templateInstructions,
+  templateColumnGuide,
 }: ImportCSVModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<ParsedRowItem[]>([]);
@@ -74,7 +84,21 @@ export default function ImportCSVModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDownloadTemplate = () => {
-    downloadCSVTemplate(templateFilename, templateHeaders, sampleRows);
+    const hasNotes =
+      (templateInstructions && templateInstructions.length > 0) ||
+      (templateColumnGuide && templateColumnGuide.length > 0);
+    downloadExcelTemplate(
+      templateFilename,
+      templateHeaders,
+      sampleRows,
+      hasNotes
+        ? {
+            sheetName: "Data Produk",
+            instructions: templateInstructions,
+            columnGuide: templateColumnGuide,
+          }
+        : undefined
+    );
   };
 
   const resetState = () => {
@@ -104,48 +128,65 @@ export default function ImportCSVModal({
     }
   };
 
-  const processFile = (fileToProcess: File) => {
+  const isExcelFile = (f: File) =>
+    /\.(xlsx|xls)$/i.test(f.name) ||
+    f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    f.type === "application/vnd.ms-excel";
+
+  const parseCsvFile = (fileToProcess: File): Promise<Record<string, string>[]> => {
+    return new Promise((resolve, reject) => {
+      Papa.parse<Record<string, string>>(fileToProcess, {
+        header: true,
+        skipEmptyLines: "greedy",
+        transformHeader: (h) => h.trim(),
+        complete: (results) => {
+          if (results.errors && results.errors.length > 0 && results.data.length === 0) {
+            reject(new Error(`Gagal membaca file CSV: ${results.errors[0].message}`));
+            return;
+          }
+          const rows = results.data.map((row) => {
+            const cleanedRow: Record<string, string> = {};
+            Object.keys(row).forEach((k) => {
+              cleanedRow[k] = (row[k] ?? "").toString().trim();
+            });
+            return cleanedRow;
+          });
+          resolve(rows);
+        },
+        error: (err) => reject(err),
+      });
+    });
+  };
+
+  const processFile = async (fileToProcess: File) => {
     setFile(fileToProcess);
     setServerError(null);
     setSuccessMessage(null);
     setIsParsing(true);
 
-    Papa.parse<Record<string, string>>(fileToProcess, {
-      header: true,
-      skipEmptyLines: "greedy",
-      transformHeader: (h) => h.trim(),
-      complete: (results) => {
-        setIsParsing(false);
-        if (results.errors && results.errors.length > 0 && results.data.length === 0) {
-          setServerError(`Gagal membaca file CSV: ${results.errors[0].message}`);
-          return;
-        }
+    try {
+      const rows = isExcelFile(fileToProcess)
+        ? await parseExcelToRows(fileToProcess)
+        : await parseCsvFile(fileToProcess);
 
-        const rawHeaders = results.meta.fields || [];
-        setHeaders(rawHeaders);
+      const rawHeaders = rows.length > 0 ? Object.keys(rows[0]) : [];
+      setHeaders(rawHeaders);
 
-        const items: ParsedRowItem[] = results.data.map((row, idx) => {
-          // Clean object values
-          const cleanedRow: Record<string, string> = {};
-          Object.keys(row).forEach((k) => {
-            cleanedRow[k] = (row[k] ?? "").toString().trim();
-          });
+      const items: ParsedRowItem[] = rows.map((cleanedRow, idx) => {
+        const err = validateRow ? validateRow(cleanedRow, idx) : null;
+        return {
+          raw: cleanedRow,
+          index: idx + 1,
+          error: err,
+        };
+      });
 
-          const err = validateRow ? validateRow(cleanedRow, idx) : null;
-          return {
-            raw: cleanedRow,
-            index: idx + 1,
-            error: err,
-          };
-        });
-
-        setParsedRows(items);
-      },
-      error: (err) => {
-        setIsParsing(false);
-        setServerError(`Gagal membaca file: ${err.message}`);
-      },
-    });
+      setParsedRows(items);
+    } catch (err: unknown) {
+      setServerError(err instanceof Error ? err.message : "Gagal membaca file. Pastikan format file didukung (.xlsx, .xls, atau .csv).");
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -212,7 +253,7 @@ export default function ImportCSVModal({
             className="gap-2 text-xs rounded-full border-primary/30 text-primary hover:bg-primary/5 w-full sm:w-auto justify-center"
           >
             <Download className="w-3.5 h-3.5" />
-            Unduh Templat CSV
+            Unduh Templat Excel
           </Button>
         </DialogHeader>
 
@@ -246,16 +287,16 @@ export default function ImportCSVModal({
               </div>
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  Klik atau seret file CSV ke area ini
+                  Klik atau seret file Excel / CSV ke area ini
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Format berkas yang didukung: .csv (UTF-8)
+                  Format berkas yang didukung: .xlsx, .xls, .csv
                 </p>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -290,7 +331,7 @@ export default function ImportCSVModal({
           {isParsing && (
             <div className="flex items-center justify-center py-8 gap-2 text-sm text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              Membaca dan memvalidasi berkas CSV...
+              Membaca dan memvalidasi berkas...
             </div>
           )}
 

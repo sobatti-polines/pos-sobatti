@@ -16,7 +16,6 @@ import {
   Loader2,
   Info,
   ScanBarcode,
-  Smartphone,
   X,
   Printer,
 } from "lucide-react";
@@ -304,19 +303,13 @@ function ProductCombo({
 /*  BarcodeScanBar — focus-scan mode (keyboard/USB + phone via SSE)    */
 /* ------------------------------------------------------------------ */
 
-function BarcodeScanBar({ products }: { products: Product[] }) {
-  const { setValue, control, getValues } = useFormContext<StockInFormValues>();
-  const { fields, append } = useFieldArray({ control, name: "items" });
+function BarcodeScanBar({ products, append }: { products: Product[]; append: any }) {
+  const { setValue, getValues } = useFormContext<StockInFormValues>();
 
   const [barcodeInput, setBarcodeInput] = useState("");
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [scannerOpen, setScannerOpen] = useState(false);
-  const [sessionId] = useState(() => crypto.randomUUID());
-  const [scannerConnected, setScannerConnected] = useState(false);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   const showFeedback = useCallback((ok: boolean, text: string) => {
     setFeedback({ ok, text });
@@ -362,6 +355,23 @@ function BarcodeScanBar({ products }: { products: Product[] }) {
       const autoUnit =
         product.default_purchase_unit || product.inventory_unit || "";
       const currentItems = getValues("items") ?? [];
+
+      const existingIdx = currentItems.findIndex((it) => it?.id_produk === product.id);
+
+      if (existingIdx >= 0) {
+        const currentQty = currentItems[existingIdx].supplied_qty || 0;
+        setValue(`items.${existingIdx}.supplied_qty`, currentQty + 1, {
+          shouldValidate: true,
+        });
+        setBarcodeInput("");
+        showFeedback(
+          true,
+          `${product.nama_produk} ditambahkan (+1 Qty di baris ${existingIdx + 1})`
+        );
+        focusQty(existingIdx);
+        return;
+      }
+
       const emptyIdx = currentItems.findIndex((it) => !it?.id_produk);
 
       if (emptyIdx >= 0) {
@@ -385,54 +395,17 @@ function BarcodeScanBar({ products }: { products: Product[] }) {
           total_cost: 0,
           keterangan: "",
         });
+        const nextIndex = (getValues("items") ?? []).length;
         setBarcodeInput("");
         showFeedback(
           true,
-          `${product.nama_produk} ditambahkan (baris ${fields.length + 1})`
+          `${product.nama_produk} ditambahkan (baris ${nextIndex + 1})`
         );
-        focusQty(fields.length);
+        focusQty(nextIndex);
       }
     },
-    [resolveProduct, getValues, setValue, append, fields.length, showFeedback, focusQty]
+    [resolveProduct, getValues, setValue, append, showFeedback, focusQty]
   );
-
-  // Keep the latest handler without reconnecting SSE on every scan
-  const handleBarcodeRef = useRef(handleBarcode);
-  useEffect(() => {
-    handleBarcodeRef.current = handleBarcode;
-  }, [handleBarcode]);
-
-  // Phone scanner SSE relay (reuses /scanner/[sessionId] endpoint)
-  useEffect(() => {
-    const es = new EventSource(`/api/scanner/${sessionId}/events`);
-    es.onopen = () => setScannerConnected(true);
-    es.onerror = () => setScannerConnected(false);
-    es.onmessage = (e) => {
-      const { barcode } = JSON.parse(e.data);
-      if (barcode) handleBarcodeRef.current(barcode);
-    };
-    return () => es.close();
-  }, [sessionId]);
-
-  // Generate QR pointing to the phone scanner page when modal opens
-  useEffect(() => {
-    if (!scannerOpen || qrDataUrl) return;
-    const generateQr = async () => {
-      try {
-        const res = await fetch("/api/network-ip");
-        const { ip } = await res.json();
-        const protocol = "https:";
-        const port = window.location.port ? `:${window.location.port}` : "";
-        const url = `${protocol}//${ip}${port}/scanner/${sessionId}`;
-        setQrDataUrl(
-          `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=0a0a0a&margin=2`
-        );
-      } catch {
-        /* network-ip unreachable → QR stays blank */
-      }
-    };
-    generateQr();
-  }, [scannerOpen, sessionId, qrDataUrl]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -442,122 +415,49 @@ function BarcodeScanBar({ products }: { products: Product[] }) {
   };
 
   return (
-    <>
-      <div className="shrink-0 px-6 py-3 border-b border-border bg-muted/30">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 shrink-0">
-            <ScanBarcode className="w-4 h-4 text-primary" />
-            <label
-              htmlFor="barcode-scan-input"
-              className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
-            >
-              Scan Barcode
-            </label>
-          </div>
-          <div className="relative flex-1 sm:max-w-md">
-            <input
-              id="barcode-scan-input"
-              ref={inputRef}
-              autoFocus
-              value={barcodeInput}
-              onChange={(e) => {
-                setBarcodeInput(e.target.value);
-                if (feedback) setFeedback(null);
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Scan atau ketik barcode produk lalu Enter"
-              className={inputBase + " tabular-nums"}
-              autoComplete="off"
-            />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-full px-4 h-9 w-max text-muted-foreground hover:text-foreground"
-            onClick={() => setScannerOpen(true)}
+    <div className="shrink-0 px-6 py-3 border-b border-border bg-muted/30">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 shrink-0">
+          <ScanBarcode className="w-4 h-4 text-primary" />
+          <label
+            htmlFor="barcode-scan-input"
+            className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
           >
-            <Smartphone className="w-4 h-4 mr-1.5" />
-            Scan via HP
-          </Button>
+            Scan Barcode
+          </label>
         </div>
-        {feedback && (
-          <p
-            className={`mt-2 flex items-center gap-1.5 text-sm ${
-              feedback.ok ? "text-emerald-600" : "text-destructive"
-            }`}
-          >
-            {feedback.ok ? (
-              <Check className="w-3.5 h-3.5 shrink-0" />
-            ) : (
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            )}
-            {feedback.text}
-          </p>
-        )}
+        <div className="relative flex-1 sm:max-w-md">
+          <input
+            id="barcode-scan-input"
+            ref={inputRef}
+            autoFocus
+            value={barcodeInput}
+            onChange={(e) => {
+              setBarcodeInput(e.target.value);
+              if (feedback) setFeedback(null);
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Scan atau ketik barcode produk lalu Enter"
+            className={inputBase + " tabular-nums"}
+            autoComplete="off"
+          />
+        </div>
       </div>
-
-      {scannerOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200"
-          onClick={() => setScannerOpen(false)}
+      {feedback && (
+        <p
+          className={`mt-2 flex items-center gap-1.5 text-sm ${
+            feedback.ok ? "text-emerald-600" : "text-destructive"
+          }`}
         >
-          <div
-            className="relative bg-background border border-border shadow-[0_8px_24px_rgba(0,55,112,0.08),0_2px_6px_rgba(0,55,112,0.04)] rounded-[12px] p-6 sm:p-8 flex flex-col items-center gap-5 sm:gap-6 w-[340px] max-w-[calc(100vw-32px)] animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setScannerOpen(false)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex flex-col items-center gap-1 text-center">
-              <p className="text-base font-semibold text-foreground">
-                Scan dengan HP
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Buka kamera HP dan scan barcode produk
-              </p>
-            </div>
-
-            <div className="bg-white p-3 rounded-xl shadow-inner">
-              {qrDataUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={qrDataUrl}
-                  alt="Scanner QR code"
-                  width={220}
-                  height={220}
-                  className="w-full max-w-[220px] h-auto"
-                />
-              ) : (
-                <div className="w-full max-w-[220px] aspect-square animate-pulse bg-muted rounded-lg" />
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 text-sm">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  scannerConnected
-                    ? "bg-emerald-500 animate-pulse"
-                    : "bg-muted-foreground"
-                }`}
-              />
-              <span className="text-muted-foreground">
-                {scannerConnected ? "Terhubung" : "Menunggu koneksi..."}
-              </span>
-            </div>
-
-            <p className="text-xs text-muted-foreground text-center leading-relaxed">
-              Gunakan Chrome di Android · Barcode yang tidak dikenal akan
-              ditandai &quot;Produk tidak ditemukan&quot;
-            </p>
-          </div>
-        </div>
+          {feedback.ok ? (
+            <Check className="w-3.5 h-3.5 shrink-0" />
+          ) : (
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          )}
+          {feedback.text}
+        </p>
       )}
-    </>
+    </div>
   );
 }
 
@@ -843,7 +743,7 @@ function FormBody({
       </div>
 
       {/* Barcode focus-scan */}
-      <BarcodeScanBar products={products} />
+      <BarcodeScanBar products={products} append={append} />
 
       {/* Table */}
       <div className="flex-1 overflow-auto min-h-0">
