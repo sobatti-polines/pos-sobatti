@@ -3,6 +3,18 @@ import { NextResponse } from "next/server";
 
 export const revalidate = 30;
 
+// Peringatan display: stok display 0 dianggap "Habis" (badge terpisah),
+// bukan "Menipis" — konsisten dengan perilaku lama.
+function isDisplayLow(stok: number, stok_minimum: number | null): boolean {
+  return stok > 0 && stok <= (stok_minimum ?? 5);
+}
+
+// Peringatan gudang: aktif jika ambang diisi dan stok_gudang <= ambang
+// (termasuk 0 — gudang kosong perlu segera diisi).
+function isGudangLow(stokGudang: number, stokMinimumGudang: number | null): boolean {
+  return stokMinimumGudang != null && stokGudang <= stokMinimumGudang;
+}
+
 export async function GET() {
   let supabase;
   try {
@@ -13,16 +25,34 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("produk")
-    .select("id, nama_produk, stok, stok_minimum, satuan(nama)")
-    .eq("hitung_stok", true)
-    .gt("stok", 0);
+    .select(
+      "id, nama_produk, hitung_stok, stok, stok_gudang, stok_minimum, stok_minimum_gudang, satuan(nama)"
+    )
+    .eq("hitung_stok", true);
 
   if (error || !data) return NextResponse.json([]);
 
-  const lowStock = data.filter(
-    (p) => (p.stok ?? 0) <= (p.stok_minimum ?? 5)
-  );
-  lowStock.sort((a, b) => (a.stok ?? 0) - (b.stok ?? 0));
+  const lowStock = data
+    .map((p) => {
+      const stok = p.stok ?? 0;
+      const stokGudang = p.stok_gudang ?? 0;
+      return {
+        ...p,
+        stok,
+        stok_gudang: stokGudang,
+        stok_minimum: p.stok_minimum ?? 5,
+        stok_minimum_gudang: p.stok_minimum_gudang ?? null,
+        displayLow: isDisplayLow(stok, p.stok_minimum),
+        gudangLow: isGudangLow(stokGudang, p.stok_minimum_gudang),
+      };
+    })
+    .filter((p) => p.displayLow || p.gudangLow);
+
+  lowStock.sort((a, b) => {
+    const aCritical = a.displayLow ? a.stok : a.gudangLow ? a.stok_gudang : Infinity;
+    const bCritical = b.displayLow ? b.stok : b.gudangLow ? b.stok_gudang : Infinity;
+    return aCritical - bCritical;
+  });
 
   const res = NextResponse.json(lowStock);
   res.headers.set("Cache-Control", "public, max-age=30, s-maxage=60, stale-while-revalidate=120");

@@ -29,7 +29,7 @@ export function LowStockBanner() {
       <div className="flex items-center gap-3 min-w-0">
         <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
         <p className="text-sm text-foreground truncate">
-          <span className="font-medium">{items.length}</span> produk dengan stok display menipis:
+          <span className="font-medium">{items.length}</span> produk dengan stok menipis (display / gudang):
           <span className="ml-1.5 text-muted-foreground">
             {items.slice(0, 3).map((i) => i.nama_produk).join(", ")}
             {items.length > 3 && <span> +{items.length - 3} lainnya</span>}

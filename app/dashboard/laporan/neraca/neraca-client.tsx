@@ -245,7 +245,7 @@ export default function NeracaClient({ initialData, store }: { initialData: any;
             <p className="font-semibold uppercase tracking-wider text-[10px]">Catatan atas Laporan Keuangan</p>
             <p>1. Disusun menggunakan basis kas (cash basis); persediaan dinilai dengan metode biaya rata-rata (AVCO).</p>
             <p>2. Piutang dan hutang dalam keadaan normal = 0 karena seluruh transaksi diselesaikan pada saat itu.</p>
-            <p>3. Kas Bank / QRIS merupakan akumulasi penjualan non-tunai (Transfer / QRIS).</p>
+            <p>3. Kas Bank / QRIS merupakan akumulasi penjualan non-tunai (Bank / QRIS).</p>
           </div>
         </div>
       )}

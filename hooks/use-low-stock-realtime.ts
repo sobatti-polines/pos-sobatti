@@ -7,7 +7,11 @@ export interface LowStockItem {
   id: number;
   nama_produk: string;
   stok: number;
+  stok_gudang: number;
   stok_minimum: number;
+  stok_minimum_gudang: number | null;
+  displayLow: boolean;
+  gudangLow: boolean;
   satuan: { nama: string } | null;
 }
 

@@ -174,6 +174,7 @@ interface Product {
   stock: number | null;
   stok_gudang: number;
   stok_minimum: number;
+  stok_minimum_gudang: number | null;
   harga_pokok_avco: number;
   nilai_persediaan: number;
   default_purchase_unit: string | null;
@@ -281,16 +282,14 @@ export default function InventoryClient({
       result = result.filter((p) => {
         const isPaket = Boolean(p.id_produk_master);
         if (stockFilter === "untracked") return !p.hitung_stok && !isPaket;
-        if (isPaket) {
-          if (stockFilter === "out") return (p.stock ?? 0) <= 0;
-          if (stockFilter === "low") return (p.stock ?? 0) > 0 && (p.stock ?? 0) <= p.stok_minimum;
-          if (stockFilter === "in") return (p.stock ?? 0) > p.stok_minimum;
-          return true;
-        }
-        if (!p.hitung_stok || p.stock === null) return false;
-        if (stockFilter === "out") return p.stock <= 0;
-        if (stockFilter === "low") return p.stock > 0 && p.stock <= p.stok_minimum;
-        if (stockFilter === "in") return p.stock > p.stok_minimum;
+        if (!p.hitung_stok) return false;
+        const display = p.stock ?? 0;
+        const gudang = p.stok_gudang ?? 0;
+        const displayLow = display > 0 && display <= p.stok_minimum;
+        const gudangLow = p.stok_minimum_gudang != null && gudang <= p.stok_minimum_gudang;
+        if (stockFilter === "out") return display <= 0;
+        if (stockFilter === "low") return displayLow || gudangLow;
+        if (stockFilter === "in") return !displayLow && !gudangLow && display > 0;
         return true;
       });
     }
@@ -334,12 +333,11 @@ export default function InventoryClient({
       harga_jual_grosir: Number(editForm.harga_jual_grosir || 0),
       harga_jual_promo: editForm.harga_jual_promo ? Number(editForm.harga_jual_promo) : null,
       diskon: Number(editForm.diskon || 0), stok_minimum: Number(editForm.stok_minimum ?? 5),
+      stok_minimum_gudang: editForm.stok_minimum_gudang ?? null,
       default_purchase_unit: editForm.default_purchase_unit || null,
       conversion_ratio: Number(editForm.conversion_ratio ?? 1),
       jual_satuan: isPaketMode ? null : (editForm.jual_satuan || null),
-      harga_jual_besar_satuan: isPaketMode ? null : (editForm.harga_jual_besar_satuan ? Number(editForm.harga_jual_besar_satuan) : null),
-      harga_jual_besar_grosir: isPaketMode ? null : (editForm.harga_jual_besar_grosir ? Number(editForm.harga_jual_besar_grosir) : null),
-      harga_jual_besar_promo: isPaketMode ? null : (editForm.harga_jual_besar_promo ? Number(editForm.harga_jual_besar_promo) : null),
+      // Harga jual besar tidak dikirim — dihitung otomatis server-side (harga kecil × rasio)
       id_produk_master: isPaketMode ? Number(editForm.id_produk_master) : null,
       qty_per_unit: isPaketMode ? Number(editForm.qty_per_unit) : null,
     };
@@ -494,16 +492,26 @@ export default function InventoryClient({
       key: "stock", header: "Status Stok", sortable: true, headerClassName: "w-[140px]",
       render: (p) => {
         const isPaket = Boolean(p.id_produk_master);
+        const gudangLow = p.hitung_stok && p.stok_minimum_gudang != null && p.stok_gudang <= p.stok_minimum_gudang;
         return (
           <div>
-            {getStockBadge(p.hitung_stok, p.stock, p.stok_minimum, isPaket, p.stok_gudang)}
+            <div className="flex flex-wrap items-center gap-1">
+              {getStockBadge(p.hitung_stok, p.stock, p.stok_minimum, isPaket, p.stok_gudang)}
+              {gudangLow && (
+                <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">
+                  Gudang: {p.stok_gudang} Sisa
+                </Badge>
+              )}
+            </div>
             {isPaket ? (
               <div className="text-[11px] text-muted-foreground mt-0.5">
                 {p.qty_per_unit ?? 1}{p.isi_satuan ? ` ${p.isi_satuan}` : ""} = 1 {p.satuan?.nama ?? "paket"} · Dari: {p.master?.nama_produk || "-"}
                 {(p.stok_gudang ?? 0) > 0 ? ` · Gudang: ${p.stok_gudang}` : ""}
               </div>
             ) : p.hitung_stok && (
-              <div className="text-[11px] text-muted-foreground mt-0.5">Gudang: {p.stok_gudang} · Min: {p.stok_minimum}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                Gudang: {p.stok_gudang}{p.stok_minimum_gudang != null ? ` · Min Gudang: ${p.stok_minimum_gudang}` : ""} · Min Display: {p.stok_minimum}
+              </div>
             )}
           </div>
         );
@@ -561,6 +569,9 @@ export default function InventoryClient({
   const columns = showAvcoCols
     ? [...baseColumns, ...avcoColumns, actionsColumn]
     : [...baseColumns, actionsColumn];
+
+  // Nama satuan inventory untuk label ambang batas stok (mis. "(Pcs)", "(Meter)")
+  const satuanNama = units.find((u) => u.id === editForm.id_satuan)?.nama || "";
 
   const filters: FilterDef[] = [
     { type: "select", label: "Kategori", value: categoryFilter, onChange: setCategoryFilter, options: categories.map((c) => ({ value: String(c.id), label: c.nama })) },
@@ -623,7 +634,7 @@ export default function InventoryClient({
           },
           {
             label: "Tambah Produk", icon: <Plus className="w-4 h-4" />, kind: "primary",
-            onClick: () => { setEditingId("new"); setIsPaket(false); setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5, default_purchase_unit: "", conversion_ratio: 1, id_satuan: 0 }); setErrorMsg(""); },
+            onClick: () => { setEditingId("new"); setIsPaket(false); setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5, stok_minimum_gudang: null, default_purchase_unit: "", conversion_ratio: 1, id_satuan: 0 }); setErrorMsg(""); },
             disabled: editingId !== null,
           },
         ]}
@@ -1013,47 +1024,43 @@ export default function InventoryClient({
                         </div>
                       </div>
 
-                    {/* Harga Jual Besar (only shown if jual_satuan is set) */}
+                    {/* Harga Jual Besar — otomatis = harga kecil × rasio (read-only) */}
                     {editForm.jual_satuan && (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-3 border-t border-border/40">
                         <div className="flex flex-col gap-1.5">
                           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             Harga {editForm.jual_satuan} (Satuan)
                           </label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={editForm.harga_jual_besar_satuan ?? ""}
-                            onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_satuan: e.target.value ? Number(e.target.value) : null }))}
-                            className="h-11 tabular-nums text-sm font-medium bg-background px-3"
-                            placeholder="0"
-                          />
+                          <div className="h-11 rounded-md border border-border bg-muted/30 px-3.5 flex items-center text-sm font-semibold tabular-nums text-foreground">
+                            {formatIDR(Math.round((editForm.harga_jual_satuan || 0) * (editForm.conversion_ratio || 1)))}
+                          </div>
+                          <span className="text-[10px] leading-snug text-muted-foreground/80">
+                            Otomatis = {formatIDR(editForm.harga_jual_satuan || 0)} × {editForm.conversion_ratio || 1}
+                          </span>
                         </div>
                         <div className="flex flex-col gap-1.5">
                           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             Harga {editForm.jual_satuan} (Grosir)
                           </label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={editForm.harga_jual_besar_grosir ?? ""}
-                            onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_grosir: e.target.value ? Number(e.target.value) : null }))}
-                            className="h-11 tabular-nums text-sm font-medium bg-background px-3"
-                            placeholder="0"
-                          />
+                          <div className="h-11 rounded-md border border-border bg-muted/30 px-3.5 flex items-center text-sm font-semibold tabular-nums text-foreground">
+                            {formatIDR(Math.round((editForm.harga_jual_grosir || 0) * (editForm.conversion_ratio || 1)))}
+                          </div>
+                          <span className="text-[10px] leading-snug text-muted-foreground/80">
+                            Otomatis = {formatIDR(editForm.harga_jual_grosir || 0)} × {editForm.conversion_ratio || 1}
+                          </span>
                         </div>
                         <div className="flex flex-col gap-1.5">
                           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             Harga {editForm.jual_satuan} (Promo)
                           </label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={editForm.harga_jual_besar_promo ?? ""}
-                            onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_promo: e.target.value ? Number(e.target.value) : null }))}
-                            className="h-11 tabular-nums text-sm font-medium bg-background px-3"
-                            placeholder="0"
-                          />
+                          <div className="h-11 rounded-md border border-border bg-muted/30 px-3.5 flex items-center text-sm font-semibold tabular-nums text-foreground">
+                            {editForm.harga_jual_promo != null
+                              ? formatIDR(Math.round(editForm.harga_jual_promo * (editForm.conversion_ratio || 1)))
+                              : "-"}
+                          </div>
+                          <span className="text-[10px] leading-snug text-muted-foreground/80">
+                            Otomatis = Harga Promo × {editForm.conversion_ratio || 1} (isi Harga Promo untuk mengaktifkan)
+                          </span>
                         </div>
                       </div>
                     )}
@@ -1072,7 +1079,7 @@ export default function InventoryClient({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="p-4 rounded-xl border border-border bg-muted/15 flex items-start gap-4 hover:bg-muted/25 transition-colors">
                     <input
                       type="checkbox"
@@ -1091,18 +1098,34 @@ export default function InventoryClient({
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Batas Stok Minimum Peringatan
-                    </label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={editForm.stok_minimum ?? 5}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, stok_minimum: Number(e.target.value) }))}
-                      className="h-11 tabular-nums text-sm font-medium bg-background px-4 w-full"
-                    />
-                    <span className="text-xs text-muted-foreground">Sistem akan menampilkan badge peringatan jika stok &le; jumlah ini.</span>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Batas Min Stok Display {satuanNama ? `(${satuanNama})` : ""}
+                      </label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={editForm.stok_minimum ?? 5}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, stok_minimum: Number(e.target.value) }))}
+                        className="h-11 tabular-nums text-sm font-medium bg-background px-4 w-full"
+                      />
+                      <span className="text-xs text-muted-foreground">Peringatan jika stok display ≤ jumlah ini.</span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Batas Min Stok Gudang {satuanNama ? `(${satuanNama})` : ""}
+                      </label>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="Kosongkan = nonaktif"
+                        value={editForm.stok_minimum_gudang ?? ""}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, stok_minimum_gudang: e.target.value ? Number(e.target.value) : null }))}
+                        className="h-11 tabular-nums text-sm font-medium bg-background px-4 w-full"
+                      />
+                      <span className="text-xs text-muted-foreground">Peringatan jika stok gudang ≤ jumlah ini (termasuk 0). Kosongkan untuk nonaktif.</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1429,12 +1452,10 @@ export default function InventoryClient({
           "Stok di Rak / Display",
           "Stok di Gudang",
           "Stok Minimum",
+          "Stok Minimum Gudang",
           "Satuan Beli dari Supplier",
           "Isi per Satuan Beli",
           "Satuan Jual Besar",
-          "Harga Jual Besar - Eceran",
-          "Harga Jual Besar - Grosir",
-          "Harga Jual Besar - Promo",
           "Produk Master (ID)",
           "Qty Isi per Paket",
           "Jenis Isi Paket",
@@ -1458,11 +1479,10 @@ export default function InventoryClient({
             "50",
             "200",
             "10",
+            "",
             "Zak",
             "1",
             "Dus",
-            "270000",
-            "260000",
             "",
             "",
             "",
@@ -1486,11 +1506,10 @@ export default function InventoryClient({
             "20",
             "50",
             "5",
+            "",
             "Dus",
             "10",
             "Dus",
-            "190000",
-            "175000",
             "",
             "",
             "",
@@ -1522,13 +1541,11 @@ export default function InventoryClient({
           { kolom: "Diskon per Item (Rp)", penjelasan: "Potongan harga tetap dalam Rupiah per 1 satuan, otomatis dikurangi dari harga berapapun tier-nya. Isi 0 jika tidak ada.", contoh: "0" },
           { kolom: "Stok di Rak / Display", penjelasan: "Jumlah stok yang tersedia di rak toko (opsional — stok biasanya ditambah lewat menu Barang Masuk).", contoh: "50" },
           { kolom: "Stok di Gudang", penjelasan: "Jumlah stok yang tersimpan di gudang (opsional).", contoh: "200" },
-          { kolom: "Stok Minimum", penjelasan: "Batas stok untuk peringatan \"stok menipis\" di dashboard. Default: 5.", contoh: "10" },
+          { kolom: "Stok Minimum", penjelasan: "Batas stok DISPLAY untuk peringatan \"stok menipis\" di dashboard. Dalam satuan dasar. Default: 5.", contoh: "10" },
+          { kolom: "Stok Minimum Gudang", penjelasan: "Batas stok GUDANG untuk peringatan \"stok gudang menipis\" (opsional, kosongkan = nonaktif). Dalam satuan dasar, misal 500 = peringatan saat stok gudang 500 atau kurang.", contoh: "500" },
           { kolom: "Satuan Beli dari Supplier", penjelasan: "Satuan saat membeli dari supplier, jika berbeda dari satuan dasar (opsional). Contoh: beli per Dus padahal satuan dasar Kg.", contoh: "Dus" },
           { kolom: "Isi per Satuan Beli", penjelasan: "Berapa satuan dasar dalam 1 satuan beli. Contoh: 1 Dus = 10 Kg, isi \"10\". Default: 1.", contoh: "10" },
-          { kolom: "Satuan Jual Besar", penjelasan: "Satuan besar untuk menjual produk (opsional), misal Dus, Roll, Set. Kosongkan jika hanya dijual per satuan dasar.", contoh: "Dus" },
-          { kolom: "Harga Jual Besar - Eceran", penjelasan: "Harga jual normal untuk 1 satuan jual besar. Hanya diisi jika kolom \"Satuan Jual Besar\" diisi.", contoh: "190000" },
-          { kolom: "Harga Jual Besar - Grosir", penjelasan: "Harga grosir untuk 1 satuan jual besar (opsional).", contoh: "175000" },
-          { kolom: "Harga Jual Besar - Promo", penjelasan: "Harga promo untuk 1 satuan jual besar (opsional). Kosongkan jika tidak ada.", contoh: "" },
+          { kolom: "Satuan Jual Besar", penjelasan: "Satuan besar untuk menjual produk (opsional), misal Dus, Roll, Set. Kosongkan jika hanya dijual per satuan dasar. Harga jual besar dihitung OTOMATIS = harga jual kecil × isi per satuan beli.", contoh: "Dus" },
           { kolom: "Produk Master (ID)", penjelasan: "Khusus produk PAKET: isi ID produk induk/master (angka). Kosongkan untuk produk biasa. Lihat ID produk di halaman Inventaris.", contoh: "12" },
           { kolom: "Qty Isi per Paket", penjelasan: "Jumlah isi dalam 1 paket — khusus produk paket (opsional).", contoh: "50" },
           { kolom: "Jenis Isi Paket", penjelasan: "Cara menghitung isi paket: FIXED_RATIO (isi tetap) atau ACTUAL_WEIGHT (dihitung dari berat asli). Khusus produk paket.", contoh: "FIXED_RATIO" },

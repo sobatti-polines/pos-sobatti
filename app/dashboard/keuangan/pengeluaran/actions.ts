@@ -38,8 +38,6 @@ function requireAdmin(pengguna: { level: string } | null): string | null {
 /*  Zod schemas                                                         */
 /* ------------------------------------------------------------------ */
 
-const metodeBayarValues = ["Tunai", "Transfer", "QRIS"] as const;
-
 const tanggalField = z
   .string()
   .min(1, "Tanggal wajib diisi")
@@ -58,10 +56,7 @@ const createPengeluaranSchema = z.object({
   jumlah: z
     .number()
     .positive("Jumlah harus lebih dari 0"),
-  metode_bayar: z
-    .enum(metodeBayarValues, {
-      message: "Metode bayar tidak valid",
-    }),
+  metode_bayar: z.string().min(1, "Metode bayar wajib diisi"),
   keterangan: z.string().optional(),
 });
 
@@ -94,7 +89,7 @@ type PengeluaranRow = {
   kategori_kelompok: string | null;
   nama_pengeluaran: string;
   jumlah: number;
-  metode_bayar: "Tunai" | "Transfer" | "QRIS";
+  metode_bayar: string;
   keterangan: string | null;
   status: "AKTIF" | "DIVOID";
   created_at: string | null;
@@ -102,6 +97,44 @@ type PengeluaranRow = {
   alasan_void: string | null;
   id_pengguna: number;
 };
+
+/* ------------------------------------------------------------------ */
+/*  Helper metode bayar dinamis (Tunai, QRIS, Bank 1, Bank 2)           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Daftar metode bayar yang diizinkan dari pengaturan toko:
+ * Tunai, QRIS, bank1_nama, bank2_nama + 'Transfer' (legacy untuk data lama).
+ */
+async function getAllowedMetodeBayar(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("pengaturan")
+    .select("bank1_nama, bank2_nama")
+    .eq("id", 1)
+    .single();
+
+  const banks = [data?.bank1_nama, data?.bank2_nama]
+    .filter((n): n is string => typeof n === "string" && n.trim() !== "")
+    .map((n) => n.trim());
+
+  return ["Tunai", "QRIS", "Transfer", ...banks];
+}
+
+/**
+ * Opsi metode bayar untuk form (tanpa 'Transfer' generik — diganti bank).
+ */
+export async function getMetodeBayarOptions(): Promise<string[]> {
+  const { supabase, pengguna } = await getAuthUser();
+  if (!supabase) return ["Tunai", "QRIS"];
+
+  const err = requireAdmin(pengguna);
+  if (err) return ["Tunai", "QRIS"];
+
+  const allowed = await getAllowedMetodeBayar(supabase);
+  return allowed.filter((m) => m !== "Transfer");
+}
 
 /* ------------------------------------------------------------------ */
 /*  1. createPengeluaran                                                */
@@ -120,6 +153,11 @@ export async function createPengeluaran(
   if (!parsed.success) {
     const messages = parsed.error.issues.map((issue) => issue.message);
     return { error: messages.join(". ") };
+  }
+
+  const allowedMetode = await getAllowedMetodeBayar(supabase);
+  if (!allowedMetode.includes(parsed.data.metode_bayar)) {
+    return { error: "Metode bayar tidak valid" };
   }
 
   const { data, error } = await supabase
@@ -207,6 +245,11 @@ export async function updatePengeluaran(
 
   if (existing.status === "DIVOID") {
     return { error: "Pengeluaran sudah dibatalkan — tidak bisa diedit" };
+  }
+
+  const allowedMetode = await getAllowedMetodeBayar(supabase);
+  if (!allowedMetode.includes(parsed.data.metode_bayar)) {
+    return { error: "Metode bayar tidak valid" };
   }
 
   const newData = {
@@ -420,9 +463,11 @@ export async function getKategoriBeban() {
   const err = requireAdmin(pengguna);
   if (err) return { error: err };
 
+  // Hanya 3 kategori beban yang dipakai: ATK, Konsumsi, Kebersihan
   const { data, error } = await supabase
     .from("kategori_beban")
     .select("id, nama, kelompok")
+    .in("nama", ["ATK", "Konsumsi", "Kebersihan"])
     .order("nama", { ascending: true });
 
   if (error) {

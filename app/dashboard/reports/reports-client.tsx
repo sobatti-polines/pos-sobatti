@@ -60,9 +60,11 @@ interface ReportDetail {
 
 interface ReportProduct {
   stok: number;
+  stok_gudang: number;
   harga_modal: number;
   hitung_stok: boolean;
   stok_minimum: number;
+  stok_minimum_gudang: number | null;
 }
 
 interface ReportsClientProps {
@@ -135,7 +137,14 @@ export default function ReportsClient({ transactions, details, products }: Repor
       return acc + (stock * Number(p.harga_modal));
     }, 0);
 
-    const lowStockItems = products.filter(p => p.hitung_stok && Number(p.stok || 0) <= Number(p.stok_minimum)).length;
+    const lowStockItems = products.filter((p) => {
+      if (!p.hitung_stok) return false;
+      const display = Number(p.stok || 0);
+      const gudang = Number(p.stok_gudang || 0);
+      const displayLow = display > 0 && display <= Number(p.stok_minimum || 5);
+      const gudangLow = p.stok_minimum_gudang != null && gudang <= Number(p.stok_minimum_gudang);
+      return displayLow || gudangLow;
+    }).length;
 
     return {
       totalStockValue,
@@ -326,7 +335,7 @@ export default function ReportsClient({ transactions, details, products }: Repor
                   {stockStats.lowStockItems} Produk
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground">Produk dengan stok di bawah batas minimum</p>
+              <p className="text-xs text-muted-foreground">Produk dengan stok display/gudang di bawah batas minimum</p>
             </div>
 
             <Button asChild variant="outline" className="w-full mt-4 h-10 rounded-full">

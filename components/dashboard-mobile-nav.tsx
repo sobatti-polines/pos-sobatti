@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { NavLinkPending } from "@/components/nav-link-pending";
 import { Button } from "@/components/ui/button";
 
 const bottomLinks = [
@@ -156,34 +157,39 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
             <div className="flex-1 overflow-y-auto py-6 px-4">
               <nav className="flex flex-col gap-1">
                 {role !== "KASIR" && (
-                  <Link href="/dashboard" className={linkClass("/dashboard")}>
+                  <Link href="/dashboard" className={linkClass("/dashboard")} prefetch={true}>
                     <LayoutGrid className="w-5 h-5" />
                     <span>Ringkasan</span>
+                    <NavLinkPending />
                   </Link>
                 )}
 
                 {role === "KASIR" && (
-                  <Link href="/pos" className={linkClass("/pos")}>
+                  <Link href="/pos" className={linkClass("/pos")} prefetch={true}>
                     <CircleDollarSign className="w-5 h-5" />
                     <span>Penjualan</span>
+                    <NavLinkPending />
                   </Link>
                 )}
 
                 {isManagement && (
                   <>
-                    <Link href="/dashboard/transactions" className={linkClass("/dashboard/transactions")}>
+                    <Link href="/dashboard/transactions" className={linkClass("/dashboard/transactions")} prefetch={true}>
                       <Receipt className="w-5 h-5" />
                       <span>Riwayat Transaksi</span>
+                      <NavLinkPending />
                     </Link>
 
-                    <Link href="/dashboard/customers" className={linkClass("/dashboard/customers")}>
+                    <Link href="/dashboard/customers" className={linkClass("/dashboard/customers")} prefetch={true}>
                       <Users className="w-5 h-5" />
                       <span>Pelanggan</span>
+                      <NavLinkPending />
                     </Link>
 
-                    <Link href="/dashboard/suppliers" className={linkClass("/dashboard/suppliers")}>
+                    <Link href="/dashboard/suppliers" className={linkClass("/dashboard/suppliers")} prefetch={true}>
                       <Truck className="w-5 h-5" />
                       <span>Supplier</span>
+                      <NavLinkPending />
                     </Link>
 
                     <div>
@@ -199,33 +205,40 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                       </div>
 
                       <div className="ml-2 mt-1 flex flex-col gap-1 pl-6 border-l border-border/50">
-                        <Link href="/dashboard/inventory" className={subLinkClass("/dashboard/inventory")}>
+                        <Link href="/dashboard/inventory" className={subLinkClass("/dashboard/inventory")} prefetch={true}>
                           <PackageOpen className="w-4 h-4" />
                           <span>Produk</span>
+                          <NavLinkPending />
                         </Link>
-                        <Link href="/dashboard/inventory/stock-in" className={subLinkClass("/dashboard/inventory/stock-in")}>
+                        <Link href="/dashboard/inventory/stock-in" className={subLinkClass("/dashboard/inventory/stock-in")} prefetch={true}>
                           <PackagePlus className="w-4 h-4" />
                           <span>Barang Masuk</span>
+                          <NavLinkPending />
                         </Link>
-                        <Link href="/dashboard/inventory/stock-in/history" className={subLinkClass("/dashboard/inventory/stock-in/history")}>
+                        <Link href="/dashboard/inventory/stock-in/history" className={subLinkClass("/dashboard/inventory/stock-in/history")} prefetch={true}>
                           <Receipt className="w-4 h-4" />
                           <span>Riwayat Masuk</span>
+                          <NavLinkPending />
                         </Link>
-                        <Link href="/dashboard/inventory/stock-in/retur" className={subLinkClass("/dashboard/inventory/stock-in/retur")}>
+                        <Link href="/dashboard/inventory/stock-in/retur" className={subLinkClass("/dashboard/inventory/stock-in/retur")} prefetch={true}>
                           <RotateCcw className="w-4 h-4" />
                           <span>Retur Barang</span>
+                          <NavLinkPending />
                         </Link>
-                        <Link href="/dashboard/inventory/stock-in/retur/history" className={subLinkClass("/dashboard/inventory/stock-in/retur/history")}>
+                        <Link href="/dashboard/inventory/stock-in/retur/history" className={subLinkClass("/dashboard/inventory/stock-in/retur/history")} prefetch={true}>
                           <Receipt className="w-4 h-4" />
                           <span>Riwayat Retur</span>
+                          <NavLinkPending />
                         </Link>
-                        <Link href="/dashboard/inventory/stock-opname" className={subLinkClass("/dashboard/inventory/stock-opname")}>
+                        <Link href="/dashboard/inventory/stock-opname" className={subLinkClass("/dashboard/inventory/stock-opname")} prefetch={true}>
                           <ClipboardList className="w-4 h-4" />
                           <span>Stok Opname</span>
+                          <NavLinkPending />
                         </Link>
-                        <Link href="/dashboard/inventory/stock-opname/history" className={subLinkClass("/dashboard/inventory/stock-opname/history")}>
+                        <Link href="/dashboard/inventory/stock-opname/history" className={subLinkClass("/dashboard/inventory/stock-opname/history")} prefetch={true}>
                           <Receipt className="w-4 h-4" />
                           <span>Riwayat Opname</span>
+                          <NavLinkPending />
                         </Link>
                       </div>
                     </div>
@@ -243,21 +256,25 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                       </div>
 
                       <div className="ml-2 mt-1 flex flex-col gap-1 pl-6 border-l border-border/50">
-                        <Link href="/dashboard/reports" className={subLinkClass("/dashboard/reports")} onClick={() => setIsOpen(false)}>
+                        <Link href="/dashboard/reports" className={subLinkClass("/dashboard/reports")} prefetch={true} onClick={() => setIsOpen(false)}>
                           <BarChart3 className="w-4 h-4" />
                           <span>Ringkasan</span>
+                          <NavLinkPending />
                         </Link>
                         <Link href="/dashboard/laporan/laba-rugi" className={subLinkClass("/dashboard/laporan/laba-rugi")} onClick={() => setIsOpen(false)}>
                           <TrendingUp className="w-4 h-4" />
                           <span>Laba Rugi</span>
+                          <NavLinkPending />
                         </Link>
                         <Link href="/dashboard/laporan/neraca" className={subLinkClass("/dashboard/laporan/neraca")} onClick={() => setIsOpen(false)}>
                           <Scale className="w-4 h-4" />
                           <span>Neraca</span>
+                          <NavLinkPending />
                         </Link>
                         <Link href="/dashboard/laporan/stok-opname" className={subLinkClass("/dashboard/laporan/stok-opname")} onClick={() => setIsOpen(false)}>
                           <ClipboardList className="w-4 h-4" />
                           <span>Stok Opname</span>
+                          <NavLinkPending />
                         </Link>
                       </div>
                     </div>
@@ -267,21 +284,25 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                         Kasir & Keuangan
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Link href="/dashboard/tutup-kasir" className={linkClass("/dashboard/tutup-kasir")} onClick={() => setIsOpen(false)}>
+                        <Link href="/dashboard/tutup-kasir" className={linkClass("/dashboard/tutup-kasir")} prefetch={true} onClick={() => setIsOpen(false)}>
                           <Calculator className="w-5 h-5" />
                           <span>Tutup Kasir</span>
+                          <NavLinkPending />
                         </Link>
                         <Link href="/dashboard/laporan-kasir" className={linkClass("/dashboard/laporan-kasir")} onClick={() => setIsOpen(false)}>
                           <FileText className="w-5 h-5" />
                           <span>Riwayat Kas Harian</span>
+                          <NavLinkPending />
                         </Link>
-                        <Link href="/dashboard/keuangan/pengeluaran" className={linkClass("/dashboard/keuangan/pengeluaran")} onClick={() => setIsOpen(false)}>
+                        <Link href="/dashboard/keuangan/pengeluaran" className={linkClass("/dashboard/keuangan/pengeluaran")} prefetch={true} onClick={() => setIsOpen(false)}>
                           <Wallet className="w-5 h-5" />
                           <span>Pengeluaran</span>
+                          <NavLinkPending />
                         </Link>
                         <Link href="/dashboard/keuangan/arus-kas" className={linkClass("/dashboard/keuangan/arus-kas")} onClick={() => setIsOpen(false)}>
                           <ArrowLeftRight className="w-5 h-5" />
                           <span>Arus Kas</span>
+                          <NavLinkPending />
                         </Link>
                       </div>
                     </div>
@@ -291,21 +312,25 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                         Tools
                       </div>
                       <div className="flex flex-col gap-1">
-                         <Link href="/dashboard/label-generator" className={linkClass("/dashboard/label-generator")} onClick={() => setIsOpen(false)}>
+                         <Link href="/dashboard/label-generator" className={linkClass("/dashboard/label-generator")} prefetch={true} onClick={() => setIsOpen(false)}>
                           <Tag className="w-5 h-5" />
                           <span>Pricetag Generator</span>
+                          <NavLinkPending />
                         </Link>
-                        <Link href="/dashboard/product-label" className={linkClass("/dashboard/product-label")} onClick={() => setIsOpen(false)}>
+                        <Link href="/dashboard/product-label" className={linkClass("/dashboard/product-label")} prefetch={true} onClick={() => setIsOpen(false)}>
                           <Printer className="w-5 h-5" />
                           <span>Cetak Label Produk</span>
+                          <NavLinkPending />
                         </Link>
-                        <Link href="/dashboard/event-promo" className={linkClass("/dashboard/event-promo")} onClick={() => setIsOpen(false)}>
+                        <Link href="/dashboard/event-promo" className={linkClass("/dashboard/event-promo")} prefetch={true} onClick={() => setIsOpen(false)}>
                           <Tag className="w-5 h-5" />
                           <span>Event Promo</span>
+                          <NavLinkPending />
                         </Link>
-                        <Link href="/dashboard/log-aktivitas" className={linkClass("/dashboard/log-aktivitas")} onClick={() => setIsOpen(false)}>
+                        <Link href="/dashboard/log-aktivitas" className={linkClass("/dashboard/log-aktivitas")} prefetch={true} onClick={() => setIsOpen(false)}>
                           <History className="w-5 h-5" />
                           <span>Log Aktivitas</span>
+                          <NavLinkPending />
                         </Link>
                       </div>
                     </div>
@@ -319,13 +344,15 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                       Absensi Saya
                     </div>
                     <div className="flex flex-col gap-1">
-                      <Link href="/dashboard/attendance/scan" className={linkClass("/dashboard/attendance/scan")}>
+                      <Link href="/dashboard/attendance/scan" className={linkClass("/dashboard/attendance/scan")} prefetch={true}>
                         <ScanLine className="mr-3 h-5 w-5" />
                         Scan Absen
+                        <NavLinkPending />
                       </Link>
-                      <Link href="/dashboard/attendance/history" className={linkClass("/dashboard/attendance/history")}>
+                      <Link href="/dashboard/attendance/history" className={linkClass("/dashboard/attendance/history")} prefetch={true}>
                         <UserCheck className="w-5 h-5" />
                         <span>Riwayat Absen</span>
+                        <NavLinkPending />
                       </Link>
                     </div>
                   </div>
@@ -338,13 +365,15 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                       Manajemen Absensi
                     </div>
                     <div className="flex flex-col gap-1">
-                      <Link href="/dashboard/attendance/generate-qr" className={linkClass("/dashboard/attendance/generate-qr")}>
+                      <Link href="/dashboard/attendance/generate-qr" className={linkClass("/dashboard/attendance/generate-qr")} prefetch={true}>
                         <QrCode className="w-5 h-5" />
                         <span>Generate QR</span>
+                        <NavLinkPending />
                       </Link>
-                      <Link href="/dashboard/attendance/report" className={linkClass("/dashboard/attendance/report")}>
+                      <Link href="/dashboard/attendance/report" className={linkClass("/dashboard/attendance/report")} prefetch={true}>
                         <UserCheck className="w-5 h-5" />
                         <span>Laporan Pegawai</span>
+                        <NavLinkPending />
                       </Link>
                     </div>
                   </div>
@@ -353,9 +382,10 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
 
               <div className="flex flex-col gap-2 mt-8 pt-6 border-t border-border">
                 {role !== "KASIR" && role !== "KARYAWAN" && bottomLinks.map(({ href, label, icon: Icon }) => (
-                  <Link key={href} href={href} className={linkClass(href)}>
+                  <Link key={href} href={href} className={linkClass(href)} prefetch={true}>
                     <Icon className="w-5 h-5" />
                     <span>{label}</span>
+                    <NavLinkPending />
                   </Link>
                 ))}
                 

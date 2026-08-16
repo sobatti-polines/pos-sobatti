@@ -11,7 +11,7 @@ export default async function InventoryPage() {
       kategori(nama),
       satuan(nama),
       lokasi_area(nama)
-    `).order("id", { ascending: false }),
+    `).order("nama_produk", { ascending: true }),
     supabase.from("kategori").select("*").order("nama"),
     supabase.from("satuan").select("*").order("nama"),
     supabase.from("lokasi_area").select("*").order("nama"),
@@ -35,6 +35,7 @@ export default async function InventoryPage() {
     stok: number | null;
     stok_gudang: number | null;
     stok_minimum: number | null;
+    stok_minimum_gudang: number | null;
     harga_pokok_avco: number | null;
     nilai_persediaan: number | null;
     default_purchase_unit: string | null;
@@ -109,6 +110,7 @@ export default async function InventoryPage() {
       stock: p.hitung_stok ? (p.stok ?? 0) : null,
       stok_gudang: p.stok_gudang ?? 0,
       stok_minimum: p.stok_minimum ?? 5,
+      stok_minimum_gudang: p.stok_minimum_gudang ?? null,
       harga_pokok_avco: p.harga_pokok_avco ?? 0,
       nilai_persediaan: p.nilai_persediaan ?? 0,
       id_merk: p.id_merk ?? null,

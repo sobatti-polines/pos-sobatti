@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -44,6 +45,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: produkError.message }, { status: 500 });
     }
   }
+
+  await logActivity(supabase, {
+    aksi: "CREATE",
+    entitas: "event_promo",
+    deskripsi: buildDeskripsi({
+      aksi: "CREATE",
+      entitas: "event_promo",
+      data_baru: { ...(promoData as Record<string, unknown>), jumlah_produk: Array.isArray(id_produk) ? id_produk.length : 0 },
+    }),
+    data_baru: { ...(promoData as Record<string, unknown>), jumlah_produk: Array.isArray(id_produk) ? id_produk.length : 0 },
+  });
 
   return NextResponse.json(eventPromo);
 }

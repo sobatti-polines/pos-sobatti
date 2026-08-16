@@ -148,25 +148,56 @@ export async function POST(request: Request) {
     const wibMinutes = nowWIB.getUTCMinutes();
     const wibTotalMinutes = wibHours * 60 + wibMinutes;
 
-    // Read office start time and tolerance from environment variables, with defaults
-    const envStartTime = process.env.ATTENDANCE_START_TIME || "09:00";
-    const envToleranceStr = process.env.ATTENDANCE_TOLERANCE_MINUTES || "15";
+    // Batas telat: karyawan dianggap TELAT jika check-in lebih dari 10 menit
+    // setelah absen dibuka ("absen dibuka" = QR absensi pertama yang dibuat owner hari itu).
+    const LATE_GRACE_MINUTES = 10;
 
-    // Parse start time (e.g., "09:00")
-    const [startHourStr, startMinStr] = envStartTime.split(":");
-    const startHour = parseInt(startHourStr, 10) || 9;
-    const startMinute = parseInt(startMinStr, 10) || 0;
-    const toleranceMinutes = parseInt(envToleranceStr, 10) || 15;
+    // Cari QR absensi pertama (paling awal) yang dibuat hari ini (WIB).
+    // Kolom `created_at` bertipe `timestamp without time zone` yang menyimpan waktu UTC wall-clock.
+    const startOfTodayUtc = new Date(
+      Date.parse(`${today}T00:00:00Z`) - wibOffset
+    ).toISOString();
 
-    const officeStartMinutes = startHour * 60 + startMinute;
-    const toleranceLimitMinutes = officeStartMinutes + toleranceMinutes;
+    const { data: firstQrSession } = await supabase
+      .from("qr_session")
+      .select("created_at")
+      .gte("created_at", startOfTodayUtc)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    // Pastikan created_at diinterpretasikan sebagai UTC meskipun kolomnya `timestamp without time zone`
+    const openingCreatedStr =
+      typeof firstQrSession?.created_at === "string"
+        ? firstQrSession.created_at.endsWith("Z")
+          ? firstQrSession.created_at
+          : firstQrSession.created_at + "Z"
+        : null;
+
+    let openingMinutesWIB: number;
+
+    if (openingCreatedStr) {
+      // Waktu absen dibuka dalam menit WIB
+      const openingWIB = new Date(new Date(openingCreatedStr).getTime() + wibOffset);
+      openingMinutesWIB = openingWIB.getUTCHours() * 60 + openingWIB.getUTCMinutes();
+    } else {
+      // Fallback: jika belum ada QR hari ini, gunakan jam mulai kerja (ATTENDANCE_START_TIME)
+      const envStartTime = process.env.ATTENDANCE_START_TIME || "09:00";
+      const [startHourStr, startMinStr] = envStartTime.split(":");
+      const startHour = parseInt(startHourStr, 10) || 9;
+      const startMinute = parseInt(startMinStr, 10) || 0;
+      openingMinutesWIB = startHour * 60 + startMinute;
+    }
+
+    const lateThresholdMinutes = openingMinutesWIB + LATE_GRACE_MINUTES;
 
     let status = "HADIR";
     let telat_menit = 0;
 
-    if (wibTotalMinutes > toleranceLimitMinutes) {
+    if (wibTotalMinutes > lateThresholdMinutes) {
       status = "TELAT";
-      telat_menit = wibTotalMinutes - officeStartMinutes;
+      // Menit keterlambatan dihitung sejak absen dibuka (konsisten dengan perilaku sebelumnya)
+      telat_menit = wibTotalMinutes - openingMinutesWIB;
     }
 
     // 5. Record Attendance

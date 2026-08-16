@@ -29,6 +29,7 @@ interface ProductData {
   harga_jual_promo: number | null;
   diskon: number;
   stok_minimum: number;
+  stok_minimum_gudang?: number | null;
   default_purchase_unit?: string | null;
   conversion_ratio?: number;
   jual_satuan?: string | null;
@@ -40,6 +41,28 @@ interface ProductData {
   isi_satuan?: string | null;
   jenis_isi_paket?: string | null;
   id_lokasi_area?: number | null;
+}
+
+// Harga jual satuan besar (ROLL/LUSIN/dll) SELALU dihitung otomatis
+// dari harga jual satuan kecil × conversion_ratio (aturan baru, lihat
+// migration 20260816_harga_jual_besar_otomatis.sql). Server tidak
+// pernah menerima harga besar dari client — dihitung ulang di sini.
+function computeBigPrices(data: ProductData) {
+  const ratio = Number(data.conversion_ratio ?? 1);
+  if (data.jual_satuan && ratio > 0) {
+    return {
+      harga_jual_besar_satuan: Math.round(Number(data.harga_jual_satuan || 0) * ratio),
+      harga_jual_besar_grosir: Math.round(Number(data.harga_jual_grosir || 0) * ratio),
+      harga_jual_besar_promo: data.harga_jual_promo != null
+        ? Math.round(Number(data.harga_jual_promo) * ratio)
+        : null,
+    };
+  }
+  return {
+    harga_jual_besar_satuan: null,
+    harga_jual_besar_grosir: null,
+    harga_jual_besar_promo: null,
+  };
 }
 
 function paketErrorMessage(msg: string): string | null {
@@ -58,7 +81,8 @@ export async function addProduct(data: ProductData) {
   if (!ok) return { error: "Unauthorized" };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("produk").insert([data]);
+  const payload = { ...data, ...computeBigPrices(data) };
+  const { error } = await supabase.from("produk").insert([payload]);
   if (error) {
     console.error("Failed to add product:", error);
     return { error: paketErrorMessage(error.message ?? "") ?? "Gagal menambah produk" };
@@ -84,11 +108,12 @@ export async function updateProduct(id: number, data: ProductData) {
   // Fetch old data for log
   const { data: oldProduct } = await supabase
     .from("produk")
-    .select("nama_produk, id_kategori, id_satuan, hitung_stok, sku, barcode, harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon, stok_minimum, default_purchase_unit, conversion_ratio, jual_satuan, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo, id_produk_master, qty_per_unit, id_lokasi_area")
+    .select("nama_produk, id_kategori, id_satuan, hitung_stok, sku, barcode, harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon, stok_minimum, stok_minimum_gudang, default_purchase_unit, conversion_ratio, jual_satuan, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo, id_produk_master, qty_per_unit, id_lokasi_area")
     .eq("id", id)
     .single();
 
-  const { error } = await supabase.from("produk").update(data).eq("id", id);
+  const payload = { ...data, ...computeBigPrices(data) };
+  const { error } = await supabase.from("produk").update(payload).eq("id", id);
   if (error) {
     console.error("Failed to update product:", error);
     return { error: paketErrorMessage(error.message ?? "") ?? "Gagal memperbarui produk" };
@@ -462,6 +487,8 @@ export async function importProducts(
     const stok = parseNum(r["Stok di Rak / Display"] || r["Stok Display"] || r["Stok"] || r["stok"]);
     const stok_gudang = parseNum(r["Stok di Gudang"] || r["Stok Gudang"] || r["stok_gudang"]);
     const stok_minimum = parseNum(r["Stok Minimum"] || r["stok_minimum"], 5);
+    const stokMinimumGudangRaw = (r["Stok Minimum Gudang"] || r["stok_minimum_gudang"] || "").trim();
+    const stok_minimum_gudang = stokMinimumGudangRaw ? parseNum(stokMinimumGudangRaw) : null;
 
     const hitungStokRaw = (r["Hitung Stok (ya/tidak)"] || r["Hitung Stok"] || r["hitung_stok"] || "ya").toString().toLowerCase().trim();
     const hitung_stok = hitungStokRaw === "ya" || hitungStokRaw === "true" || hitungStokRaw === "1";
@@ -469,11 +496,14 @@ export async function importProducts(
     const default_purchase_unit = (r["Satuan Beli dari Supplier"] || r["Satuan Beli"] || r["default_purchase_unit"] || "").trim() || null;
     const conversion_ratio = parseNum(r["Isi per Satuan Beli"] || r["Rasio Konversi"] || r["conversion_ratio"], 1);
 
-    // Satuan jual besar (multi-unit selling)
+    // Satuan jual besar (multi-unit selling) — harga besar TIDAK diimport,
+    // otomatis dihitung = harga jual kecil × conversion_ratio.
     const jual_satuan = (r["Satuan Jual Besar"] || r["jual_satuan"] || "").trim() || null;
-    const harga_jual_besar_satuan = r["Harga Jual Besar - Eceran"] || r["Harga Jual Besar Satuan"] || r["harga_jual_besar_satuan"] ? parseNum(r["Harga Jual Besar - Eceran"] || r["Harga Jual Besar Satuan"] || r["harga_jual_besar_satuan"]) : null;
-    const harga_jual_besar_grosir = r["Harga Jual Besar - Grosir"] || r["Harga Jual Besar Grosir"] || r["harga_jual_besar_grosir"] ? parseNum(r["Harga Jual Besar - Grosir"] || r["Harga Jual Besar Grosir"] || r["harga_jual_besar_grosir"]) : null;
-    const harga_jual_besar_promo = r["Harga Jual Besar - Promo"] || r["Harga Jual Besar Promo"] || r["harga_jual_besar_promo"] ? parseNum(r["Harga Jual Besar - Promo"] || r["Harga Jual Besar Promo"] || r["harga_jual_besar_promo"]) : null;
+    const harga_jual_besar_satuan = jual_satuan ? Math.round(harga_jual_satuan * conversion_ratio) : null;
+    const harga_jual_besar_grosir = jual_satuan ? Math.round(harga_jual_grosir * conversion_ratio) : null;
+    const harga_jual_besar_promo = jual_satuan && harga_jual_promo != null
+      ? Math.round(harga_jual_promo * conversion_ratio)
+      : null;
 
     // Paket fields
     const id_produk_master_raw = (r["Produk Master (ID)"] || r["ID Master"] || r["id_produk_master"] || "").trim();
@@ -520,6 +550,7 @@ export async function importProducts(
       stok,
       stok_gudang,
       stok_minimum,
+      stok_minimum_gudang,
       hitung_stok: id_produk_master ? true : hitung_stok,
       id_produk_master,
       qty_per_unit,

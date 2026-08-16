@@ -50,7 +50,16 @@ export function DashboardLowStock() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">{item.nama_produk}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{item.stok} tersisa</p>
+                    {item.displayLow && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Display: {item.stok} {item.satuan?.nama ?? ""} tersisa
+                      </p>
+                    )}
+                    {item.gudangLow && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Gudang: {item.stok_gudang} {item.satuan?.nama ?? ""} tersisa
+                      </p>
+                    )}
                   </div>
                 </div>
                 <Link

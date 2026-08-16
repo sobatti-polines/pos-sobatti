@@ -51,6 +51,7 @@ export interface ProductWithAvco {
   stock: number | null;
   stok_gudang: number;
   stok_minimum: number;
+  stok_minimum_gudang: number | null;
   harga_modal: number;
   harga_jual_satuan: number;
   harga_jual_grosir: number;
@@ -176,6 +177,13 @@ export default function ProductDetailSheet({
       {
         label: "Min Stok",
         value: product.hitung_stok ? String(product.stok_minimum) : "-",
+      },
+      {
+        label: "Min Stok Gudang",
+        value:
+          product.hitung_stok && product.stok_minimum_gudang != null
+            ? String(product.stok_minimum_gudang)
+            : "-",
       },
       ...(product.id_produk_master
         ? [

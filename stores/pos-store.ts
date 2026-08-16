@@ -115,14 +115,17 @@ export const usePosStore = create<PosState>((set, get) => ({
       const satuanJual = opts?.satuan_jual !== undefined ? opts.satuan_jual : null;
 
       // Determine which price to use based on satuan_jual
+      const isBigUnit =
+        !!satuanJual && !!product.jual_satuan && satuanJual.toUpperCase() === product.jual_satuan.toUpperCase();
       let harga_jual = product.harga_jual_satuan;
-      if (satuanJual && product.jual_satuan && satuanJual.toUpperCase() === product.jual_satuan.toUpperCase()) {
+      if (isBigUnit) {
         harga_jual = product.harga_jual_besar_satuan ?? 0;
       }
 
-      const ratio = (satuanJual && product.jual_satuan && satuanJual.toUpperCase() === product.jual_satuan.toUpperCase())
-        ? (product.conversion_ratio || 1)
-        : 1;
+      const ratio = isBigUnit ? (product.conversion_ratio || 1) : 1;
+      // Diskon item ikut dikalikan rasio agar konsisten per satuan kecil
+      // (mis. diskon Rp500/pcs → potongan Rp6.000/lusin).
+      const diskon_item = Math.round((product.diskon || 0) * ratio);
 
       const existing = state.cart.find((i) => i.id_produk === product.id && i.satuan_jual === satuanJual);
       if (existing) {
@@ -151,7 +154,7 @@ export const usePosStore = create<PosState>((set, get) => ({
             qty: 1 * ratio,
             qty_satuan: 1,
             harga_jual,
-            diskon_item: product.diskon || 0,
+            diskon_item,
             tipe_harga: "Satuan",
           },
         ],
@@ -297,10 +300,13 @@ export const usePosStore = create<PosState>((set, get) => ({
       // Recompute base qty from current qty_satuan and new ratio
       const newBaseQty = item.qty_satuan * ratio;
 
+      // Diskon item ikut dikalikan rasio saat berpindah ke satuan besar
+      const diskon_item = Math.round((product.diskon || 0) * ratio);
+
       return {
         cart: state.cart.map((i) =>
           i.id_produk === id
-            ? { ...i, satuan_jual: satuanJual, harga_jual: newPrice, qty: newBaseQty }
+            ? { ...i, satuan_jual: satuanJual, harga_jual: newPrice, qty: newBaseQty, diskon_item }
             : i
         ),
       };

@@ -39,6 +39,8 @@ export interface LowStockItem {
   id: number;
   nama_produk: string;
   stock: number;
+  displayLow: boolean;
+  gudangLow: boolean;
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
@@ -95,9 +97,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       .limit(5),
     supabase
       .from("produk")
-      .select("id, nama_produk, hitung_stok, stok, stok_minimum")
-      .eq("hitung_stok", true)
-      .gt("stok", 0),
+      .select("id, nama_produk, hitung_stok, stok, stok_gudang, stok_minimum, stok_minimum_gudang")
+      .eq("hitung_stok", true),
     supabase
       .from("transaksi_keluar")
       .select("tgl_transaksi, total")
@@ -131,10 +132,20 @@ export async function getDashboardData(): Promise<DashboardData> {
   const lowStockItems: LowStockItem[] = [];
   for (const p of allProductsRes.data ?? []) {
     const stok = p.stok ?? 0;
-    const min = p.stok_minimum ?? 5;
-    if (stok <= min) {
-      lowStockItems.push({ id: p.id, nama_produk: p.nama_produk, stock: stok });
-    }
+    const stokGudang = p.stok_gudang ?? 0;
+    // Display: stok 0 = "Habis" (badge terpisah), bukan menipis — konsisten dengan perilaku lama.
+    const displayLow = stok > 0 && stok <= (p.stok_minimum ?? 5);
+    // Gudang: aktif jika ambang diisi (termasuk stok gudang 0).
+    const gudangLow =
+      p.stok_minimum_gudang != null && stokGudang <= p.stok_minimum_gudang;
+    if (!displayLow && !gudangLow) continue;
+    lowStockItems.push({
+      id: p.id,
+      nama_produk: p.nama_produk,
+      stock: displayLow ? stok : stokGudang,
+      displayLow,
+      gudangLow,
+    });
   }
   lowStockItems.sort((a, b) => a.stock - b.stock);
 

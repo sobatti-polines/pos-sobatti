@@ -58,7 +58,7 @@ interface PengeluaranRecord {
   kategori_kelompok: string | null;
   nama_pengeluaran: string;
   jumlah: number;
-  metode_bayar: "Tunai" | "Transfer" | "QRIS";
+  metode_bayar: string;
   keterangan: string | null;
   status: "AKTIF" | "DIVOID";
   created_at: string | null;
@@ -73,7 +73,7 @@ interface KategoriBebanRecord {
   kelompok: string | null;
 }
 
-type MetodeBayar = "Tunai" | "Transfer" | "QRIS";
+type MetodeBayar = string;
 
 interface FormState {
   tanggal: string;
@@ -93,12 +93,6 @@ const emptyForm: FormState = {
   keterangan: "",
 };
 
-const METODE_OPTIONS: { value: MetodeBayar; label: string }[] = [
-  { value: "Tunai", label: "Tunai" },
-  { value: "Transfer", label: "Transfer" },
-  { value: "QRIS", label: "QRIS" },
-];
-
 function validateForm(form: FormState): string | null {
   if (!form.tanggal) return "Tanggal wajib diisi";
   if (!form.id_kategori_beban) return "Kategori beban wajib dipilih";
@@ -111,9 +105,11 @@ function validateForm(form: FormState): string | null {
 export default function PengeluaranClient({
   initialData,
   kategoriBeban,
+  metodeBayarOptions,
 }: {
   initialData: PengeluaranRecord[];
   kategoriBeban: KategoriBebanRecord[];
+  metodeBayarOptions: string[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -431,6 +427,22 @@ export default function PengeluaranClient({
     label: k.nama,
   }));
 
+  // Opsi metode bayar dinamis: Tunai, QRIS, Bank 1, Bank 2 (dari pengaturan toko).
+  // Nilai lain yang masih dipakai data lama (mis. 'Transfer' atau bank yang sudah
+  // dihapus dari pengaturan) tetap disertakan agar catatan lama bisa diedit.
+  const metodeOptions = useMemo(() => {
+    const opts = [...metodeBayarOptions];
+    for (const v of new Set(initialData.map((p) => p.metode_bayar))) {
+      if (!opts.includes(v)) opts.push(v);
+    }
+    return opts;
+  }, [metodeBayarOptions, initialData]);
+
+  const metodeOptionsList = metodeOptions.map((m) => ({
+    value: m,
+    label: m,
+  }));
+
   const details = editing ? (
     <>
       <div className="flex justify-between">
@@ -608,7 +620,7 @@ export default function PengeluaranClient({
               </Label>
               <Input
                 id="field-nama"
-                placeholder="Contoh: Gaji karyawan bulanan"
+                placeholder="Contoh: Pembelian ATK kantor"
                 value={form.nama_pengeluaran}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, nama_pengeluaran: e.target.value }))
@@ -647,7 +659,7 @@ export default function PengeluaranClient({
                   }
                   disabled={isPending}
                 >
-                  {METODE_OPTIONS.map((opt) => (
+                  {metodeOptionsList.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>

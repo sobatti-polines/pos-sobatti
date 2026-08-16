@@ -56,6 +56,10 @@ export async function updateStoreSettings(
     return { error: "Gagal memperbarui pengaturan toko: " + error.message };
   }
 
+  // Sinkronkan metode bayar (POS & Pengeluaran) dengan bank yang dikonfigurasi,
+  // supaya tipe pembayaran dinamis: Tunai, QRIS, Bank 1, Bank 2.
+  await syncMetodeBayar(supabase, updates);
+
   await logActivity(supabase, {
     aksi: "UPDATE",
     entitas: "pengaturan",
@@ -65,4 +69,39 @@ export async function updateStoreSettings(
 
   revalidatePath("/dashboard/settings");
   return { success: true, message: "Pengaturan toko berhasil diperbarui" };
+}
+
+/**
+ * Sinkronkan tabel metode_bayar dengan nama bank dari pengaturan toko:
+ * - Pastikan 'Tunai' & 'QRIS' selalu ada.
+ * - Tambahkan baris untuk setiap bank yang dikonfigurasi (bank1_nama / bank2_nama).
+ * - Hapus metode generik 'Transfer' bila tidak lagi dipakai transaksi (aman: bila
+ *   masih direferensikan transaksi lama, operasi delete akan gagal dan diabaikan).
+ */
+async function syncMetodeBayar(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  updates: Record<string, unknown>
+) {
+  const bankNama = [updates.bank1_nama, updates.bank2_nama]
+    .filter((n): n is string => typeof n === "string" && n.trim() !== "")
+    .map((n) => n.trim());
+
+  const { data: existing } = await supabase
+    .from("metode_bayar")
+    .select("nama");
+
+  const existingNames = new Set((existing ?? []).map((m) => m.nama));
+
+  const toInsert = ["Tunai", "QRIS", ...bankNama].filter(
+    (n) => !existingNames.has(n)
+  );
+
+  if (toInsert.length > 0) {
+    await supabase
+      .from("metode_bayar")
+      .insert(toInsert.map((nama) => ({ nama })));
+  }
+
+  // Hapus 'Transfer' generik bila tidak dipakai (ignore error FK bila dipakai historis)
+  await supabase.from("metode_bayar").delete().eq("nama", "Transfer");
 }

@@ -188,7 +188,7 @@ lib/
 ├── scanner-relay.ts           # In-memory SSE relay untuk barcode scanner (5 menit timeout)
 ├── attendance.ts              # getTodayAttendance() + getMonthlyAttendanceStats()
 ├── dashboard.ts               # getDashboardData() — ringkasan dashboard
-├── low-stock.ts               # getLowStockItems() — produk dengan stok <= minimum
+├── low-stock.ts               # getLowStockItems() — produk dengan stok display/gudang <= minimum
 ├── avco.ts                    # calculateNewAVCO() + recordAVCOMutation() — Average Cost
 ├── laporan-kasir.ts           # getDailyCashSummary() + confirmTutupKasir()
 ├── laporan-keuangan.ts        # generateLabaRugi() + generateNeraca()
@@ -228,11 +228,11 @@ public/
 | **kategori** | `id SERIAL PK`, `nama VARCHAR UNIQUE` | Kategori produk |
 | **satuan** | `id SERIAL PK`, `nama VARCHAR UNIQUE` | Satuan produk |
 | **merk** | `id SERIAL PK`, `nama VARCHAR UNIQUE`, `kode VARCHAR(4) UNIQUE` | Merek/brand produk |
-| **metode_bayar** | `id SERIAL PK`, `nama VARCHAR UNIQUE` | Metode pembayaran |
+| **metode_bayar** | `id SERIAL PK`, `nama VARCHAR UNIQUE` | Metode pembayaran — dinamis: Tunai, QRIS, Bank 1 & Bank 2 (nama bank di-sync dari `pengaturan` saat pengaturan toko disimpan; metode generik `Transfer` tidak lagi ditawarkan) |
 | **pengguna** | `id SERIAL PK`, `username VARCHAR UNIQUE`, `password VARCHAR`, `level VARCHAR` (ADMIN/KASIR/OWNER/KARYAWAN), `aktif BOOL`, `nama TEXT` | Pengguna sistem |
 | **supplier** | `id SERIAL PK`, `nama_supplier VARCHAR`, `alamat TEXT`, `telepon VARCHAR`, `email VARCHAR`, `keterangan TEXT` | Pemasok barang |
 | **pelanggan** | `id SERIAL PK`, `nama_pelanggan VARCHAR`, `alamat TEXT`, `no_hp VARCHAR`, `email VARCHAR`, `keterangan TEXT` | Pelanggan |
-| **produk** | `id SERIAL PK`, `nama_produk VARCHAR`, `sku VARCHAR UNIQUE`, `id_merk INT FK(merk)`, `id_kategori INT FK(kategori)`, `id_satuan INT FK(satuan)`, `hitung_stok BOOL`, `harga_modal NUMERIC`, `harga_jual_satuan NUMERIC`, `harga_jual_grosir NUMERIC`, `harga_jual_promo NUMERIC`, `diskon NUMERIC`, `stok NUMERIC`, `stok_gudang NUMERIC`, `stok_minimum INT DEFAULT 5`, `barcode TEXT UNIQUE`, `harga_pokok_avco NUMERIC`, `nilai_persediaan NUMERIC`, `default_purchase_unit VARCHAR`, `conversion_ratio NUMERIC DEFAULT 1`, `jual_satuan TEXT`, `harga_jual_besar_satuan NUMERIC`, `harga_jual_besar_grosir NUMERIC`, `harga_jual_besar_promo NUMERIC` | Produk (dual stok: display+gudang). `id_satuan` = base unit untuk stok/HPP/struk. `jual_satuan` = satuan jual besar (opsional). Rasio jual besar = `conversion_ratio` (sama dengan rasio beli) |
+| **produk** | `id SERIAL PK`, `nama_produk VARCHAR`, `sku VARCHAR UNIQUE`, `id_merk INT FK(merk)`, `id_kategori INT FK(kategori)`, `id_satuan INT FK(satuan)`, `hitung_stok BOOL`, `harga_modal NUMERIC`, `harga_jual_satuan NUMERIC`, `harga_jual_grosir NUMERIC`, `harga_jual_promo NUMERIC`, `diskon NUMERIC`, `stok NUMERIC`, `stok_gudang NUMERIC`, `stok_minimum INT DEFAULT 5`, `stok_minimum_gudang NUMERIC`, `barcode TEXT UNIQUE`, `harga_pokok_avco NUMERIC`, `nilai_persediaan NUMERIC`, `default_purchase_unit VARCHAR`, `conversion_ratio NUMERIC DEFAULT 1`, `jual_satuan TEXT`, `harga_jual_besar_satuan NUMERIC`, `harga_jual_besar_grosir NUMERIC`, `harga_jual_besar_promo NUMERIC` | Produk (dual stok: display+gudang). `id_satuan` = base unit untuk stok/HPP/struk. `stok_minimum` = ambang peringatan display; `stok_minimum_gudang` = ambang peringatan gudang (NULL = nonaktif, satuan sama dengan inventory). `jual_satuan` = satuan jual besar (opsional). Rasio jual besar = `conversion_ratio` (sama dengan rasio beli) |
 | **transaksi_keluar** | `id SERIAL PK`, `no_transaksi BIGINT UNIQUE`, `tgl_transaksi TIMESTAMP`, `id_kasir INT FK(pengguna)`, `id_pelanggan INT FK(pelanggan)`, `id_metode_bayar INT FK(metode_bayar)`, `subtotal`, `diskon_persen`, `diskon_nominal`, `pajak_persen`, `pajak_nominal`, `total`, `bayar`, `kembali`, `dp`, `sisa`, `total_hpp`, `laba_kotor` | Transaksi penjualan |
 | **detail_transaksi_keluar** | `id SERIAL PK`, `id_transaksi INT FK`, `id_produk INT FK`, `type_harga_jual VARCHAR` (SATUAN/GROSIR/PROMO), `harga_modal`, `harga_jual`, `diskon_item`, `qty`, `jumlah`, `kas_masuk`, `profit`, `harga_pokok_satuan`, `total_harga_pokok`, `satuan_jual TEXT`, `qty_satuan NUMERIC`, `jual_ratio NUMERIC` | Item detail transaksi |
 | **barang_masuk** | `id SERIAL PK`, `tgl_masuk DATE`, `id_supplier INT FK`, `id_produk INT FK`, `harga_beli NUMERIC`, `jumlah NUMERIC`, `total NUMERIC`, `keterangan TEXT`, `supplied_unit VARCHAR`, `supplied_qty NUMERIC`, `applied_conversion_ratio NUMERIC`, `base_qty_added NUMERIC`, `total_cost NUMERIC`, `base_cost_per_piece NUMERIC` | Barang masuk (pembelian stok) |
@@ -278,10 +278,10 @@ public/
 ### Pricing & Diskon
 - **3 Tier Harga**: `Satuan` (retail), `Grosir` (wholesale), `Promo` (promotional)
 - **Tipe Harga di DB**: `SATUAN`, `GROSIR`, `PROMO` (disimpan UPPERCASE di `detail_transaksi_keluar.type_harga_jual`)
-- **Diskon Item**: Per-produk, dikurangkan dari harga jual sebelum dikali qty
+- **Diskon Item**: Per-produk, dikurangkan dari harga jual sebelum dikali qty. Untuk transaksi **satuan besar**, diskon ikut dikalikan `conversion_ratio` (mis. diskon Rp500/pcs → potongan Rp6.000/lusin) — scaling dilakukan di `pos-store.ts`.
 - **Diskon Global**: Persentase dari subtotal
 - **Pajak**: Persentase dari (subtotal - diskon), diambil dari `pengaturan.pajak_persen`
-- **Multi-unit selling**: Produk bisa dijual dalam 2 satuan (base + satu satuan besar). Harga besar per satuan (`harga_jual_besar_satuan/grosir/promo`) diinput manual. `conversion_ratio` menentukan berapa qty base dalam 1 satuan besar.
+- **Multi-unit selling**: Produk bisa dijual dalam 2 satuan (base + satu satuan besar). Harga besar per satuan (`harga_jual_besar_satuan/grosir/promo`) **dihitung otomatis = harga jual kecil × `conversion_ratio`** (mis. 1 roll = 50 m, 1 m = 6.500 → 1 roll = 325.000) — **tidak diinput manual**. Trigger `trg_sync_harga_jual_besar` (migration `20260816_harga_jual_besar_otomatis.sql`) menjaga harga besar selalu sinkron di semua jalur tulis; server action juga menghitung ulang saat save/import. `conversion_ratio` menentukan berapa qty base dalam 1 satuan besar.
 
 ### Stok (Dual Warehouse System)
 - **`stok`**: Stok display (tersedia di rak toko)
@@ -345,7 +345,7 @@ public/
 - **QR Code**: Generate QR token (`qr_session`) dengan expiry 30 detik. Token unik via `crypto.randomUUID()`.
 - **Scan QR**: Via kamera HP menggunakan `@zxing/browser`. Validasi token masih aktif dan belum expired.
 - **Geofencing**: Validasi GPS — latitude/longitude dari `.env` (`STORE_LATITUDE`, `STORE_LONGITUDE`), radius max `MAX_ATTENDANCE_RADIUS` (50m). Hitung jarak menggunakan formula **Haversine**.
-- **Check-in**: Catat `jam_masuk`, status "HADIR" atau "TELAT" (bandingkan dengan `ATTENDANCE_START_TIME` + `ATTENDANCE_TOLERANCE_MINUTES`).
+- **Check-in**: Catat `jam_masuk`, status "HADIR" atau "TELAT" (bandingkan dengan waktu absen dibuka = QR absensi pertama hari itu + 10 menit; fallback ke `ATTENDANCE_START_TIME` jika belum ada QR hari itu).
 - **Check-out**: Catat `jam_pulang` (tidak ada validasi GPS untuk check-out).
 - **Widget Dashboard**: `AttendanceWidget` menampilkan status hari ini (BELUM ABSEN / HADIR / TERLAMBAT), jam masuk/pulang, tombol scan.
 
@@ -382,7 +382,7 @@ public/
 
 ### Real-time Low Stock
 - Hook `useLowStockRealtime()` mengambil data via API `/api/low-stock` kemudian subscribe ke perubahan tabel `produk` via `supabase.channel()`
-- Produk dengan `hitung_stok = true` dan `stok <= stok_minimum` masuk daftar low stock
+- Produk dengan `hitung_stok = true` masuk daftar low stock jika: **display** `0 < stok <= stok_minimum` **atau gudang** `stok_gudang <= stok_minimum_gudang` (ambang gudang opsional — `NULL` = nonaktif, termasuk gudang 0 = menipis). Kedua ambang dinyatakan dalam satuan inventory (`id_satuan`). Ditampilkan di dashboard widget, banner, badge sidebar, filter & badge tabel Inventaris, dan stat laporan
 - Tampilkan di dashboard widget & sidebar badge
 
 ### Roles & Access Control
@@ -403,8 +403,8 @@ public/
 | `STORE_LONGITUDE` | Longitude toko |
 | `MAX_ATTENDANCE_RADIUS` | Radius geofencing (meter) |
 | `QR_EXPIRE_SECONDS` | Masa berlaku QR session |
-| `ATTENDANCE_START_TIME` | Jam mulai kerja |
-| `ATTENDANCE_TOLERANCE_MINUTES` | Toleransi keterlambatan (menit) |
+| `ATTENDANCE_START_TIME` | Jam mulai kerja (fallback waktu absen dibuka jika belum ada QR hari itu) |
+| `ATTENDANCE_TOLERANCE_MINUTES` | ~~Tidak lagi digunakan untuk check-in~~ — batas telat tetap 10 menit setelah absen dibuka |
 
 ---
 
@@ -554,7 +554,7 @@ interface PosState {
 | `getTodayAttendance()` | `lib/attendance.ts` | none | { attendance?, user } |
 | `getMonthlyAttendanceStats()` | `lib/attendance.ts` | none | { total, hadir, telat } |
 | `getDashboardData()` | `lib/dashboard.ts` | none | DashboardData |
-| `getLowStockItems()` | `lib/low-stock.ts` | none | LowStockItem[] |
+| `getLowStockItems()` | `lib/low-stock.ts` | none | LowStockItem[] (display + gudang menipis, flag `displayLow`/`gudangLow`) |
 | `logActivity(supabase, params)` | `lib/activity-log.ts` | SupabaseClient, LogActivityParams | Promise<void> |
 | `getDailyCashSummary(supabase, date)` | `lib/laporan-kasir.ts` | SupabaseClient, string | CashSummary |
 | `confirmTutupKasir(supabase, params)` | `lib/laporan-kasir.ts` | SupabaseClient, TutupKasirParams | SaldoKasHarian |
