@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export const revalidate = 60;
+// JANGAN cache route ini (baik server-side maupun CDN):
+// 1. Data produk harus SELALU fresh — cache publik membuat produk yang baru
+//    ditambahkan tidak muncul di POS hingga 7 menit (s-maxage + stale-while-revalidate),
+//    yang membuat kasir mengira gagal lalu menambah produk berulang → duplikat.
+// 2. Cache "public" juga membocorkan response antar-user (RLS tidak dijalankan
+//    lagi karena response diambil dari CDN, bukan dari query per-user).
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -37,6 +43,6 @@ export async function GET(req: NextRequest) {
   }
 
   const res = NextResponse.json({ data, total: count ?? 0, page, limit });
-  res.headers.set("Cache-Control", "public, max-age=60, s-maxage=120, stale-while-revalidate=300");
+  res.headers.set("Cache-Control", "no-store");
   return res;
 }

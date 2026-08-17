@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-export const revalidate = 30;
+// JANGAN cache: produk yang baru ditambahkan tidak muncul di banner/dashboard
+// stok menipis selama cache publik masih berlaku (s-maxage + stale-while-revalidate).
+export const dynamic = "force-dynamic";
 
 // Peringatan display: stok display 0 dianggap "Habis" (badge terpisah),
 // bukan "Menipis" — konsisten dengan perilaku lama.
@@ -55,6 +57,6 @@ export async function GET() {
   });
 
   const res = NextResponse.json(lowStock);
-  res.headers.set("Cache-Control", "public, max-age=30, s-maxage=60, stale-while-revalidate=120");
+  res.headers.set("Cache-Control", "no-store");
   return res;
 }
