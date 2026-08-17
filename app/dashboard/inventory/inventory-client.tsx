@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, PackageOpen, PackagePlus, X, AlertCircle, Check, Loader2, Edit2, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Upload, ChevronsUpDown, Search } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef, type DeleteModalConfig } from "@/components/data-table";
@@ -207,6 +208,7 @@ export default function InventoryClient({
   lokasiAreas: { id: number; nama: string }[];
   merks: { id: number; nama: string }[];
 }) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -346,7 +348,23 @@ export default function InventoryClient({
 
     startTransition(async () => {
       const res = editingId === "new" ? await addProduct(data) : await updateProduct(editingId as number, data);
-      if (res?.error) { setErrorMsg(res.error); } else { setEditingId(null); setEditForm({}); setIsPaket(false); }
+      if (res?.error) {
+        setErrorMsg(res.error);
+      } else {
+        setEditingId(null); setEditForm({}); setIsPaket(false);
+        // Muat ulang data dari server agar produk baru langsung muncul di tabel
+        router.refresh();
+        // Langsung tampilkan produk yang baru dibuat (jangan biarkan pengguna
+        // menebak-nebak — penyebab pengguna menekan Simpan berkali-kali → duplikat)
+        if (editingId === "new" && data.nama_produk) {
+          setSearchQuery(data.nama_produk);
+          setCategoryFilter("all");
+          setMerkFilter("all");
+          setLokasiFilter("all");
+          setStockFilter("all");
+          table.setCurrentPage(1);
+        }
+      }
     });
   };
 
@@ -365,6 +383,7 @@ export default function InventoryClient({
           next.delete(id);
           return next;
         });
+        router.refresh();
       }
     });
   };
@@ -378,6 +397,7 @@ export default function InventoryClient({
         setBulkDeleteIds(null);
         setSelectedIds(new Set());
         table.setCurrentPage(1);
+        router.refresh();
       }
     });
   };
@@ -390,7 +410,7 @@ export default function InventoryClient({
     setDisplayModal(prev => ({ ...prev, error: "" }));
     startTransition(async () => {
       const res = await restockDisplay(displayModal.product!.id, qty);
-      if (res?.error) { setDisplayModal(prev => ({ ...prev, error: res.error })); } else { setDisplayModal({ open: false, product: null, qty: "1", error: "" }); }
+      if (res?.error) { setDisplayModal(prev => ({ ...prev, error: res.error })); } else { setDisplayModal({ open: false, product: null, qty: "1", error: "" }); router.refresh(); }
     });
   };
 
@@ -402,7 +422,7 @@ export default function InventoryClient({
     setGudangModal(prev => ({ ...prev, error: "" }));
     startTransition(async () => {
       const res = await moveToWarehouse(gudangModal.product!.id, qty);
-      if (res?.error) { setGudangModal(prev => ({ ...prev, error: res.error })); } else { setGudangModal({ open: false, product: null, qty: "1", error: "" }); }
+      if (res?.error) { setGudangModal(prev => ({ ...prev, error: res.error })); } else { setGudangModal({ open: false, product: null, qty: "1", error: "" }); router.refresh(); }
     });
   };
 
@@ -424,7 +444,7 @@ export default function InventoryClient({
       setFillPaketModal(prev => ({ ...prev, error: "" }));
       startTransition(async () => {
         const res = await isiStokPaket(product.id, qty, totalBerat);
-        if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else { setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" }); }
+        if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else { setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" }); router.refresh(); }
       });
     } else {
       const qtyPerUnit = product.qty_per_unit ?? 1;
@@ -436,7 +456,7 @@ export default function InventoryClient({
       setFillPaketModal(prev => ({ ...prev, error: "" }));
       startTransition(async () => {
         const res = await isiStokPaket(product.id, qty);
-        if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else { setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" }); }
+        if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else { setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" }); router.refresh(); }
       });
     }
   };

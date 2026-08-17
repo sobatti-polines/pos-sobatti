@@ -106,6 +106,7 @@ export async function POST(request: Request) {
     const domainErrors = [
       "Stok tidak mencukupi",
       "Pelanggan harus dipilih",
+      "Jumlah bayar kurang",
       "tidak ditemukan",
       "Qty tidak valid",
     ];

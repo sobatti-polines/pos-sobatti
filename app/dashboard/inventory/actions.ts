@@ -81,6 +81,28 @@ export async function addProduct(data: ProductData) {
   if (!ok) return { error: "Unauthorized" };
 
   const supabase = await createClient();
+
+  // Guard duplikat: cegah produk yang sama persis (nama + SKU + barcode) masuk 2×.
+  // Tanpa guard ini, dua produk identik tanpa SKU/barcode (NULL) bisa masuk berkali-kali
+  // karena unique constraint (sku, barcode) memperbolehkan banyak NULL.
+  const namaTrim = data.nama_produk.trim();
+  const skuVal = data.sku?.trim() || null;
+  const barcodeVal = data.barcode?.trim() || null;
+  const { data: existing, error: dupErr } = await supabase
+    .from("produk")
+    .select("id, sku, barcode")
+    .ilike("nama_produk", namaTrim)
+    .limit(100);
+  if (!dupErr && existing && existing.length > 0) {
+    // Cegah duplikat: nama SAMA + SKU sama (termasuk NULL) + barcode sama (termasuk NULL)
+    const dup = existing.find(
+      (r) => (r.sku?.trim() || null) === skuVal && (r.barcode?.trim() || null) === barcodeVal
+    );
+    if (dup) {
+      return { error: `Produk "${namaTrim}" sudah ada (SKU & barcode sama). Gunakan nama/SKU berbeda atau edit produk yang sudah ada.` };
+    }
+  }
+
   const payload = { ...data, ...computeBigPrices(data) };
   const { error } = await supabase.from("produk").insert([payload]);
   if (error) {

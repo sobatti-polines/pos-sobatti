@@ -534,6 +534,9 @@ export function PosClient() {
   
   const change = !isDP ? Math.max(0, numpadAmount - total) : 0;
   const sisaDP = isDP ? Math.max(0, total - numpadAmount) : 0;
+  // Bayar kurang hanya dicegah untuk pembayaran non-DP (DP sengaja boleh sebagian)
+  const isBayarKurang = !isDP && numpadAmount > 0 && numpadAmount < total;
+  const isBayarKosong = !isDP && numpadAmount <= 0 && cart.length > 0;
 
   const handleCheckout = async () => {
     const result = await checkout();
@@ -611,7 +614,7 @@ export function PosClient() {
           </div>
         </div>
 
-        <div className="w-full md:max-w-xl lg:max-w-2xl md:mx-4 lg:mx-8 relative flex-1">
+        <div className="w-full md:max-w-2xl lg:max-w-3xl md:mx-4 lg:mx-8 relative flex-1">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
             <Input
@@ -648,7 +651,7 @@ export function PosClient() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-1">
-                    {filteredProducts.map((product) => {
+                    {filteredProducts.map((product, index) => {
                       const cat = product.kategori?.nama ?? "";
                       const merk = product.merk?.nama ?? "";
                       return (
@@ -660,7 +663,11 @@ export function PosClient() {
                             openAddItemDialog(product);
                           }}
                         >
-                          <div className="flex flex-col gap-1 items-start min-w-0">
+                          {/* Nomor urut murni visual (bukan dari database), memudahkan kasir merujuk produk */}
+                          <div className="w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-semibold tabular-nums shrink-0 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                            {index + 1}
+                          </div>
+                          <div className="flex flex-col gap-1 items-start min-w-0 flex-1">
                             <span className="text-base font-medium text-foreground group-hover:text-primary transition-colors">
                               <Highlight text={product.nama_produk} query={searchQuery} />
                             </span>
@@ -1153,10 +1160,24 @@ export function PosClient() {
               </div>
             </div>
 
+            {isBayarKurang && (
+              <div className="flex items-center justify-between gap-2 mb-3 px-4 py-2.5 rounded-xl bg-destructive/10 border border-destructive/20">
+                <span className="text-sm text-destructive font-medium">Jumlah bayar kurang</span>
+                <span className="text-sm tabular-nums font-semibold text-destructive">
+                  - {formatIDR(total - numpadAmount)}
+                </span>
+              </div>
+            )}
+            {isBayarKosong && (
+              <div className="flex items-center justify-center gap-2 mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                <span className="text-sm text-amber-700 font-medium">Masukkan jumlah bayar terlebih dahulu</span>
+              </div>
+            )}
+
             <Button
               className="w-full h-16 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xl font-medium shadow-lg transition-transform active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
               type="button"
-              disabled={cart.length === 0 || checkoutLoading}
+              disabled={cart.length === 0 || checkoutLoading || (!isDP && numpadAmount < total)}
               onClick={handleCheckout}
             >
               {checkoutLoading ? (

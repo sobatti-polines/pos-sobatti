@@ -39,6 +39,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { NavLinkPending } from "@/components/nav-link-pending";
+import { UserProfileCard } from "@/components/user-profile-card";
 import logoPerusahaan from "@/public/login-logo.jpeg";
 
 const bottomLinks = [
@@ -47,7 +48,7 @@ const bottomLinks = [
   { href: "/dashboard/support", label: "Bantuan", icon: HelpCircle },
 ];
 
-export const DashboardSidebar = React.memo(function DashboardSidebar({ role }: { role?: string }) {
+export const DashboardSidebar = React.memo(function DashboardSidebar({ role, userName }: { role?: string; userName?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -354,22 +355,32 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role }: {
         )}
       </nav>
 
-      <div className="flex flex-col gap-2 mt-auto pt-6 border-t border-border">
-        {role !== "KASIR" && role !== "KARYAWAN" && bottomLinks.map(({ href, label, icon: Icon }) => (
-          <Link key={href} href={href} className={linkClass(href)} prefetch={true}>
-            <Icon className="w-5 h-5" />
-            <span className="text-sm">{label}</span>
-            <NavLinkPending />
-          </Link>
-        ))}
-        
-        <button 
-          onClick={handleLogout} 
-          className="flex items-center gap-3 px-3 py-2.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors w-full text-left mt-2"
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="text-sm font-medium">Keluar</span>
-        </button>
+      <div className="mt-auto pt-6 border-t border-border">
+        {role !== "KASIR" && (
+          <UserProfileCard
+            userName={userName}
+            role={role}
+            className="px-3 py-3 mb-4 rounded-xl bg-muted/60 border border-border/60"
+          />
+        )}
+
+        <div className="flex flex-col gap-2">
+          {role !== "KASIR" && role !== "KARYAWAN" && bottomLinks.map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href} className={linkClass(href)} prefetch={true}>
+              <Icon className="w-5 h-5" />
+              <span className="text-sm">{label}</span>
+              <NavLinkPending />
+            </Link>
+          ))}
+          
+          <button 
+            onClick={handleLogout} 
+            className="flex items-center gap-3 px-3 py-2.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors w-full text-left mt-2"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="text-sm font-medium">Keluar</span>
+          </button>
+        </div>
       </div>
     </aside>
   );

@@ -41,6 +41,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { NavLinkPending } from "@/components/nav-link-pending";
+import { UserProfileCard } from "@/components/user-profile-card";
 import { Button } from "@/components/ui/button";
 
 const bottomLinks = [
@@ -49,7 +50,7 @@ const bottomLinks = [
   { href: "/dashboard/support", label: "Bantuan", icon: HelpCircle },
 ];
 
-export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role }: { role?: string }) {
+export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role, userName }: { role?: string; userName?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -110,25 +111,36 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
   return (
     <>
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0 z-40 sticky top-0 print:hidden">
-        <div className="flex items-center">
+      <header className="md:hidden flex items-center justify-between gap-3 px-4 py-3 border-b border-border bg-background shrink-0 z-40 sticky top-0 print:hidden">
+        <div className="flex items-center min-w-0">
           <Image
             src={logoPerusahaan}
             alt="Logo Perusahaan"
             width={36}
             height={36}
-            className="h-9 w-auto object-contain mr-3 rounded-md"
+            className="h-9 w-auto object-contain mr-3 rounded-md shrink-0"
           />
-          <span className="text-xl font-light tracking-tight text-foreground">PLK POS</span>
+          <span className="text-xl font-light tracking-tight text-foreground truncate">PLK POS</span>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setIsOpen(true)}
-          aria-label="Buka menu navigasi"
-        >
-          <Menu className="h-6 w-6" />
-        </Button>
+        <div className="flex items-center gap-2 min-w-0">
+          {role !== "KASIR" && (
+            <UserProfileCard
+              userName={userName}
+              role={role}
+              compact
+              className="px-2.5 py-1.5 rounded-full bg-muted/60 border border-border/60 max-w-[45vw]"
+            />
+          )}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setIsOpen(true)}
+            aria-label="Buka menu navigasi"
+            className="shrink-0"
+          >
+            <Menu className="h-6 w-6" />
+          </Button>
+        </div>
       </header>
 
       {/* Mobile Menu Overlay */}
@@ -156,6 +168,14 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
             </div>
 
             <div className="flex-1 overflow-y-auto py-6 px-4">
+              {role !== "KASIR" && (
+                <UserProfileCard
+                  userName={userName}
+                  role={role}
+                  className="px-4 py-3 mb-5 rounded-xl bg-muted/60 border border-border/60"
+                />
+              )}
+
               <nav className="flex flex-col gap-1">
                 {role !== "KASIR" && (
                   <Link href="/dashboard" className={linkClass("/dashboard")} prefetch={true}>

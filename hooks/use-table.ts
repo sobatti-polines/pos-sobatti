@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 
 function getNestedValue(obj: unknown, path: string): unknown {
   return path.split(".").reduce((current: unknown, key: string) => {
@@ -35,6 +35,18 @@ export function useTable<T>({
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(defaultItemsPerPage)
 
+  // Reset ke halaman 1 SETIAP KALI data berubah (mis. pencarian/filter baru).
+  // TANPA ini, user yang sedang di halaman belakang lalu mengetik kata kunci
+  // akan tetap berada di halaman lama → hasil filter jadi slice kosong →
+  // produk yang jelas ada di DB tidak pernah muncul ("tidak ditemukan").
+  const prevData = useRef(data)
+  useEffect(() => {
+    if (prevData.current !== data) {
+      prevData.current = data
+      setCurrentPage(1)
+    }
+  }, [data])
+
   const sortedData = useMemo(() => {
     if (!sortConfig) return data
     return [...data].sort((a, b) => {
@@ -49,10 +61,14 @@ export function useTable<T>({
   const total = sortedData.length
   const totalPages = Math.max(1, Math.ceil(total / itemsPerPage))
 
+  // Pengaman: jangan pernah melewati halaman terakhir (data bisa menyusut
+  // saat filter diterapkan).
+  const safePage = Math.min(currentPage, totalPages)
+
   const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage
+    const start = (safePage - 1) * itemsPerPage
     return sortedData.slice(start, start + itemsPerPage)
-  }, [sortedData, currentPage, itemsPerPage])
+  }, [sortedData, safePage, itemsPerPage])
 
   const handleSort = (key: string) => {
     setSortConfig((prev) => {
@@ -67,7 +83,7 @@ export function useTable<T>({
   return {
     sortConfig,
     handleSort,
-    currentPage,
+    currentPage: safePage,
     setCurrentPage,
     itemsPerPage,
     setItemsPerPage,
