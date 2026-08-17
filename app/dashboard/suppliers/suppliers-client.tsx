@@ -6,10 +6,7 @@ import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type DeleteModalConfig } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell } from "@/components/ui/table";
 import { addSupplier, updateSupplier, deleteSupplier, importSuppliers } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
@@ -196,7 +193,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
       editingId={editingId as number | "new" | null}
       renderEditRow={() => {
         return (
-          <TableRow className="bg-muted/30">
+          <>
             <TableCell className="pl-6 align-top pt-4">
               <Input autoFocus aria-label="Nama Supplier" placeholder="Nama Supplier"
                 value={editForm.nama_supplier || ""}
@@ -219,7 +216,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
                 </Button>
               </div>
             </TableCell>
-          </TableRow>
+          </>
         );
       }}
       actions={[

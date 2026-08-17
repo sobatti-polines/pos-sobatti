@@ -22,6 +22,7 @@ import {
   UserPlus,
   Phone,
   Award,
+  Calculator,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,31 @@ import {
 } from "@/components/ui/table";
 import { usePosStore, type Customer, type Product } from "@/stores/pos-store";
 import { LowStockBanner } from "@/components/low-stock-banner";
+import { Highlight } from "@/components/highlight";
+
+// Harga jual besar (ROLL/LUSIN/dll) SELALU dihitung dari harga kecil × rasio
+// (aturan 20260816_harga_jual_besar_otomatis). POS tidak boleh bergantung pada
+// kolom DB yang bisa NULL/0 untuk data lama — hitung ulang saat data dimuat.
+function normalizeBigPrices(p: Product): Product {
+  const ratio = Number(p.conversion_ratio) || 1;
+  if (p.jual_satuan && ratio > 0) {
+    return {
+      ...p,
+      harga_jual_besar_satuan: Math.round(Number(p.harga_jual_satuan || 0) * ratio),
+      harga_jual_besar_grosir: Math.round(Number(p.harga_jual_grosir || 0) * ratio),
+      harga_jual_besar_promo:
+        p.harga_jual_promo != null
+          ? Math.round(Number(p.harga_jual_promo) * ratio)
+          : null,
+    };
+  }
+  return {
+    ...p,
+    harga_jual_besar_satuan: null,
+    harga_jual_besar_grosir: null,
+    harga_jual_besar_promo: null,
+  };
+}
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -144,6 +170,7 @@ export function PosClient() {
   // ── Server-side search state ─────────────────────────────────────────────
   const [serverSearch, setServerSearch] = useState<{ q: string; data: Product[] } | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -188,7 +215,7 @@ export function PosClient() {
       setSearchQuery("");
       return;
     }
-    setAddItemProduct(product);
+    setAddItemProduct(normalizeBigPrices(product));
     setAddItemSatuan(null); // default base unit
     setAddItemQty(1);
     setAddItemOpen(true);
@@ -241,10 +268,11 @@ export function PosClient() {
       if (res.ok) {
         const { product } = await res.json();
         if (product) {
+          const normalized = normalizeBigPrices(product);
           if (stockCheckOpenRef.current) {
-            setScannedStockProduct(product);
+            setScannedStockProduct(normalized);
           } else {
-            addToCart(product);
+            addToCart(normalized);
             pushToast(product.nama_produk, true);
           }
         } else {
@@ -324,7 +352,7 @@ export function PosClient() {
           console.error("Failed to fetch promo", e);
         }
       }
-      setProducts(data);
+      setProducts(data.map(normalizeBigPrices));
       setCustomers(await custRes.json());
       setPaymentMethods(await pmRes.json());
       
@@ -384,7 +412,7 @@ export function PosClient() {
           } catch (e) {}
         }
 
-        setServerSearch({ q, data: sdata });
+        setServerSearch({ q, data: sdata.map(normalizeBigPrices) });
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           setServerSearch(null);
@@ -426,7 +454,7 @@ export function PosClient() {
             const res = await fetch(`/api/pos/barcode?code=${encodeURIComponent(barcode)}`);
             if (res.ok) {
               const { product: serverProduct } = await res.json();
-              if (serverProduct) product = serverProduct;
+              if (serverProduct) product = normalizeBigPrices(serverProduct);
             }
           }
           if (product) {
@@ -475,15 +503,22 @@ export function PosClient() {
   const serverResultsActive = serverSearch !== null && serverSearch.q === searchQuery.trim();
 
   const filteredProducts = useMemo(() => {
-    if (serverResultsActive && serverSearch) return serverSearch.data;
-    if (!searchQuery.trim()) return products;
+    const sortByName = (arr: Product[]) =>
+      [...arr].sort((a, b) =>
+        a.nama_produk.localeCompare(b.nama_produk, "id", { sensitivity: "base" })
+      );
+    if (serverResultsActive && serverSearch) return sortByName(serverSearch.data);
+    if (!searchQuery.trim()) return sortByName(products);
     const q = searchQuery.toLowerCase();
-    return products.filter(
-      (p) =>
-        p.nama_produk.toLowerCase().includes(q) ||
-        p.kategori?.nama?.toLowerCase().includes(q) ||
-        String(p.id).includes(q) ||
-        (p.barcode && p.barcode.includes(q))
+    return sortByName(
+      products.filter(
+        (p) =>
+          p.nama_produk.toLowerCase().includes(q) ||
+          p.sku?.toLowerCase().includes(q) ||
+          p.merk?.nama?.toLowerCase().includes(q) ||
+          p.kategori?.nama?.toLowerCase().includes(q) ||
+          (p.barcode && p.barcode.includes(q))
+      )
     );
   }, [products, searchQuery, serverSearch, serverResultsActive]);
 
@@ -528,6 +563,15 @@ export function PosClient() {
           
           {/* Mobile Right Actions */}
           <div className="flex md:hidden items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard/tutup-kasir")}
+              className="flex items-center justify-center w-auto px-3 h-10 rounded-full border border-border bg-background hover:bg-muted/40 transition-colors text-xs font-medium text-muted-foreground"
+              title="Kas Kasir"
+            >
+              <Calculator className="w-4 h-4 mr-1" />
+              Kas
+            </button>
             <button
               type="button"
               onClick={() => router.push("/dashboard/attendance/scan")}
@@ -576,6 +620,8 @@ export function PosClient() {
               className="pl-12 pr-12 h-14 text-lg bg-muted/30 focus-visible:bg-background transition-all rounded-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchOpen(true)}
+              onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
               autoFocus
             />
             {searchQuery && (
@@ -589,7 +635,7 @@ export function PosClient() {
             )}
           </div>
 
-          {searchQuery.trim() && (
+          {(searchOpen || searchQuery.trim()) && (
             <div className="absolute top-full left-0 right-0 mt-3 bg-background border border-border rounded-2xl shadow-xl overflow-hidden z-50 max-h-[60vh] flex flex-col">
               <div className="overflow-y-auto p-2">
                 {products.length === 0 ? (
@@ -602,26 +648,35 @@ export function PosClient() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-1">
-                    {filteredProducts.slice(0, 50).map((product) => {
+                    {filteredProducts.map((product) => {
                       const cat = product.kategori?.nama ?? "";
-                      const colorClass = categoryColors[cat] ?? "bg-muted text-muted-foreground";
+                      const merk = product.merk?.nama ?? "";
                       return (
                         <button
                           key={product.id}
                           type="button"
-                          className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-colors text-left group"
+                          className="flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors text-left group"
                           onClick={() => {
                             openAddItemDialog(product);
                           }}
                         >
-                          <div className="flex flex-col gap-1 items-start">
+                          <div className="flex flex-col gap-1 items-start min-w-0">
                             <span className="text-base font-medium text-foreground group-hover:text-primary transition-colors">
-                              {product.nama_produk}
+                              <Highlight text={product.nama_produk} query={searchQuery} />
                             </span>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full w-fit ${colorClass}`}>
-                                {cat}
-                              </span>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                              {product.sku && (
+                                <span className="tabular-nums font-medium">SKU: {product.sku}</span>
+                              )}
+                              {product.barcode && (
+                                <span className="tabular-nums">BC: {product.barcode}</span>
+                              )}
+                              {merk && <span>{merk}</span>}
+                              {cat && (
+                                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full w-fit ${categoryColors[cat] ?? "bg-muted text-muted-foreground"}`}>
+                                  {cat}
+                                </span>
+                              )}
                               {product.nama_event_promo && (
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200">
                                   {product.nama_event_promo}
@@ -629,7 +684,10 @@ export function PosClient() {
                               )}
                             </div>
                           </div>
-                          <div className="flex flex-col items-end justify-center pr-2">
+                          <div className="flex flex-col items-end justify-center gap-1 pr-2 shrink-0">
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                              Gudang: <span className="font-medium text-foreground">{product.stok_gudang ?? 0}</span>
+                            </span>
                             {product.nama_event_promo && (
                               <span className="text-xs text-muted-foreground line-through tabular-nums -mb-1">
                                 {formatIDR(product.harga_asli_satuan ?? product.harga_jual_satuan)}
@@ -650,6 +708,14 @@ export function PosClient() {
         </div>
 
         <div className="hidden md:flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/tutup-kasir")}
+            className="flex items-center gap-2 h-10 px-4 rounded-full border border-border bg-background hover:bg-muted/40 transition-colors text-sm font-medium text-muted-foreground"
+          >
+            <Calculator className="w-4 h-4" />
+            Kas Kasir
+          </button>
           <button
             type="button"
             onClick={() => router.push("/dashboard/attendance/scan")}

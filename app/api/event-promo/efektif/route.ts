@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     const { data: products } = await supabase
       .from('produk')
-      .select('id, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo')
+      .select('id, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo, jual_satuan, conversion_ratio')
       .in('id', validIds);
 
     if (!products) {
@@ -52,6 +52,15 @@ export async function POST(request: Request) {
       // Cari promo yang berlaku untuk produk ini (ambil promo pertama jika ada overlap)
       const promo = activePromos.find((p: any) => p.event_promo_produk.some((ep: any) => ep.id_produk === prod.id));
       if (!promo) return null;
+
+      // Harga besar OTOMATIS = harga kecil × conversion_ratio (aturan 20260816).
+      // Fallback bila kolom DB NULL/0 untuk data lama — jangan pernah tampilkan 0.
+      const ratio = Number(prod.conversion_ratio) || 1;
+      const hasBig = !!prod.jual_satuan && ratio > 0;
+      const big = (kolom: number | null, kecil: number) =>
+        hasBig
+          ? (kolom != null && kolom > 0 ? kolom : Math.round(kecil * ratio))
+          : null;
 
       const calc = (harga: number | null) => {
         if (!harga) return harga;
@@ -66,9 +75,9 @@ export async function POST(request: Request) {
         harga_jual_satuan: calc(prod.harga_jual_satuan),
         harga_jual_grosir: calc(prod.harga_jual_grosir),
         harga_jual_promo: calc(prod.harga_jual_promo),
-        harga_jual_besar_satuan: calc(prod.harga_jual_besar_satuan),
-        harga_jual_besar_grosir: calc(prod.harga_jual_besar_grosir),
-        harga_jual_besar_promo: calc(prod.harga_jual_besar_promo),
+        harga_jual_besar_satuan: calc(big(prod.harga_jual_besar_satuan, prod.harga_jual_satuan)),
+        harga_jual_besar_grosir: calc(big(prod.harga_jual_besar_grosir, prod.harga_jual_grosir)),
+        harga_jual_besar_promo: calc(big(prod.harga_jual_besar_promo, prod.harga_jual_promo)),
         id_event_promo: promo.id,
         nama_event: promo.nama
       };

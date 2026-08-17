@@ -1,16 +1,11 @@
 import { redirect } from "next/navigation";
-import {
-  getKategoriBeban,
-  getMetodeBayarOptions,
-  getPengeluaranList,
-} from "./actions";
+import { getKategoriBeban, getPengeluaranList } from "./actions";
 import PengeluaranClient from "./pengeluaran-client";
 
 export default async function PengeluaranPage() {
-  const [kategoriRes, listRes, metodeOptions] = await Promise.all([
+  const [kategoriRes, listRes] = await Promise.all([
     getKategoriBeban(),
     getPengeluaranList(),
-    getMetodeBayarOptions(),
   ]);
 
   if (kategoriRes.error || listRes.error) {
@@ -24,14 +19,13 @@ export default async function PengeluaranPage() {
           Pengeluaran
         </h1>
         <p className="text-muted-foreground mt-2">
-          Kelola pengeluaran operasional toko (kategori: ATK, Konsumsi, Kebersihan).
+          Kelola pengeluaran operasional toko — dibayar tunai dari Kas Admin (kategori: ATK, Konsumsi, Kebersihan, dll).
         </p>
       </header>
 
       <PengeluaranClient
         initialData={listRes.data ?? []}
         kategoriBeban={kategoriRes.data ?? []}
-        metodeBayarOptions={metodeOptions}
       />
     </div>
   );

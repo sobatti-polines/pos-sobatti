@@ -44,12 +44,14 @@ export default function NeracaClient({ initialData, store }: { initialData: any;
     if (!data) return;
     const headers = ["Kategori", "Sub-Kategori", "Item", "Jumlah"];
     const rows = [
-      ["ASET (AKTIVA)", "Aset Lancar", "Kas Tunai (Laci)", data.aset.kas_tunai],
+      ["ASET (AKTIVA)", "Aset Lancar", "Kas Kasir (Laci)", data.aset.kas_tunai],
+      ["ASET (AKTIVA)", "Aset Lancar", "Kas Admin (Operasional)", data.aset.kas_admin],
       ["ASET (AKTIVA)", "Aset Lancar", "Kas Bank / QRIS", data.aset.kas_bank],
       ["ASET (AKTIVA)", "Aset Lancar", "Persediaan Barang", data.aset.persediaan],
       ["ASET (AKTIVA)", "", "TOTAL ASET", data.aset.total_aset],
       ["KEWAJIBAN (PASIVA)", "Kewajiban", "Total Kewajiban", data.kewajiban.total_kewajiban],
       ["MODAL (EKUITAS)", "Ekuitas", "Modal Awal", data.ekuitas.modal_awal],
+      ["MODAL (EKUITAS)", "Ekuitas", "Penambahan Modal (Top-up Owner)", data.ekuitas.penambahan_modal],
       ["MODAL (EKUITAS)", "Ekuitas", "Laba Ditahan", data.ekuitas.laba_ditahan],
       ["MODAL (EKUITAS)", "Ekuitas", "Selisih Kas (Kumulatif)", data.ekuitas.selisih_kas],
       ["MODAL (EKUITAS)", "Ekuitas", "Penyesuaian Stok (Opname/Retur)", data.ekuitas.penyesuaian_stok],
@@ -140,8 +142,12 @@ export default function NeracaClient({ initialData, store }: { initialData: any;
                 <h4 className="text-[11px] font-bold text-muted-foreground uppercase mb-3">Aset Lancar</h4>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span>Kas Tunai (Laci)</span>
+                    <span>Kas Kasir (Laci)</span>
                     <span className="tabular-nums">{formatIDR(data.aset.kas_tunai)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Kas Admin (Operasional)</span>
+                    <span className="tabular-nums">{formatIDR(data.aset.kas_admin)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Kas Bank / QRIS</span>
@@ -184,6 +190,10 @@ export default function NeracaClient({ initialData, store }: { initialData: any;
                   <div className="flex justify-between items-center">
                     <span>Modal Awal</span>
                     <span className="tabular-nums">{formatIDR(data.ekuitas.modal_awal)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Penambahan Modal (Top-up Owner)</span>
+                    <span className="tabular-nums">{formatIDR(data.ekuitas.penambahan_modal)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Laba Ditahan</span>

@@ -99,7 +99,7 @@ function MasterCombobox({
             <>
               <span className="font-medium">{selected.nama_produk}</span>
               <span className="text-muted-foreground ml-2 text-xs">
-                ({selected.sku || selected.id})
+                ({selected.sku || "Tanpa SKU"})
               </span>
             </>
           ) : (
@@ -145,7 +145,7 @@ function MasterCombobox({
                 >
                   <span className="truncate">{p.nama_produk}</span>
                   <span className="shrink-0 text-[11px] text-muted-foreground uppercase tracking-wider">
-                    {p.sku || `#${p.id}`}
+                    {p.sku || "Tanpa SKU"}
                   </span>
                 </button>
               </li>
@@ -466,26 +466,34 @@ export default function InventoryClient({
     return <Badge variant="secondary" className="bg-primary/10 text-primary font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: {display}</Badge>;
   };
 
+  const bigPriceOf = (p: Product): number | null => {
+    if (!p.jual_satuan || !(Number(p.conversion_ratio) > 0)) return null;
+    if (p.harga_jual_besar_satuan != null && p.harga_jual_besar_satuan > 0) return p.harga_jual_besar_satuan;
+    return Math.round(Number(p.harga_jual_satuan || 0) * Number(p.conversion_ratio || 1));
+  };
+
   const handleExportCSV = () => {
-    const headers = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const headers = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo", "Harga Besar"];
     const data = filteredData.map(p => [
       p.sku || "-", p.barcode || "-", p.nama_produk, p.kategori?.nama || "-",
       p.lokasi_area?.nama || "-",
       p.hitung_stok ? (p.stock || 0) : "Tidak dilacak", p.hitung_stok ? p.stok_gudang : "-",
       p.harga_modal, p.harga_pokok_avco, p.nilai_persediaan,
-      p.harga_jual_satuan, p.harga_jual_grosir, p.harga_jual_promo || "-"
+      p.harga_jual_satuan, p.harga_jual_grosir, p.harga_jual_promo || "-",
+      bigPriceOf(p) ?? "-"
     ]);
     exportToCSV("Data_Inventaris", headers, data);
   };
 
   const handleExportPDF = () => {
-    const headers = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo"];
+    const headers = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo", "Harga Besar"];
     const data = filteredData.map(p => [
       p.sku || "-", p.barcode || "-", p.nama_produk, p.kategori?.nama || "-",
       p.lokasi_area?.nama || "-",
       p.hitung_stok ? String(p.stock || 0) : "Tidak dilacak", p.hitung_stok ? String(p.stok_gudang) : "-",
       formatIDR(p.harga_modal), formatIDR(p.harga_pokok_avco), formatIDR(p.nilai_persediaan),
-      formatIDR(p.harga_jual_satuan), formatIDR(p.harga_jual_grosir), p.harga_jual_promo ? formatIDR(p.harga_jual_promo) : "-"
+      formatIDR(p.harga_jual_satuan), formatIDR(p.harga_jual_grosir), p.harga_jual_promo ? formatIDR(p.harga_jual_promo) : "-",
+      bigPriceOf(p) != null ? formatIDR(bigPriceOf(p)!) : "-"
     ]);
     exportToPDF("Data_Inventaris", "Laporan Data Inventaris", headers, data);
   };
@@ -553,6 +561,19 @@ export default function InventoryClient({
     )},
     { key: "harga_jual_grosir", header: "Harga Grosir", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{formatIDR(p.harga_jual_grosir)}</span> },
     { key: "harga_jual_promo", header: "Harga Promo", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{p.harga_jual_promo != null ? formatIDR(p.harga_jual_promo) : "-"}</span> },
+    {
+      key: "harga_jual_besar_satuan", header: "Harga Besar", sortable: true, headerClassName: "text-left w-[150px]",
+      render: (p) => {
+        const big = bigPriceOf(p);
+        if (big == null || !p.jual_satuan) return <span className="text-muted-foreground">-</span>;
+        return (
+          <div className="flex flex-col">
+            <span className="tabular-nums font-medium">{formatIDR(big)}</span>
+            <span className="text-[11px] text-muted-foreground">/{p.jual_satuan}</span>
+          </div>
+        );
+      },
+    },
   ];
 
   const avcoColumns: Column<Product>[] = [

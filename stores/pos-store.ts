@@ -7,7 +7,9 @@ export interface Product {
   hitung_stok: boolean;
   stok: number;
   stok_gudang: number;
+  sku: string | null;
   barcode: string | null;
+  merk: { nama: string } | null;
   harga_modal: number;
   harga_jual_satuan: number;
   harga_jual_grosir: number;
@@ -119,7 +121,13 @@ export const usePosStore = create<PosState>((set, get) => ({
         !!satuanJual && !!product.jual_satuan && satuanJual.toUpperCase() === product.jual_satuan.toUpperCase();
       let harga_jual = product.harga_jual_satuan;
       if (isBigUnit) {
-        harga_jual = product.harga_jual_besar_satuan ?? 0;
+        // Harga besar selalu = harga kecil × ratio (aturan otomatis);
+        // fallback kalau kolom DB NULL/0 untuk data lama.
+        const ratio = Number(product.conversion_ratio) || 1;
+        harga_jual =
+          product.harga_jual_besar_satuan != null && product.harga_jual_besar_satuan > 0
+            ? product.harga_jual_besar_satuan
+            : Math.round(Number(product.harga_jual_satuan || 0) * ratio);
       }
 
       const ratio = isBigUnit ? (product.conversion_ratio || 1) : 1;
@@ -250,12 +258,18 @@ export const usePosStore = create<PosState>((set, get) => ({
       const isBig = item.satuan_jual !== null && product.jual_satuan
         && item.satuan_jual.toUpperCase() === product.jual_satuan.toUpperCase();
 
+      const bigPrice = (base: number | null | undefined, small: number | null | undefined) => {
+        if (base != null && base > 0) return base;
+        return Math.round(Number(small || 0) * (Number(product.conversion_ratio) || 1));
+      };
+
       let newPrice = product.harga_jual_satuan;
       if (isBig) {
         // Big unit pricing
-        newPrice = product.harga_jual_besar_satuan ?? 0;
-        if (type === "Grosir") newPrice = product.harga_jual_besar_grosir ?? newPrice;
-        if (type === "Promo" && product.harga_jual_besar_promo != null) newPrice = product.harga_jual_besar_promo;
+        newPrice = bigPrice(product.harga_jual_besar_satuan, product.harga_jual_satuan);
+        if (type === "Grosir") newPrice = bigPrice(product.harga_jual_besar_grosir, product.harga_jual_grosir);
+        if (type === "Promo" && (product.harga_jual_besar_promo != null || product.harga_jual_promo != null))
+          newPrice = bigPrice(product.harga_jual_besar_promo, product.harga_jual_promo);
       } else {
         // Base unit pricing
         newPrice = product.harga_jual_satuan;
@@ -286,11 +300,17 @@ export const usePosStore = create<PosState>((set, get) => ({
       const ratio = isBig ? (product.conversion_ratio || 1) : 1;
 
       // Pick price based on current tier + new unit
+      const bigPrice = (base: number | null | undefined, small: number | null | undefined) => {
+        if (base != null && base > 0) return base;
+        return Math.round(Number(small || 0) * (Number(product.conversion_ratio) || 1));
+      };
+
       let newPrice: number;
       if (isBig) {
-        newPrice = product.harga_jual_besar_satuan ?? 0;
-        if (item.tipe_harga === "Grosir") newPrice = product.harga_jual_besar_grosir ?? newPrice;
-        if (item.tipe_harga === "Promo" && product.harga_jual_besar_promo != null) newPrice = product.harga_jual_besar_promo;
+        newPrice = bigPrice(product.harga_jual_besar_satuan, product.harga_jual_satuan);
+        if (item.tipe_harga === "Grosir") newPrice = bigPrice(product.harga_jual_besar_grosir, product.harga_jual_grosir);
+        if (item.tipe_harga === "Promo" && (product.harga_jual_besar_promo != null || product.harga_jual_promo != null))
+          newPrice = bigPrice(product.harga_jual_besar_promo, product.harga_jual_promo);
       } else {
         newPrice = product.harga_jual_satuan;
         if (item.tipe_harga === "Grosir") newPrice = product.harga_jual_grosir;

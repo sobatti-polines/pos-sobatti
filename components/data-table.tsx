@@ -139,6 +139,7 @@ export interface DataTableProps<T, K extends string | number = string | number> 
   mobileCards?: boolean
   mobileBreakpoint?: "md" | "lg" | "xl"
 
+  showRowNumber?: boolean
   loading?: boolean
   className?: string
 }
@@ -188,6 +189,7 @@ export default function DataTable<T, K extends string | number = string | number
   onSelectionChange,
   mobileCards = false,
   mobileBreakpoint = "md",
+  showRowNumber = true,
   loading,
   className,
 }: DataTableProps<T, K>) {
@@ -208,7 +210,8 @@ export default function DataTable<T, K extends string | number = string | number
 
   const selectable =
     selectedKeys !== undefined && onSelectionChange !== undefined
-  const totalCols = columns.length + (selectable ? 1 : 0)
+  const totalCols =
+    columns.length + (selectable ? 1 : 0) + (showRowNumber ? 1 : 0)
   const pageIds = data.map((item) => rowKey(item))
   const isRowSelected = (id: K) => selectedKeys?.has(id) ?? false
   const pageAllSelected =
@@ -488,6 +491,13 @@ export default function DataTable<T, K extends string | number = string | number
                   />
                 </TableHead>
               )}
+              {showRowNumber && (
+                <TableHead
+                  className={cn("w-12 text-center", getMobileHideClass())}
+                >
+                  No
+                </TableHead>
+              )}
               {columns.map((col) => (
                 <TableHead
                   key={col.key}
@@ -511,7 +521,26 @@ export default function DataTable<T, K extends string | number = string | number
           </TableHeader>
           <TableBody>
             {/* New item edit row */}
-            {editingId === "new" && renderEditRow?.(null)}
+            {editingId === "new" && renderEditRow && (
+              <TableRow className="bg-muted/30">
+                {showRowNumber && (
+                  <TableCell
+                    className={cn(
+                      getCellBaseClass(),
+                      "text-center text-muted-foreground tabular-nums"
+                    )}
+                  >
+                    {mobileCards && (
+                      <span className={`${bp}:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block`}>
+                        No
+                      </span>
+                    )}
+                    {(page - 1) * perPage + 1}
+                  </TableCell>
+                )}
+                {renderEditRow(null)}
+              </TableRow>
+            )}
 
             {loading ? (
               <TableRow>
@@ -553,7 +582,7 @@ export default function DataTable<T, K extends string | number = string | number
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((item) => {
+              data.map((item, index) => {
                 const id = rowKey(item)
                 const isEditingThis =
                   isInEditMode && editingId === id
@@ -561,7 +590,19 @@ export default function DataTable<T, K extends string | number = string | number
                 if (isEditingThis) {
                   return (
                     <React.Fragment key={id}>
-                      {renderEditRow?.(item)}
+                      <TableRow className="bg-muted/30">
+                        {showRowNumber && (
+                          <TableCell
+                            className={cn(
+                              getCellBaseClass(),
+                              "text-center text-muted-foreground tabular-nums"
+                            )}
+                          >
+                            {(page - 1) * perPage + index + 1}
+                          </TableCell>
+                        )}
+                        {renderEditRow?.(item)}
+                      </TableRow>
                       {renderEditExpanded?.(item)}
                     </React.Fragment>
                   )
@@ -594,6 +635,22 @@ export default function DataTable<T, K extends string | number = string | number
                           }}
                           disabled={isInEditMode}
                         />
+                      </TableCell>
+                    )}
+                    {showRowNumber && (
+                      <TableCell
+                        key="__rowNumber"
+                        className={cn(
+                          getCellBaseClass(),
+                          "text-center text-muted-foreground tabular-nums"
+                        )}
+                      >
+                        {mobileCards && (
+                          <span className={`${bp}:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block`}>
+                            No
+                          </span>
+                        )}
+                        {(page - 1) * perPage + index + 1}
                       </TableCell>
                     )}
                     {columns.map((col) => {

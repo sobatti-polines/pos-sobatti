@@ -35,7 +35,7 @@ interface ArusKasReport {
     kas_bersih_operasi: number;
   };
   arus_investasi: { total: number };
-  arus_pendanaan: { total: number };
+  arus_pendanaan: { total: number; penambahan_kas_admin?: number };
   kas_akhir: { saldo_akhir: number };
   konsistensi: {
     saldo_akhir_sistem: number | null;
@@ -84,11 +84,11 @@ export default function ArusKasClient({
       ["ARUS OPERASI", "Penerimaan Penjualan Tunai", data.arus_operasi.penerimaan_penjualan_tunai],
       ["ARUS OPERASI", "Penerimaan Retur Pembelian", data.arus_operasi.penerimaan_retur],
       ["ARUS OPERASI", "Total Penerimaan", data.arus_operasi.total_penerimaan],
-      ["ARUS OPERASI", "Pembayaran Pembelian (-)", data.arus_operasi.pembayaran_pembelian],
       ["ARUS OPERASI", "Pembayaran Pengeluaran Operasional (-)", data.arus_operasi.pembayaran_pengeluaran],
       ["ARUS OPERASI", "Total Pembayaran (-)", data.arus_operasi.total_pembayaran],
       ["ARUS OPERASI", "Kas Bersih Operasi", data.arus_operasi.kas_bersih_operasi],
       ["ARUS INVESTASI", "Total Aktivitas Investasi", data.arus_investasi.total],
+      ["ARUS PENDANAAN", "Penambahan Kas Admin (Top-up Owner)", data.arus_pendanaan.penambahan_kas_admin ?? 0],
       ["ARUS PENDANAAN", "Total Aktivitas Pendanaan", data.arus_pendanaan.total],
       ["KAS AKHIR", "Saldo Akhir Kas", data.kas_akhir.saldo_akhir],
       ["KONSISTENSI", "Saldo Akhir Sistem (Tutup Kasir)", data.konsistensi?.saldo_akhir_sistem ?? null],
@@ -178,7 +178,7 @@ export default function ArusKasClient({
                 <h3 className="font-bold text-base uppercase border-b border-foreground pb-2">Kas Awal</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span>Saldo Awal (Laci)</span>
+                    <span>Saldo Awal (Kas Kasir + Kas Admin)</span>
                     <span className="tabular-nums">{formatIDR(data.kas_awal.saldo_awal)}</span>
                   </div>
                 </div>
@@ -210,17 +210,14 @@ export default function ArusKasClient({
                   <h4 className="text-[11px] font-bold text-muted-foreground uppercase mb-2 mt-6">Pembayaran</h4>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span>Pembelian Barang</span>
-                      <span className="tabular-nums">({formatIDR(data.arus_operasi.pembayaran_pembelian)})</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Pengeluaran Operasional</span>
+                      <span>Pengeluaran Operasional (dari Kas Admin)</span>
                       <span className="tabular-nums">({formatIDR(data.arus_operasi.pembayaran_pengeluaran)})</span>
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t border-border mt-2">
                       <span className="font-medium">Total Pembayaran</span>
                       <span className="font-medium tabular-nums">({formatIDR(data.arus_operasi.total_pembayaran)})</span>
                     </div>
+                    <p className="text-[11px] text-muted-foreground/70">Pembelian barang tidak dipantau kas (dibayar langsung oleh owner).</p>
                   </div>
 
                   <div className="flex justify-between items-center pt-4 border-t border-border mt-6">
@@ -245,9 +242,15 @@ export default function ArusKasClient({
 
               <div className="space-y-6">
                 <h3 className="font-bold text-base uppercase border-b border-foreground pb-2">Aktivitas Pendanaan</h3>
-                <div className="flex justify-between items-center">
-                  <span>Total Aktivitas Pendanaan</span>
-                  <span className="tabular-nums">{formatIDR(data.arus_pendanaan.total)}</span>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span>Penambahan Kas Admin (Top-up Owner)</span>
+                    <span className="tabular-nums">{formatIDR(data.arus_pendanaan.penambahan_kas_admin ?? 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-border mt-2">
+                    <span className="font-medium">Total Aktivitas Pendanaan</span>
+                    <span className="font-medium tabular-nums">{formatIDR(data.arus_pendanaan.total)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -269,7 +272,7 @@ export default function ArusKasClient({
                     ? "text-emerald-600"
                     : "text-amber-600"
                 }`}>
-                  <span className="font-medium">Saldo Akhir Sistem (Tutup Kasir)</span>
+                  <span className="font-medium">Saldo Akhir Sistem (Kas Kasir + Kas Admin)</span>
                   <span className="font-medium tabular-nums">{formatIDR(data.konsistensi.saldo_akhir_sistem)}</span>
                 </div>
               )}
@@ -305,6 +308,8 @@ export default function ArusKasClient({
               <p>1. Disusun menggunakan basis kas (cash basis); persediaan dinilai dengan metode biaya rata-rata (AVCO).</p>
               <p>2. Piutang dan hutang dalam keadaan normal = 0 karena seluruh transaksi diselesaikan pada saat itu.</p>
               <p>3. Kas Bank / QRIS merupakan akumulasi penjualan non-tunai (Bank / QRIS).</p>
+              <p>4. Kas terbagi: Kas Kasir (laci = float + penjualan tunai) dan Kas Admin (operasional owner).</p>
+              <p>5. Pembelian barang tidak dipantau kas (dibayar langsung oleh owner di luar kas tercatat).</p>
             </div>
           </div>
         )}

@@ -36,6 +36,7 @@ import {
   RotateCcw,
   Wallet,
   ArrowLeftRight,
+  Coins,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -165,11 +166,18 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                 )}
 
                 {role === "KASIR" && (
-                  <Link href="/pos" className={linkClass("/pos")} prefetch={true}>
-                    <CircleDollarSign className="w-5 h-5" />
-                    <span>Penjualan</span>
-                    <NavLinkPending />
-                  </Link>
+                  <>
+                    <Link href="/pos" className={linkClass("/pos")} prefetch={true}>
+                      <CircleDollarSign className="w-5 h-5" />
+                      <span>Penjualan</span>
+                      <NavLinkPending />
+                    </Link>
+                    <Link href="/dashboard/tutup-kasir" className={linkClass("/dashboard/tutup-kasir")} prefetch={true} onClick={() => setIsOpen(false)}>
+                      <Calculator className="w-5 h-5" />
+                      <span>Kas Kasir</span>
+                      <NavLinkPending />
+                    </Link>
+                  </>
                 )}
 
                 {isManagement && (
@@ -276,6 +284,11 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                           <span>Stok Opname</span>
                           <NavLinkPending />
                         </Link>
+                        <Link href="/dashboard/laporan/kas" className={subLinkClass("/dashboard/laporan/kas")} onClick={() => setIsOpen(false)}>
+                          <Coins className="w-4 h-4" />
+                          <span>Laporan Kas</span>
+                          <NavLinkPending />
+                        </Link>
                       </div>
                     </div>
 
@@ -284,9 +297,9 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role 
                         Kasir & Keuangan
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Link href="/dashboard/tutup-kasir" className={linkClass("/dashboard/tutup-kasir")} prefetch={true} onClick={() => setIsOpen(false)}>
-                          <Calculator className="w-5 h-5" />
-                          <span>Tutup Kasir</span>
+                        <Link href="/dashboard/keuangan/kas-admin" className={linkClass("/dashboard/keuangan/kas-admin")} prefetch={true} onClick={() => setIsOpen(false)}>
+                          <Coins className="w-5 h-5" />
+                          <span>Kas Admin</span>
                           <NavLinkPending />
                         </Link>
                         <Link href="/dashboard/laporan-kasir" className={linkClass("/dashboard/laporan-kasir")} onClick={() => setIsOpen(false)}>

@@ -73,14 +73,11 @@ interface KategoriBebanRecord {
   kelompok: string | null;
 }
 
-type MetodeBayar = string;
-
 interface FormState {
   tanggal: string;
   id_kategori_beban: string;
   nama_pengeluaran: string;
   jumlah: string;
-  metode_bayar: MetodeBayar;
   keterangan: string;
 }
 
@@ -89,7 +86,6 @@ const emptyForm: FormState = {
   id_kategori_beban: "",
   nama_pengeluaran: "",
   jumlah: "",
-  metode_bayar: "Tunai",
   keterangan: "",
 };
 
@@ -105,11 +101,9 @@ function validateForm(form: FormState): string | null {
 export default function PengeluaranClient({
   initialData,
   kategoriBeban,
-  metodeBayarOptions,
 }: {
   initialData: PengeluaranRecord[];
   kategoriBeban: KategoriBebanRecord[];
-  metodeBayarOptions: string[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -199,7 +193,6 @@ export default function PengeluaranClient({
       id_kategori_beban: String(p.id_kategori_beban),
       nama_pengeluaran: p.nama_pengeluaran,
       jumlah: String(p.jumlah),
-      metode_bayar: p.metode_bayar,
       keterangan: p.keterangan || "",
     });
     setFormOpen(true);
@@ -229,7 +222,8 @@ export default function PengeluaranClient({
         id_kategori_beban: Number(form.id_kategori_beban),
         nama_pengeluaran: form.nama_pengeluaran.trim(),
         jumlah: Number(form.jumlah),
-        metode_bayar: form.metode_bayar,
+        // Seluruh pengeluaran operasional dibayar tunai dari Kas Admin.
+        metode_bayar: "Tunai",
         keterangan: form.keterangan.trim() || "",
       };
 
@@ -427,22 +421,6 @@ export default function PengeluaranClient({
     label: k.nama,
   }));
 
-  // Opsi metode bayar dinamis: Tunai, QRIS, Bank 1, Bank 2 (dari pengaturan toko).
-  // Nilai lain yang masih dipakai data lama (mis. 'Transfer' atau bank yang sudah
-  // dihapus dari pengaturan) tetap disertakan agar catatan lama bisa diedit.
-  const metodeOptions = useMemo(() => {
-    const opts = [...metodeBayarOptions];
-    for (const v of new Set(initialData.map((p) => p.metode_bayar))) {
-      if (!opts.includes(v)) opts.push(v);
-    }
-    return opts;
-  }, [metodeBayarOptions, initialData]);
-
-  const metodeOptionsList = metodeOptions.map((m) => ({
-    value: m,
-    label: m,
-  }));
-
   const details = editing ? (
     <>
       <div className="flex justify-between">
@@ -629,43 +607,24 @@ export default function PengeluaranClient({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="field-jumlah">
-                  Jumlah (Rp) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="field-jumlah"
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  value={form.jumlah}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, jumlah: e.target.value }))
-                  }
-                  disabled={isPending}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="field-metode">Metode Bayar</Label>
-                <Select
-                  id="field-metode"
-                  value={form.metode_bayar}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      metode_bayar: e.target.value as MetodeBayar,
-                    }))
-                  }
-                  disabled={isPending}
-                >
-                  {metodeOptionsList.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="field-jumlah">
+                Jumlah (Rp) <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="field-jumlah"
+                type="number"
+                min="0"
+                placeholder="0"
+                value={form.jumlah}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, jumlah: e.target.value }))
+                }
+                disabled={isPending}
+              />
+              <p className="text-xs text-muted-foreground">
+                Seluruh pengeluaran operasional dibayar tunai dari Kas Admin.
+              </p>
             </div>
 
             <div className="space-y-2">

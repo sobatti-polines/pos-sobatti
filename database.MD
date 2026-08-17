@@ -106,6 +106,7 @@
 | `id_lokasi_area` | `int4` |  Nullable |
 | `jenis_isi_paket` | `text` |  Nullable |
 | `isi_satuan` | `text` |  Nullable |
+| `stok_minimum_gudang` | `numeric` |  Nullable |
 
 ## Table `transaksi_keluar`
 
@@ -306,6 +307,7 @@
 | `dikonfirmasi` | `bool` |  Nullable |
 | `id_pengguna` | `int4` |  Nullable |
 | `created_at` | `timestamptz` |  Nullable |
+| `uang_awal` | `numeric` |  Nullable |
 
 ## Table `pengaturan_keuangan`
 
@@ -433,6 +435,47 @@
 | `voided_at` | `timestamptz` |  Nullable |
 | `voided_by` | `int4` |  Nullable |
 | `alasan_void` | `text` |  Nullable |
+
+## Table `event_promo`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `nama` | `varchar` |  |
+| `tanggal_mulai` | `date` |  |
+| `tanggal_selesai` | `date` |  |
+| `tipe_diskon` | `text` |  |
+| `nilai_diskon` | `numeric` |  |
+| `aktif` | `bool` |  |
+| `keterangan` | `text` |  Nullable |
+| `created_at` | `timestamptz` |  |
+| `updated_at` | `timestamptz` |  |
+
+## Table `event_promo_produk`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `id_event_promo` | `uuid` |  |
+| `id_produk` | `int4` |  |
+| `created_at` | `timestamptz` |  |
+
+## Table `kas_admin_topup`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `tanggal` | `date` |  |
+| `jumlah` | `numeric` |  |
+| `keterangan` | `text` |  Nullable |
+| `id_pengguna` | `int4` |  Nullable |
+| `created_at` | `timestamptz` |  |
 
 ## RLS Policies
 
@@ -578,6 +621,24 @@
 | `authenticated users can update pengaturan_keuangan` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
 | `authenticated users can delete pengaturan_keuangan` | DELETE | authenticated | PERMISSIVE | `true` | — |
 
+### `event_promo_produk`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `Enable DELETE on event_promo_produk` | DELETE | authenticated | PERMISSIVE | `true` | — |
+| `Enable SELECT on event_promo_produk` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `Enable INSERT on event_promo_produk` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `Enable UPDATE on event_promo_produk` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+
+### `kas_admin_topup`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `authenticated users can select kas_admin_topup` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can insert kas_admin_topup` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `authenticated users can update kas_admin_topup` | UPDATE | authenticated | PERMISSIVE | `true` | — |
+| `authenticated users can delete kas_admin_topup` | DELETE | authenticated | PERMISSIVE | `true` | — |
+
 ### `merk`
 
 | Policy | Command | Roles | Action | USING | WITH CHECK |
@@ -613,4 +674,13 @@
 | `authenticated users can insert pengeluaran` | INSERT | authenticated | PERMISSIVE | — | `true` |
 | `authenticated users can update pengeluaran` | UPDATE | authenticated | PERMISSIVE | `true` | — |
 | `authenticated users can delete pengeluaran` | DELETE | authenticated | PERMISSIVE | `true` | — |
+
+### `event_promo`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `Enable SELECT on event_promo` | SELECT | authenticated | PERMISSIVE | `true` | — |
+| `Enable INSERT on event_promo` | INSERT | authenticated | PERMISSIVE | — | `true` |
+| `Enable UPDATE on event_promo` | UPDATE | authenticated | PERMISSIVE | `true` | `true` |
+| `Enable DELETE on event_promo` | DELETE | authenticated | PERMISSIVE | `true` | — |
 

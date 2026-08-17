@@ -245,9 +245,9 @@ function ProductCombo({
         className={inputBase + " tabular-nums"}
         autoComplete="off"
       />
-      {selectedProduct && (
+      {selectedProduct && selectedProduct.sku && (
         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-          ID: {selectedProduct.id}
+          {selectedProduct.sku}
         </span>
       )}
       {open && filtered.length > 0 && (

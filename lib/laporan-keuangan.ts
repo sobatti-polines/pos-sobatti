@@ -1,6 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { format } from "date-fns";
-import { getDailyCashSummary } from "./laporan-kasir";
+import { format, subDays } from "date-fns";
 
 export async function generateLabaRugi(
   supabase: SupabaseClient,
@@ -186,86 +185,65 @@ async function getTunaiId(supabase: SupabaseClient) {
   return data?.id ?? null;
 }
 
-async function getKasTunai(supabase: SupabaseClient, dateStr: string) {
-  // 1. Prefer saldo_kas_harian snapshot (uang_aktual if confirmed, else saldo_akhir)
-  const { data: kasSnap } = await supabase
-    .from("saldo_kas_harian")
-    .select("saldo_akhir, uang_aktual, dikonfirmasi")
-    .lte("tanggal", dateStr)
-    .order("tanggal", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (kasSnap) {
-    if (kasSnap.dikonfirmasi && kasSnap.uang_aktual != null) {
-      return Number(kasSnap.uang_aktual);
-    }
-    return Number(kasSnap.saldo_akhir || 0);
-  }
-
-  // 2. No snapshot → cumulative restatement since tanggal_mulai (never stale)
-  const { data: config } = await supabase
-    .from("pengaturan_keuangan")
-    .select("modal_awal, tanggal_mulai")
-    .maybeSingle();
-
-  const modalAwal = Number(config?.modal_awal || 0);
-  const tanggalMulai = config?.tanggal_mulai
-    ? format(new Date(config.tanggal_mulai), "yyyy-MM-dd")
-    : null;
+// Kas Kasir (laci) = Σ penjualan tunai neto (bayar − kembali) kumulatif ≤ date.
+// Uang awal (float) tidak dihitung sebagai kas usaha di Neraca — float adalah
+// uang kembalian milik owner yang tetap berada di laci (dijelaskan di CaLK).
+export async function getKasKasir(supabase: SupabaseClient, dateStr: string) {
+  const tunaiId = await getTunaiId(supabase);
+  if (tunaiId == null) return 0;
 
   const end = `${dateStr}T23:59:59+07:00`;
+  const { data: sales } = await supabase
+    .from("transaksi_keluar")
+    .select("bayar, kembali")
+    .eq("id_metode_bayar", tunaiId)
+    .lte("tgl_transaksi", end)
+    .limit(100000);
 
-  let totalKas = modalAwal;
+  return (sales || []).reduce(
+    (acc, s) => acc + (Number(s.bayar) - Number(s.kembali)),
+    0
+  );
+}
 
-  // Tunai masuk: Σ (bayar - kembali) untuk penjualan tunai
-  const tunaiId = await getTunaiId(supabase);
-  if (tunaiId != null) {
-    const salesQuery = supabase
-      .from("transaksi_keluar")
-      .select("bayar, kembali")
-      .eq("id_metode_bayar", tunaiId)
-      .lte("tgl_transaksi", end);
-    if (tanggalMulai) salesQuery.gte("tgl_transaksi", `${tanggalMulai}T00:00:00+07:00`);
-    const { data: sales } = await salesQuery.limit(100000);
-
-    totalKas += (sales || []).reduce(
-      (acc, s) => acc + (Number(s.bayar) - Number(s.kembali)),
+// Kas Admin (operasional owner) = Σ topup + Σ refund retur pembelian
+// − Σ pengeluaran Tunai AKTIF (kumulatif ≤ date).
+// Saldo berjalan (rollover): penambahan saldo hanya saat admin meminta ke owner.
+export async function getKasAdmin(supabase: SupabaseClient, dateStr: string) {
+  // MASUK: penambahan saldo (topup) dari owner
+  let topupTotal = 0;
+  try {
+    const { data: topups } = await supabase
+      .from("kas_admin_topup")
+      .select("jumlah")
+      .lte("tanggal", dateStr)
+      .limit(100000);
+    topupTotal = (topups || []).reduce(
+      (acc, r) => acc + Number(r.jumlah || 0),
       0
     );
+  } catch {
+    topupTotal = 0;
   }
 
-  // Keluar tunai: Σ barang_masuk AKTIF (asumsi pembayaran tunai)
-  const purchaseQuery = supabase
-    .from("barang_masuk")
-    .select("total")
-    .eq("status", "AKTIF")
-    .lte("tgl_masuk", dateStr);
-  if (tanggalMulai) purchaseQuery.gte("tgl_masuk", tanggalMulai);
-  const { data: purchases } = await purchaseQuery.limit(100000);
-
-  totalKas -= (purchases || []).reduce((acc, p) => acc + Number(p.total || 0), 0);
-
-  // Keluar tunai: pengeluaran operasional metode Tunai (K2-07)
-  totalKas -= await sumPengeluaranTunai(supabase, tanggalMulai, dateStr);
-
-  // Masuk tunai: refund retur pembelian (konsisten dgn getDailyCashSummary K1-01)
-  const returQuery = supabase
+  // MASUK: refund retur pembelian (uang kembali ke kas operasional)
+  const { data: returs } = await supabase
     .from("retur_pembelian")
     .select("total_nilai")
-    .lte("tgl_retur", dateStr);
-  if (tanggalMulai) returQuery.gte("tgl_retur", tanggalMulai);
-  const { data: returRefunds } = await returQuery.limit(100000);
-  const returRefundTotal = (returRefunds || []).reduce(
+    .lte("tgl_retur", dateStr)
+    .limit(100000);
+  const returTotal = (returs || []).reduce(
     (acc, r) => acc + Number(r.total_nilai || 0),
     0
   );
-  totalKas += returRefundTotal;
 
-  return totalKas;
+  // KELUAR: pengeluaran operasional Tunai AKTIF
+  const pengeluaranTotal = await sumPengeluaranTunai(supabase, null, dateStr);
+
+  return topupTotal + returTotal - pengeluaranTotal;
 }
 
-async function getKasBankNonTunai(supabase: SupabaseClient, dateStr: string) {
+export async function getKasBankNonTunai(supabase: SupabaseClient, dateStr: string) {
   // Kas Bank/QRIS = Σ total penjualan non-tunai sampai tanggal laporan
   const tunaiId = await getTunaiId(supabase);
   if (tunaiId == null) return 0;
@@ -308,10 +286,11 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
   const end = `${dateStr}T23:59:59+07:00`;
 
   // ─── 1. Aset ────────────────────────────────────────────────────────────────
-  // 1a. Kas Tunai (laci) + Kas Bank (non-tunai) — K1-03 / K1-04
-  const kasTunai = await getKasTunai(supabase, dateStr);
+  // 1a. Kas Kasir (laci) + Kas Admin (operasional) + Kas Bank (non-tunai)
+  const kasKasir = await getKasKasir(supabase, dateStr);
+  const kasAdmin = await getKasAdmin(supabase, dateStr);
   const kasBank = await getKasBankNonTunai(supabase, dateStr);
-  const totalKas = Number(kasTunai) + Number(kasBank);
+  const totalKas = Number(kasKasir) + Number(kasAdmin) + Number(kasBank);
 
   // 1b. Piutang Dagang — fitur dihapus, 0
   const totalPiutang = 0;
@@ -331,6 +310,22 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
     .select("*")
     .maybeSingle();
   const modalAwal = Number(config?.modal_awal || 0);
+
+  // Penambahan modal: top-up kas admin dari owner → bagian dari ekuitas
+  let penambahanModal = 0;
+  try {
+    const { data: topups } = await supabase
+      .from("kas_admin_topup")
+      .select("jumlah")
+      .lte("tanggal", dateStr)
+      .limit(100000);
+    penambahanModal = (topups || []).reduce(
+      (acc, r) => acc + Number(r.jumlah || 0),
+      0
+    );
+  } catch {
+    penambahanModal = 0;
+  }
 
   // Laba ditahan = profit kumulatif + selisih kas (K1-05) + penyesuaian stok (K1-06)
   const { data: allSales } = await supabase
@@ -397,7 +392,7 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
     purchaseTotal - returDetailTotal - (totalInventory + hppTotal);
 
   const labaDitahan = profit + selisihKas + penyesuaianStok;
-  const totalEquity = modalAwal + labaDitahan;
+  const totalEquity = modalAwal + penambahanModal + labaDitahan;
 
   const totalAset = totalKas + totalPiutang + totalInventory;
   const totalKewajiban = totalHutang;
@@ -408,7 +403,8 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
   return {
     tanggal: dateStr,
     aset: {
-      kas_tunai: Number(kasTunai),
+      kas_tunai: Number(kasKasir),
+      kas_admin: Number(kasAdmin),
       kas_bank: Number(kasBank),
       kas: totalKas,
       piutang: totalPiutang,
@@ -421,6 +417,7 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
     },
     ekuitas: {
       modal_awal: modalAwal,
+      penambahan_modal: penambahanModal,
       laba_ditahan: labaDitahan,
       selisih_kas: selisihKas,
       penyesuaian_stok: penyesuaianStok,
@@ -440,9 +437,11 @@ export async function generateArusKas(
   const start = `${startDate}T00:00:00+07:00`;
   const end = `${endDate}T23:59:59+07:00`;
 
-  // Kas awal (laci): saldo awal pada hari pertama periode (dari tutup kasir/kumulatif)
-  const kasAwalSummary = await getDailyCashSummary(supabase, startDate);
-  const saldoAwal = Number(kasAwalSummary.saldo_awal || 0);
+  // Kas awal = Kas Kasir (laci) + Kas Admin pada akhir hari sebelum periode
+  const dayBeforeStart = format(subDays(new Date(startDate), 1), "yyyy-MM-dd");
+  const kasKasirAwal = await getKasKasir(supabase, dayBeforeStart);
+  const kasAdminAwal = await getKasAdmin(supabase, dayBeforeStart);
+  const saldoAwal = kasKasirAwal + kasAdminAwal;
 
   // ── Penerimaan ──
   const tunaiId = await getTunaiId(supabase);
@@ -474,37 +473,39 @@ export async function generateArusKas(
   );
 
   // ── Pembayaran ──
-  const { data: purchases } = await supabase
-    .from("barang_masuk")
-    .select("total")
-    .eq("status", "AKTIF")
-    .gte("tgl_masuk", startDate)
-    .lte("tgl_masuk", endDate)
-    .limit(100000);
-  const pembayaranPembelian = (purchases || []).reduce(
-    (acc, p) => acc + Number(p.total || 0),
-    0
-  );
-
+  // Pembelian barang TIDAK dipantau kas (dibayar langsung oleh owner di luar kas)
+  const pembayaranPembelian = 0;
   const pembayaranPengeluaran = await sumPengeluaranTunai(supabase, startDate, endDate);
 
   const totalPenerimaan = penerimaanPenjualan + penerimaanRetur;
   const totalPembayaran = pembayaranPembelian + pembayaranPengeluaran;
   const kasBersihOperasi = totalPenerimaan - totalPembayaran;
 
-  const saldoAkhir = saldoAwal + kasBersihOperasi;
-
-  // Cross-check dengan sistem tutup kasir di akhir periode (untuk verifikasi konsistensi)
-  let saldoAkhirSistem: number | null = null;
+  // ── Pendanaan: penambahan saldo kas admin dari owner ──
+  let topupTotal = 0;
   try {
-    const kasAkhirSummary = await getDailyCashSummary(supabase, endDate);
-    saldoAkhirSistem = Number(kasAkhirSummary.saldo_akhir_sistem || 0);
+    const { data: topups } = await supabase
+      .from("kas_admin_topup")
+      .select("jumlah")
+      .gte("tanggal", startDate)
+      .lte("tanggal", endDate)
+      .limit(100000);
+    topupTotal = (topups || []).reduce(
+      (acc, r) => acc + Number(r.jumlah || 0),
+      0
+    );
   } catch {
-    saldoAkhirSistem = null;
+    topupTotal = 0;
   }
 
-  const selisihArusKas =
-    saldoAkhirSistem != null ? saldoAkhir - saldoAkhirSistem : null;
+  const totalPendanaan = topupTotal;
+  const saldoAkhir = saldoAwal + kasBersihOperasi + totalPendanaan;
+
+  // Cross-check dengan kas sistem (Kas Kasir + Kas Admin) di akhir periode
+  const kasKasirAkhir = await getKasKasir(supabase, endDate);
+  const kasAdminAkhir = await getKasAdmin(supabase, endDate);
+  const saldoAkhirSistem = kasKasirAkhir + kasAdminAkhir;
+  const selisihArusKas = saldoAkhir - saldoAkhirSistem;
 
   return {
     periode: {
@@ -527,7 +528,8 @@ export async function generateArusKas(
       total: 0,
     },
     arus_pendanaan: {
-      total: 0,
+      total: totalPendanaan,
+      penambahan_kas_admin: topupTotal,
     },
     kas_akhir: {
       saldo_akhir: saldoAkhir,

@@ -8,10 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import {
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell } from "@/components/ui/table";
 import { createUser, updateUser, deleteUser, importUsers } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
@@ -239,7 +236,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
       renderEditRow={(user) => {
         const isNew = user === null;
         return (
-          <TableRow className="bg-muted/30">
+          <>
             <TableCell className="pl-6 align-middle py-4 relative">
               <Input autoFocus aria-label="Nama" placeholder="Nama..."
                 value={editForm.nama || ""}
@@ -288,7 +285,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
                 </Button>
               </div>
             </TableCell>
-          </TableRow>
+          </>
         );
       }}
       actions={[

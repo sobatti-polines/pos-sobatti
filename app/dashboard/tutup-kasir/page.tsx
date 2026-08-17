@@ -1,9 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { getDailyCashSummary } from "@/lib/laporan-kasir";
+import { redirect } from "next/navigation";
 import TutupKasirClient from "./tutup-kasir-client";
 
 export default async function TutupKasirPage() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) redirect("/");
+
+  const role = user.user_metadata?.role;
+  // Halaman Kas Kasir (buka/tutup sesi) HANYA untuk kasir.
+  if (role !== "KASIR") redirect("/dashboard");
+
   const today = new Date().toISOString().slice(0, 10);
   
   let initialSummary = null;

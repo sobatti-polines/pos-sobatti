@@ -6,7 +6,7 @@ import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type DeleteModalConfig } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TableCell, TableRow } from "@/components/ui/table";
+import { TableCell } from "@/components/ui/table";
 import { createReferenceData, updateReferenceData, deleteReferenceData, importReferenceData } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
@@ -167,21 +167,20 @@ export function ReferenceClient({
   };
 
   const handleExportCSV = () => {
-    const headers = activeTab === "merk" ? ["ID", "Kode", "Nama"] : ["ID", "Nama"];
-    const data = filteredData.map(item => activeTab === "merk" ? [item.id, item.kode || "-", item.nama] : [item.id, item.nama]);
+    const headers = activeTab === "merk" ? ["No", "Kode", "Nama"] : ["No", "Nama"];
+    const data = filteredData.map((item, idx) => activeTab === "merk" ? [idx + 1, item.kode || "-", item.nama] : [idx + 1, item.nama]);
     exportToCSV(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, headers, data);
   };
 
   const handleExportPDF = () => {
-    const headers = activeTab === "merk" ? ["ID", "Kode", "Nama"] : ["ID", "Nama"];
-    const data = filteredData.map(item => activeTab === "merk" ? [String(item.id), item.kode || "-", item.nama] : [String(item.id), item.nama]);
+    const headers = activeTab === "merk" ? ["No", "Kode", "Nama"] : ["No", "Nama"];
+    const data = filteredData.map((item, idx) => activeTab === "merk" ? [String(idx + 1), item.kode || "-", item.nama] : [String(idx + 1), item.nama]);
     exportToPDF(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, `Laporan ${getTabLabel(activeTab)}`, headers, data);
   };
 
   const columns: Column<ReferenceItem>[] = [
-    { key: "id", header: "ID", sortable: true, className: "pl-6", headerClassName: "w-24 pl-6", render: (i) => <span className="text-muted-foreground tabular-nums">{i.id}</span> },
-    ...(activeTab === "merk" ? [{ key: "kode", header: "Kode", sortable: true, headerClassName: "w-24", render: (i: ReferenceItem) => <span className="font-mono text-sm">{i.kode || "-"}</span> }] : []),
-    { key: "nama", header: "Nama", sortable: true, render: (i) => <span className="font-medium">{i.nama}</span> },
+    ...(activeTab === "merk" ? [{ key: "kode", header: "Kode", sortable: true, headerClassName: "w-24 pl-6", render: (i: ReferenceItem) => <span className="font-mono text-sm">{i.kode || "-"}</span> }] : []),
+    { key: "nama", header: "Nama", sortable: true, className: activeTab === "merk" ? "" : "pl-6", headerClassName: activeTab === "merk" ? "" : "pl-6", render: (i) => <span className="font-medium">{i.nama}</span> },
     {
       key: "actions", header: "", className: "pr-6", headerClassName: "text-right pr-6 w-32",
       render: (item) => (
@@ -250,13 +249,9 @@ export function ReferenceClient({
         itemsPerPage={table.itemsPerPage}
         onItemsPerPageChange={table.setItemsPerPage}
         editingId={editingId as number | "new" | null}
-        renderEditRow={(c) => {
-          const isNew = c === null;
+        renderEditRow={() => {
           return (
-            <TableRow className="bg-muted/30">
-              <TableCell className="pl-6 align-middle py-4 text-muted-foreground text-sm italic">
-                {isNew ? "(Otomatis)" : c?.id}
-              </TableCell>
+            <>
               {activeTab === "merk" && (
                 <TableCell className="align-middle py-4">
                   <Input autoFocus aria-label="Kode" placeholder="Kode (4 char)..."
@@ -285,7 +280,7 @@ export function ReferenceClient({
                   </Button>
                 </div>
               </TableCell>
-            </TableRow>
+            </>
           );
         }}
         actions={[
