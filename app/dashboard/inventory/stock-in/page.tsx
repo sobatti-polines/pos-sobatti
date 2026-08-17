@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import StockInClient, { type ReorderPrefill } from "./stock-in-client";
 
 interface ReorderRawItem {
@@ -16,15 +17,22 @@ export default async function StockInPage({
   const supabase = await createClient();
   const params = await searchParams;
 
-  const [productsRes, suppliersRes, satuanRes] = await Promise.all([
-    supabase
-      .from("produk")
-      .select(
-        "id, nama_produk, barcode, default_purchase_unit, conversion_ratio, satuan(id, nama)"
-      )
-      .eq("hitung_stok", true)
-      .is("id_produk_master", null)
-      .order("nama_produk"),
+  // fetchAllRows: PostgREST memotong di 1000 baris per request — tanpa ini
+  // produk ke-1001+ tidak bisa dipilih untuk barang masuk.
+  const [products, suppliersRes, satuanRes] = await Promise.all([
+    fetchAllRows(supabase, (db, from, to) =>
+      db.from("produk")
+        .select(
+          "id, nama_produk, barcode, default_purchase_unit, conversion_ratio, satuan(id, nama)"
+        )
+        .eq("hitung_stok", true)
+        .is("id_produk_master", null)
+        .order("nama_produk")
+        .range(from, to)
+    ).catch((e) => {
+      console.error("Failed to fetch products:", e);
+      return [];
+    }),
     supabase.from("supplier").select("id, nama_supplier").order("nama_supplier"),
     supabase.from("satuan").select("id, nama").order("nama"),
   ]);
@@ -38,7 +46,7 @@ export default async function StockInPage({
     satuan: { id: number; nama: string } | { id: number; nama: string }[] | null;
   }
 
-  const products = (productsRes.data ?? []).map((p: RawStockInProduct) => {
+  const productsParsed = (products ?? []).map((p: RawStockInProduct) => {
     const satuanNama = (Array.isArray(p.satuan) ? p.satuan[0] ?? null : p.satuan ?? null)?.nama ?? "pcs";
     return {
       id: p.id,
@@ -56,12 +64,12 @@ export default async function StockInPage({
   let initialReorder: ReorderPrefill | null = null;
   const reorderId = params.reorder ? Number(params.reorder) : null;
   if (reorderId && Number.isInteger(reorderId) && reorderId > 0) {
-    initialReorder = await buildReorderPrefill(supabase, reorderId, products);
+    initialReorder = await buildReorderPrefill(supabase, reorderId, productsParsed);
   }
 
   return (
     <StockInClient
-      products={products}
+      products={productsParsed}
       suppliers={suppliersRes.data ?? []}
       satuanOptions={satuanOptions}
       initialReorder={initialReorder}

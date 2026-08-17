@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Loader2, PackageOpen, CheckSquare, Square } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { cn } from "@/lib/utils";
 
 export interface PrintProduct {
@@ -40,19 +41,26 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
   const fetchProducts = async (query: string) => {
     setLoading(true);
     const supabase = createClient();
-    
-    let q = supabase
-      .from("produk")
-      .select("id, nama_produk, barcode, harga_jual_satuan, sku, harga_modal")
-      .limit(3000); // Fetch all products (user has ~1000)
-      
-    if (query) {
-      q = q.ilike("nama_produk", `%${query}%`);
-    }
 
-    const { data, error } = await q;
-    if (!error && data) {
-      setProducts(data as PrintProduct[]);
+    // fetchAllRows: PostgREST memotong response maksimal max_rows (1000 baris)
+    // per request — `.limit(3000)` pun tetap dipotong di 1000. Loop chunk 1000
+    // baris supaya seluruh katalog (1199+ produk) bisa dipilih.
+    try {
+      const data = await fetchAllRows<PrintProduct>(supabase, (db, from, to) => {
+        let q = db
+          .from("produk")
+          .select("id, nama_produk, barcode, harga_jual_satuan, sku, harga_modal")
+          .order("nama_produk", { ascending: true })
+          .range(from, to);
+        if (query) {
+          q = q.ilike("nama_produk", `%${query}%`);
+        }
+        return q;
+      });
+      setProducts(data);
+    } catch (e) {
+      console.error("Gagal memuat produk:", e);
+      setProducts([]);
     }
     setLoading(false);
   };

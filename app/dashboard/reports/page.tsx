@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import ReportsClient from "./reports-client";
 import { redirect } from "next/navigation";
 
@@ -10,28 +11,31 @@ export default async function ReportsPage() {
 
   if (!user) redirect("/");
 
-  // Fetch all data needed for reports
-  const [transactionsRes, detailsRes, productsRes] = await Promise.all([
-    supabase
-      .from("transaksi_keluar")
-      .select("*")
-      .order("tgl_transaksi", { ascending: false }),
-    supabase
-      .from("detail_transaksi_keluar")
-      .select("*, produk(nama_produk)")
-      .order("id", { ascending: false }),
-    supabase
-      .from("produk")
-      .select("*")
-      .order("nama_produk")
+  // fetchAllRows: PostgREST memotong di 1000 baris per request — tanpa ini
+  // laporan salah jika transaksi/detail/produk melebihi 1000 baris.
+  const [transactions, details, products] = await Promise.all([
+    fetchAllRows(supabase, (db, from, to) =>
+      db.from("transaksi_keluar").select("*").order("tgl_transaksi", { ascending: false }).range(from, to)
+    ).catch((e) => {
+      console.error("Error fetching transactions:", e);
+      return [];
+    }),
+    fetchAllRows(supabase, (db, from, to) =>
+      db.from("detail_transaksi_keluar").select("*, produk(nama_produk)").order("id", { ascending: false }).range(from, to)
+    ).catch((e) => {
+      console.error("Error fetching details:", e);
+      return [];
+    }),
+    fetchAllRows(supabase, (db, from, to) =>
+      db.from("produk").select("*").order("nama_produk").range(from, to)
+    ).catch((e) => {
+      console.error("Error fetching products:", e);
+      return [];
+    })
   ]);
 
-  if (transactionsRes.error || detailsRes.error || productsRes.error) {
-    console.error("Error fetching reports data:", {
-      transactions: transactionsRes.error,
-      details: detailsRes.error,
-      products: productsRes.error,
-    });
+  if (transactions.length === 0 && details.length === 0 && products.length === 0) {
+    console.error("Error fetching reports data: semua query mengembalikan kosong");
   }
 
   return (
@@ -46,9 +50,9 @@ export default async function ReportsPage() {
       </header>
 
       <ReportsClient 
-        transactions={transactionsRes.data ?? []} 
-        details={detailsRes.data ?? []}
-        products={productsRes.data ?? []}
+        transactions={transactions} 
+        details={details}
+        products={products}
       />
     </div>
   );

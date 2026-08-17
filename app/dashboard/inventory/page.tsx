@@ -1,17 +1,27 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { attachMasterInfo, type MasterInfo } from "@/lib/produk-paket";
 import InventoryClient from "./inventory-client";
 
 export default async function InventoryPage() {
   const supabase = await createClient();
 
-  const [productsRes, categoriesRes, unitsRes, lokasiRes, merksRes] = await Promise.all([
-    supabase.from("produk").select(`
+  // fetchAllRows: PostgREST memotong response maksimal 1000 baris per request
+  // (max_rows). Tanpa pagination, produk ke-1001+ (total bisa 1199+) tidak pernah
+  // muncul di tabel inventaris. Loop chunk 1000 baris sampai semua terkumpul.
+  const productsData = await fetchAllRows(supabase, (db, from, to) =>
+    db.from("produk").select(`
       *,
       kategori(nama),
       satuan(nama),
       lokasi_area(nama)
-    `).order("nama_produk", { ascending: true }),
+    `).order("nama_produk", { ascending: true }).range(from, to)
+  ).catch((e) => {
+    console.error("Failed to fetch products:", e);
+    return [];
+  });
+
+  const [categoriesRes, unitsRes, lokasiRes, merksRes] = await Promise.all([
     supabase.from("kategori").select("*").order("nama"),
     supabase.from("satuan").select("*").order("nama"),
     supabase.from("lokasi_area").select("*").order("nama"),
@@ -54,7 +64,7 @@ export default async function InventoryPage() {
     lokasi_area: { nama: string } | null;
   }
 
-  const withMaster = await attachMasterInfo(supabase, (productsRes.data ?? []) as RawProduct[]);
+  const withMaster = await attachMasterInfo(supabase, (productsData ?? []) as RawProduct[]);
 
   const today = new Date().toLocaleDateString('en-CA');
   const { data: activePromos } = await supabase
