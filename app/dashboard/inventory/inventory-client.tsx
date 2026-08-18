@@ -564,6 +564,7 @@ export default function InventoryClient({
       } else {
         setErrorMsg("");
         setIsGenerateSkuOpen(false);
+        alert(res.message);
         router.refresh();
       }
     });

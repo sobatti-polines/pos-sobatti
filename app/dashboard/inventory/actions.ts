@@ -785,9 +785,14 @@ export async function generateAllSkuBarcode() {
 
     let sku: string;
 
-    if (p.sku) {
-      // SKU sudah ada → pertahankan
-      sku = p.sku;
+    // Anggap "-", kosong, spasi, atau "null" sebagai null
+    const isFalsy = (s: string | null) => !s || s.trim() === "" || s.trim() === "-" || s.toLowerCase() === "null";
+    const existingSku = isFalsy(p.sku) ? null : p.sku;
+    const existingBarcode = isFalsy(p.barcode) ? null : p.barcode;
+
+    if (existingSku) {
+      // SKU sudah ada dan valid → pertahankan
+      sku = existingSku;
     } else {
       // Generate SKU baru dengan counter unik
       const currentCount = baseCounter.get(base) || 0;
@@ -808,8 +813,8 @@ export async function generateAllSkuBarcode() {
 
     // Barcode SELALU = SKU (ditimpa)
     // Hanya masukkan ke daftar update jika ada perubahan!
-    const needsSkuUpdate = !p.sku;
-    const needsBarcodeUpdate = p.barcode !== sku;
+    const needsSkuUpdate = !existingSku;
+    const needsBarcodeUpdate = existingBarcode !== sku;
 
     if (needsSkuUpdate || needsBarcodeUpdate) {
       updates.push({ 
