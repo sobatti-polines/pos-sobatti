@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition, useDeferredValue, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, PackageOpen, PackagePlus, X, AlertCircle, Check, Loader2, Edit2, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Upload, ChevronsUpDown, Search } from "lucide-react";
+import { Plus, PackageOpen, PackagePlus, X, AlertCircle, Check, Loader2, Edit2, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Upload, ChevronsUpDown, Search, Barcode } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef, type DeleteModalConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { addProduct, updateProduct, deleteProduct, deleteProducts, restockDisplay, moveToWarehouse, importProducts, isiStokPaket } from "./actions";
+import { addProduct, updateProduct, deleteProduct, deleteProducts, restockDisplay, moveToWarehouse, importProducts, isiStokPaket, generateAllSkuBarcode } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ProductDetailSheet from "@/components/product-detail-sheet";
 import { Highlight } from "@/components/highlight";
@@ -220,6 +220,7 @@ export default function InventoryClient({
   const [lokasiFilter, setLokasiFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isGenerateSkuOpen, setIsGenerateSkuOpen] = useState(false);
 
   const [isPending, startTransition] = useTransition();
 
@@ -555,6 +556,19 @@ export default function InventoryClient({
     exportToPDF("Data_Inventaris", "Laporan Data Inventaris", headers, data);
   };
 
+  const handleGenerateSkuBarcode = () => {
+    startTransition(async () => {
+      const res = await generateAllSkuBarcode();
+      if (res.error) {
+        setErrorMsg(res.error);
+      } else {
+        setErrorMsg("");
+        setIsGenerateSkuOpen(false);
+        router.refresh();
+      }
+    });
+  };
+
   const baseColumns: Column<Product>[] = [
     { key: "sku", header: "SKU", sortable: true, className: "xl:pl-6", headerClassName: "xl:pl-6 w-[130px]", render: (p) => <span className="font-mono text-[14px]">{hl(p.sku || "-")}</span> },
     { key: "barcode", header: "Barcode", sortable: true, headerClassName: "w-[140px]", render: (p) => <span className="font-mono text-[14px]">{hl(p.barcode || "-")}</span> },
@@ -768,6 +782,7 @@ export default function InventoryClient({
         onRowClick={(p) => setSelectedProduct(p)}
         actions={[
           { label: "Import CSV", icon: <Upload className="w-4 h-4" />, variant: "outline", onClick: () => setIsImportOpen(true) },
+          { label: "Generate SKU & Barcode", icon: <Barcode className="w-4 h-4" />, variant: "outline", onClick: () => setIsGenerateSkuOpen(true), disabled: isPending },
           {
             label: "Export",
             customRender: () => (
@@ -1585,6 +1600,43 @@ export default function InventoryClient({
               <Button variant="default" className="rounded-full px-6 shadow-sm bg-amber-600 hover:bg-amber-700 text-white border-amber-600" onClick={handleMoveToGudang} disabled={isPending}>
                 {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Pindah ke Gudang
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate SKU & Barcode Confirmation */}
+      {isGenerateSkuOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-background border border-border shadow-[0_8px_24px_rgba(0,55,112,0.08),0_2px_6px_rgba(0,55,112,0.04)] rounded-[12px] w-full max-w-md flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4">
+                <Barcode className="w-6 h-6" />
+              </div>
+              <h2 className="text-[22px] font-light tracking-tight text-foreground mb-2 text-center">Generate SKU & Barcode</h2>
+              <p className="text-sm text-muted-foreground text-center mb-4">
+                Sistem akan menghasilkan SKU dan Barcode untuk semua produk.
+              </p>
+              <div className="bg-muted/30 rounded-lg p-4 text-sm text-muted-foreground space-y-2">
+                <p><strong className="text-foreground">SKU</strong> hanya diisi untuk produk yang <strong className="text-foreground">belum punya</strong> SKU. Yang sudah ada tetap dipertahankan.</p>
+                <p><strong className="text-foreground">Barcode</strong> akan <strong className="text-foreground">di-generate ulang</strong> untuk SEMUA produk (termasuk yang sudah ada).</p>
+                <p className="text-xs pt-1">Format: <code className="bg-muted px-1 py-0.5 rounded font-mono">M(1) + Merk(2) + Nama(3) + Counter(2) = 8 char</code></p>
+              </div>
+              {errorMsg && (
+                <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive text-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {errorMsg}
+                </div>
+              )}
+            </div>
+            <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex justify-end gap-3">
+              <Button variant="outline" className="rounded-full px-6 bg-background" onClick={() => { setIsGenerateSkuOpen(false); setErrorMsg(""); }} disabled={isPending}>
+                Batal
+              </Button>
+              <Button variant="default" className="rounded-full px-6 shadow-sm" onClick={handleGenerateSkuBarcode} disabled={isPending}>
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Generate Sekarang
               </Button>
             </div>
           </div>

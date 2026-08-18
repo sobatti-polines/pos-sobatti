@@ -712,3 +712,137 @@ export async function importProducts(
   revalidatePath("/dashboard/inventory");
   return { success: true, count: payload.length, message: `Berhasil mengimpor ${payload.length} data produk.` };
 }
+
+/**
+ * Generate SKU & Barcode untuk semua produk.
+ *
+ * SKU (hanya yang kosong) — max 8 karakter:
+ *   Format: M(1) + Merk(2) + Nama(3) + Counter(2)
+ *   Contoh: MTELAN01, MTEPOT02, MMODUD01
+ *
+ * Barcode (SEMUA produk, termasuk yang sudah ada — ditimpa):
+ *   = SKU (alphanumeric, CODE128)
+ *
+ * Aturan:
+ *  - SKU yang sudah ada TIDAK diubah
+ *  - Barcode SELALU di-generate ulang (= SKU)
+ *  - Counter unik per kombinasi Merk+Nama (01, 02, ...)
+ *  - Produk tanpa merk pakai kode "NO"
+ */
+export async function generateAllSkuBarcode() {
+  const ok = await requireAuth();
+  if (!ok) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
+
+  // 1. Fetch semua produk
+  const { data: products, error: prodErr } = await supabase
+    .from("produk")
+    .select("id, nama_produk, sku, barcode, id_merk")
+    .order("id");
+
+  if (prodErr) return { error: "Gagal mengambil data produk: " + prodErr.message };
+  if (!products || products.length === 0) return { error: "Tidak ada produk" };
+
+  // 2. Fetch semua merk
+  const { data: merks } = await supabase
+    .from("merk")
+    .select("id, nama, kode");
+
+  const merkMap = new Map<number, { nama: string; kode: string }>(
+    (merks || []).map((m) => [m.id, { nama: m.nama, kode: m.kode || "" }])
+  );
+
+  // 3. Helper: ambil 3 huruf pertama dari nama (setelah hapus merk & karakter non-huruf)
+  const extractNamaAbbrev = (nama: string, merkNama: string): string => {
+    let cleaned = nama.toUpperCase();
+    // Hapus nama merk
+    if (merkNama) {
+      cleaned = cleaned.replace(new RegExp(merkNama.toUpperCase(), "g"), "");
+    }
+    // Ambil hanya huruf (hapus angka, spasi, simbol)
+    const letters = cleaned.replace(/[^A-Z]/g, "");
+    return letters.slice(0, 3).padEnd(3, "X");
+  };
+
+  // 4. Generate SKU untuk produk yang kosong
+  const generatedSkus = new Set<string>();
+  // Pre-populate SKU existing agar tidak bentrok
+  for (const p of products) {
+    if (p.sku) generatedSkus.add(p.sku.toUpperCase());
+  }
+
+  // Counter per kombinasi base (merk2 + nama3)
+  const baseCounter = new Map<string, number>();
+
+  const updates: { id: number; sku: string | null; barcode: string }[] = [];
+
+  for (const p of products) {
+    const merk = p.id_merk ? merkMap.get(p.id_merk) : null;
+    const merkCode = (merk?.kode?.trim().toUpperCase().slice(0, 2) || "NO").padEnd(2, "X");
+    const namaAbbrev = extractNamaAbbrev(p.nama_produk, merk?.nama || "");
+    const base = `M${merkCode}${namaAbbrev}`;
+
+    let sku: string;
+
+    if (p.sku) {
+      // SKU sudah ada → pertahankan
+      sku = p.sku;
+    } else {
+      // Generate SKU baru dengan counter unik
+      const currentCount = baseCounter.get(base) || 0;
+      const nextCount = currentCount + 1;
+      baseCounter.set(base, nextCount);
+
+      sku = `${base}${String(nextCount).padStart(2, "0")}`;
+
+      // Jika masih bentrok (sangat jarang), cari counter berikutnya
+      while (generatedSkus.has(sku.toUpperCase())) {
+        const nextNum = baseCounter.get(base)! + 1;
+        baseCounter.set(base, nextNum);
+        sku = `${base}${String(nextNum).padStart(2, "0")}`;
+      }
+    }
+
+    generatedSkus.add(sku.toUpperCase());
+
+    // Barcode SELALU = SKU (ditimpa)
+    updates.push({ id: p.id, sku: p.sku ? null : sku, barcode: sku });
+  }
+
+  // 5. Batch update ke database
+  let updated = 0;
+  let errors = 0;
+
+  for (const u of updates) {
+    const payload: Record<string, unknown> = { barcode: u.barcode };
+    // Hanya update SKU jika baru di-generate
+    if (u.sku) payload.sku = u.sku;
+
+    const { error } = await supabase
+      .from("produk")
+      .update(payload)
+      .eq("id", u.id);
+
+    if (error) {
+      console.error(`Gagal update produk id=${u.id}:`, error.message);
+      errors++;
+    } else {
+      updated++;
+    }
+  }
+
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "produk",
+    deskripsi: `Generate SKU & Barcode: ${updated} produk berhasil, ${errors} gagal`,
+    data_baru: { updated, errors },
+  });
+
+  revalidatePath("/dashboard/inventory");
+  return {
+    success: true,
+    count: updated,
+    message: `Berhasil generate SKU & Barcode: ${updated} produk${errors > 0 ? `, ${errors} gagal` : ""}.`,
+  };
+}

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2, PackageOpen, CheckSquare, Square } from "lucide-react";
+import { Search, Loader2, PackageOpen, CheckSquare, Square, Filter, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { cn } from "@/lib/utils";
+import { Select } from "@/components/ui/select";
 
 export interface PrintProduct {
   id: number;
@@ -16,6 +17,8 @@ export interface PrintProduct {
   harga_jual_satuan: number;
   sku: string;
   harga_modal: number;
+  id_merk: number | null;
+  id_lokasi_area: number | null;
 }
 
 interface ProductSelectorModalProps {
@@ -30,26 +33,42 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  // Filter state
+  const [merkFilter, setMerkFilter] = useState("all");
+  const [lokasiFilter, setLokasiFilter] = useState("all");
+  const [merks, setMerks] = useState<{ id: number; nama: string }[]>([]);
+  const [lokasiAreas, setLokasiAreas] = useState<{ id: number; nama: string }[]>([]);
+
   useEffect(() => {
     if (open) {
       fetchProducts("");
+      fetchRefData();
       setSelectedIds(new Set());
       setSearch("");
+      setMerkFilter("all");
+      setLokasiFilter("all");
     }
   }, [open]);
+
+  const fetchRefData = async () => {
+    const supabase = createClient();
+    const [merksRes, lokasiRes] = await Promise.all([
+      supabase.from("merk").select("id, nama").order("nama"),
+      supabase.from("lokasi_area").select("id, nama").order("nama"),
+    ]);
+    setMerks(merksRes.data || []);
+    setLokasiAreas(lokasiRes.data || []);
+  };
 
   const fetchProducts = async (query: string) => {
     setLoading(true);
     const supabase = createClient();
 
-    // fetchAllRows: PostgREST memotong response maksimal max_rows (1000 baris)
-    // per request — `.limit(3000)` pun tetap dipotong di 1000. Loop chunk 1000
-    // baris supaya seluruh katalog (1199+ produk) bisa dipilih.
     try {
       const data = await fetchAllRows<PrintProduct>(supabase, (db, from, to) => {
         let q = db
           .from("produk")
-          .select("id, nama_produk, barcode, harga_jual_satuan, sku, harga_modal")
+          .select("id, nama_produk, barcode, harga_jual_satuan, sku, harga_modal, id_merk, id_lokasi_area")
           .order("nama_produk", { ascending: true })
           .range(from, to);
         if (query) {
@@ -70,11 +89,38 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
     fetchProducts(search);
   };
 
+  // Filter produk: hanya yang harga_jual_satuan > 0 + filter merk & lokasi
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      // Hanya produk dengan harga retail > 0
+      if (!p.harga_jual_satuan || p.harga_jual_satuan <= 0) return false;
+      // Filter merk
+      if (merkFilter !== "all") {
+        if (merkFilter === "none") {
+          if (p.id_merk != null) return false;
+        } else {
+          if (p.id_merk?.toString() !== merkFilter) return false;
+        }
+      }
+      // Filter lokasi
+      if (lokasiFilter !== "all") {
+        if (lokasiFilter === "none") {
+          if (p.id_lokasi_area != null) return false;
+        } else {
+          if (p.id_lokasi_area?.toString() !== lokasiFilter) return false;
+        }
+      }
+      return true;
+    });
+  }, [products, merkFilter, lokasiFilter]);
+
+  const hasFilters = merkFilter !== "all" || lokasiFilter !== "all";
+
   const toggleSelectAll = () => {
-    if (selectedIds.size === products.length && products.length > 0) {
+    if (selectedIds.size === filteredProducts.length && filteredProducts.length > 0) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(products.map(p => p.id)));
+      setSelectedIds(new Set(filteredProducts.map(p => p.id)));
     }
   };
 
@@ -94,7 +140,12 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
     onOpenChange(false);
   };
 
-  const allSelected = products.length > 0 && selectedIds.size === products.length;
+  const clearFilters = () => {
+    setMerkFilter("all");
+    setLokasiFilter("all");
+  };
+
+  const allSelected = filteredProducts.length > 0 && selectedIds.size === filteredProducts.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -110,14 +161,14 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
               <div>
                 <DialogTitle className="text-xl">Pilih Produk</DialogTitle>
                 <DialogDescription>
-                  Pilih satu atau lebih produk untuk dimasukkan ke antrean cetak label.
+                  Pilih produk yang memiliki harga retail untuk antrean cetak label.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          {/* Search Bar */}
-          <div className="px-4 sm:px-6 pb-4">
+          {/* Search + Filters */}
+          <div className="px-4 sm:px-6 pb-4 space-y-3">
             <form onSubmit={handleSearch} className="flex gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -132,6 +183,41 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Cari"}
               </Button>
             </form>
+
+            {/* Filter Row */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Filter className="w-3.5 h-3.5" />
+                <span>Filter:</span>
+              </div>
+              
+              <Select value={merkFilter} onChange={(e) => setMerkFilter(e.target.value)} className="w-[160px] h-9 text-sm rounded-lg">
+                <option value="all">Semua Merk</option>
+                {merks.map((m) => (
+                  <option key={m.id} value={m.id.toString()}>{m.nama}</option>
+                ))}
+                <option value="none">Tanpa Merk</option>
+              </Select>
+
+              <Select value={lokasiFilter} onChange={(e) => setLokasiFilter(e.target.value)} className="w-[160px] h-9 text-sm rounded-lg">
+                <option value="all">Semua Lokasi</option>
+                {lokasiAreas.map((l) => (
+                  <option key={l.id} value={l.id.toString()}>{l.nama}</option>
+                ))}
+                <option value="none">Tanpa Lokasi</option>
+              </Select>
+
+              {hasFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground gap-1">
+                  <X className="w-3 h-3" />
+                  Reset
+                </Button>
+              )}
+
+              <span className="text-xs text-muted-foreground ml-auto">
+                {filteredProducts.length} produk dengan harga retail
+              </span>
+            </div>
           </div>
         </div>
 
@@ -152,7 +238,7 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
                 <th className="px-3 sm:px-6 py-4 w-16">
                   <button 
                     onClick={toggleSelectAll}
-                    disabled={products.length === 0}
+                    disabled={filteredProducts.length === 0}
                     className="flex items-center justify-center w-full h-full text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                   >
                     {allSelected ? (
@@ -168,7 +254,7 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {products.length === 0 && !loading && (
+              {filteredProducts.length === 0 && !loading && (
                 <tr>
                   <td colSpan={4} className="px-4 py-16">
                     <div className="flex flex-col items-center justify-center text-center">
@@ -176,12 +262,16 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
                         <Search className="w-8 h-8 text-muted-foreground/50" />
                       </div>
                       <p className="text-base font-medium text-foreground">Tidak ada produk ditemukan</p>
-                      <p className="text-sm text-muted-foreground mt-1">Coba gunakan kata kunci lain untuk pencarian.</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {products.length > 0 && !hasFilters
+                          ? "Tidak ada produk dengan harga retail > 0."
+                          : "Coba ubah filter atau kata kunci pencarian."}
+                      </p>
                     </div>
                   </td>
                 </tr>
               )}
-              {products.map((product) => {
+              {filteredProducts.map((product) => {
                 const isSelected = selectedIds.has(product.id);
                 return (
                   <tr 

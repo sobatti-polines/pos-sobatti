@@ -96,10 +96,10 @@ export default function LabelGeneratorPage() {
     nama_produk: 'AMPLAS BULAT 120 SAB',
     sku: 'AMP BLT 120',
     barcode: 'MHIO01',
-    harga_modal: 3200000
+    harga_jual_satuan: 3200000
   };
 
-  const priceValue = previewItem.harga_modal || 0;
+  const priceValue = previewItem.harga_jual_satuan || 0;
 
   return (
     <>
@@ -147,7 +147,7 @@ export default function LabelGeneratorPage() {
                   productName={captureItem.nama_produk}
                   sku={captureItem.sku}
                   barcodeValue={captureItem.barcode}
-                  price={captureItem.harga_modal || 0}
+                  price={captureItem.harga_jual_satuan || 0}
                   titleFontSize={titleFontSize}
                   skuFontSize={skuFontSize}
                   rpFontSize={rpFontSize}
@@ -225,7 +225,7 @@ export default function LabelGeneratorPage() {
                           <h3 className="font-semibold text-sm truncate">{item.nama_produk}</h3>
                           <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1 min-w-0">
                             <span className="font-mono bg-muted px-1.5 py-0.5 rounded truncate min-w-0">{item.sku || '-'}</span>
-                            <span className="shrink-0">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(item.harga_modal)}</span>
+                            <span className="shrink-0">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(item.harga_jual_satuan)}</span>
                           </div>
                         </div>
                         <Button variant="ghost" size="icon-xs" onClick={() => handleRemove(item.id)} className="text-destructive hover:bg-destructive/10 shrink-0 h-8 w-8" disabled={isGenerating}>
@@ -338,7 +338,7 @@ export default function LabelGeneratorPage() {
                   productName={item.nama_produk}
                   sku={item.sku}
                   barcodeValue={item.barcode}
-                  price={item.harga_modal || 0}
+                  price={item.harga_jual_satuan || 0}
                   titleFontSize={titleFontSize}
                   skuFontSize={skuFontSize}
                   rpFontSize={rpFontSize}
