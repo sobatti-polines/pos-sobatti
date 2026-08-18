@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
@@ -733,9 +734,10 @@ export async function generateAllSkuBarcode() {
   const ok = await requireAuth();
   if (!ok) return { error: "Unauthorized" };
 
-  const supabase = await createClient();
+  // Pakai admin client (service_role) untuk bypass RLS — operasi bulk update
+  const supabase = supabaseAdmin;
 
-  // 1. Fetch semua produk
+  // 1. Fetch semua produk (tanpa RLS limit)
   const { data: products, error: prodErr } = await supabase
     .from("produk")
     .select("id, nama_produk, sku, barcode, id_merk")
@@ -841,33 +843,25 @@ export async function generateAllSkuBarcode() {
     };
   }
 
-  // 5. Batch update ke database (paralel per chunk untuk mencegah timeout)
+  // 5. Batch update ke database — update satu per satu via admin client (bypass RLS)
   let updated = 0;
   let errors = 0;
-  const CHUNK_SIZE = 50;
 
-  for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
-    const chunk = updates.slice(i, i + CHUNK_SIZE);
-    
-    await Promise.all(
-      chunk.map(async (u) => {
-        const payload: Record<string, unknown> = { barcode: u.barcode };
-        // Hanya update SKU jika baru di-generate
-        if (u.sku) payload.sku = u.sku;
+  for (const u of updates) {
+    const payload: Record<string, unknown> = { barcode: u.barcode };
+    if (u.sku) payload.sku = u.sku;
 
-        const { error } = await supabase
-          .from("produk")
-          .update(payload)
-          .eq("id", u.id);
+    const { error } = await supabase
+      .from("produk")
+      .update(payload)
+      .eq("id", u.id);
 
-        if (error) {
-          console.error(`Gagal update produk id=${u.id}:`, error.message);
-          errors++;
-        } else {
-          updated++;
-        }
-      })
-    );
+    if (error) {
+      console.error(`Gagal update produk id=${u.id}:`, error.message);
+      errors++;
+    } else {
+      updated++;
+    }
   }
 
   await logActivity(supabase, {
