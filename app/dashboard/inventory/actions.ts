@@ -785,8 +785,14 @@ export async function generateAllSkuBarcode() {
 
     let sku: string;
 
-    // Anggap "-", kosong, spasi, atau "null" sebagai null
-    const isFalsy = (s: string | null) => !s || s.trim() === "" || s.trim() === "-" || s.toLowerCase() === "null";
+    // Anggap "-", kosong, spasi, "null", "n/a", atau sekumpulan strip/dash sebagai null
+    const isFalsy = (s: string | null) => {
+      if (!s) return true;
+      const t = s.trim().toLowerCase();
+      if (t === "" || t === "null" || t === "undefined" || t === "n/a" || t === "#n/a") return true;
+      if (/^[-–—_]+$/.test(t)) return true; // tangkap "-", "--", "—" dll
+      return false;
+    };
     const existingSku = isFalsy(p.sku) ? null : p.sku;
     const existingBarcode = isFalsy(p.barcode) ? null : p.barcode;
 
@@ -826,6 +832,8 @@ export async function generateAllSkuBarcode() {
   }
 
   if (updates.length === 0) {
+    // Revalidate cache di Vercel agar data tidak tersangkut cache lama (stale)
+    revalidatePath("/dashboard/inventory");
     return {
       success: true,
       count: 0,
@@ -869,7 +877,9 @@ export async function generateAllSkuBarcode() {
     data_baru: { updated, errors },
   });
 
+  // SELALU revalidate cache agar UI Vercel yang tersangkut (stale) otomatis mengambil data terbaru dari database
   revalidatePath("/dashboard/inventory");
+
   return {
     success: true,
     count: updated,
