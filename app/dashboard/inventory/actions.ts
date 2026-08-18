@@ -791,45 +791,70 @@ export async function generateAllSkuBarcode() {
     } else {
       // Generate SKU baru dengan counter unik
       const currentCount = baseCounter.get(base) || 0;
-      const nextCount = currentCount + 1;
+      let nextCount = currentCount + 1;
       baseCounter.set(base, nextCount);
 
       sku = `${base}${String(nextCount).padStart(2, "0")}`;
 
       // Jika masih bentrok (sangat jarang), cari counter berikutnya
       while (generatedSkus.has(sku.toUpperCase())) {
-        const nextNum = baseCounter.get(base)! + 1;
-        baseCounter.set(base, nextNum);
-        sku = `${base}${String(nextNum).padStart(2, "0")}`;
+        nextCount++;
+        baseCounter.set(base, nextCount);
+        sku = `${base}${String(nextCount).padStart(2, "0")}`;
       }
     }
 
     generatedSkus.add(sku.toUpperCase());
 
     // Barcode SELALU = SKU (ditimpa)
-    updates.push({ id: p.id, sku: p.sku ? null : sku, barcode: sku });
+    // Hanya masukkan ke daftar update jika ada perubahan!
+    const needsSkuUpdate = !p.sku;
+    const needsBarcodeUpdate = p.barcode !== sku;
+
+    if (needsSkuUpdate || needsBarcodeUpdate) {
+      updates.push({ 
+        id: p.id, 
+        sku: needsSkuUpdate ? sku : null, 
+        barcode: sku 
+      });
+    }
   }
 
-  // 5. Batch update ke database
+  if (updates.length === 0) {
+    return {
+      success: true,
+      count: 0,
+      message: "Semua produk sudah memiliki SKU & Barcode yang sesuai.",
+    };
+  }
+
+  // 5. Batch update ke database (paralel per chunk untuk mencegah timeout)
   let updated = 0;
   let errors = 0;
+  const CHUNK_SIZE = 50;
 
-  for (const u of updates) {
-    const payload: Record<string, unknown> = { barcode: u.barcode };
-    // Hanya update SKU jika baru di-generate
-    if (u.sku) payload.sku = u.sku;
+  for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
+    const chunk = updates.slice(i, i + CHUNK_SIZE);
+    
+    await Promise.all(
+      chunk.map(async (u) => {
+        const payload: Record<string, unknown> = { barcode: u.barcode };
+        // Hanya update SKU jika baru di-generate
+        if (u.sku) payload.sku = u.sku;
 
-    const { error } = await supabase
-      .from("produk")
-      .update(payload)
-      .eq("id", u.id);
+        const { error } = await supabase
+          .from("produk")
+          .update(payload)
+          .eq("id", u.id);
 
-    if (error) {
-      console.error(`Gagal update produk id=${u.id}:`, error.message);
-      errors++;
-    } else {
-      updated++;
-    }
+        if (error) {
+          console.error(`Gagal update produk id=${u.id}:`, error.message);
+          errors++;
+        } else {
+          updated++;
+        }
+      })
+    );
   }
 
   await logActivity(supabase, {
