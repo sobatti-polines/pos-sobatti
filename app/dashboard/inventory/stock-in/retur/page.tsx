@@ -1,39 +1,43 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import ReturClient from "./retur-client";
 
 export default async function ReturPage() {
   const supabase = await createClient();
 
-  const [bmRes, supplierRes] = await Promise.all([
-    supabase
-      .from("barang_masuk")
-      .select(`
-        id,
-        tgl_masuk,
-        no_surat,
-        supplied_unit,
-        supplied_qty,
-        applied_conversion_ratio,
-        base_qty_added,
-        supplier(id, nama_supplier),
-        produk(
+  const [bmData, supplierRes] = await Promise.all([
+    fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("barang_masuk")
+        .select(`
           id,
-          nama_produk,
-          sku,
-          conversion_ratio,
-          default_purchase_unit,
-          stok_gudang,
-          satuan(nama)
-        )
-      `)
-      .eq("status", "AKTIF")
-      .order("tgl_masuk", { ascending: false })
-      .order("created_at", { ascending: false }),
+          tgl_masuk,
+          no_surat,
+          supplied_unit,
+          supplied_qty,
+          applied_conversion_ratio,
+          base_qty_added,
+          supplier(id, nama_supplier),
+          produk(
+            id,
+            nama_produk,
+            sku,
+            conversion_ratio,
+            default_purchase_unit,
+            stok_gudang,
+            satuan(nama)
+          )
+        `)
+        .eq("status", "AKTIF")
+        .order("tgl_masuk", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(from, to)
+    ),
     supabase.from("supplier").select("id, nama_supplier").order("nama_supplier"),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const records = (bmRes.data ?? []).map((r: any) => {
+  const records = (bmData ?? []).map((r: any) => {
     const produk = Array.isArray(r.produk) ? r.produk[0] ?? null : r.produk ?? null;
     return {
       id: r.id,

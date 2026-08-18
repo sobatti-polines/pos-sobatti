@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import {
   getKasAdmin,
   getKasBankNonTunai,
@@ -81,7 +82,9 @@ export async function getLaporanKas(input?: {
   if (startDate !== "1970-01-01") {
     kasirQuery = kasirQuery.gte("tanggal", startDate);
   }
-  const { data: kasirRows } = await kasirQuery.limit(1000);
+  const kasirRows = await fetchAllRows(supabase, (db, from, to) =>
+    kasirQuery.range(from, to)
+  );
 
   const getNama = (rel: unknown): string | null => {
     if (Array.isArray(rel)) {
@@ -111,26 +114,32 @@ export async function getLaporanKas(input?: {
   });
 
   // ── 2. Kas Admin — mutasi + saldo berjalan ──
-  const [{ data: topups }, { data: returs }, { data: pengeluaran }] = await Promise.all([
-    supabase
-      .from("kas_admin_topup")
-      .select("id, tanggal, jumlah, keterangan, pengguna(nama, username)")
-      .order("tanggal", { ascending: true })
-      .limit(2000),
-    supabase
-      .from("retur_pembelian")
-      .select("id, no_retur, tgl_retur, total_nilai")
-      .order("tgl_retur", { ascending: true })
-      .limit(2000),
-    supabase
-      .from("pengeluaran")
-      .select(
-        "id, tanggal, nama_pengeluaran, jumlah, keterangan, kategori_beban(nama), pengguna!pengeluaran_id_pengguna_fkey(nama, username)"
-      )
-      .eq("status", "AKTIF")
-      .eq("metode_bayar", "Tunai")
-      .order("tanggal", { ascending: true })
-      .limit(2000),
+  const [topups, returs, pengeluaran] = await Promise.all([
+    fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("kas_admin_topup")
+        .select("id, tanggal, jumlah, keterangan, pengguna(nama, username)")
+        .order("tanggal", { ascending: true })
+        .range(from, to)
+    ),
+    fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("retur_pembelian")
+        .select("id, no_retur, tgl_retur, total_nilai")
+        .order("tgl_retur", { ascending: true })
+        .range(from, to)
+    ),
+    fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("pengeluaran")
+        .select(
+          "id, tanggal, nama_pengeluaran, jumlah, keterangan, kategori_beban(nama), pengguna!pengeluaran_id_pengguna_fkey(nama, username)"
+        )
+        .eq("status", "AKTIF")
+        .eq("metode_bayar", "Tunai")
+        .order("tanggal", { ascending: true })
+        .range(from, to)
+    ),
   ]);
 
   const rawMutasi: Array<{

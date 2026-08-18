@@ -162,7 +162,7 @@ export async function importReferenceData(
   const payload: any[] = [];
 
   for (const r of rows) {
-    const nama = (r["Nama"] || r["nama"] || r["Nama Kategori"] || r["Nama Satuan"] || r["Nama Merk"] || r["Nama Metode Bayar"] || "").trim();
+    const nama = (r["Nama"] || r["nama"] || r["Nama Kategori"] || r["Nama Satuan"] || r["Nama Merk"] || r["Nama Metode Bayar"] || r["Nama Kategori Produk"] || r["Nama Satuan Barang"] || r["Nama Lokasi Area"] || r["Nama Metode Pembayaran"] || "").trim();
     if (!nama) continue;
 
     if (tableName === "merk") {

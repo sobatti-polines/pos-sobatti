@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 async function checkAuth(req: NextRequest) {
   const supabase = await createClient();
@@ -68,27 +69,29 @@ export async function GET(req: NextRequest) {
     const startISO = `${p.start_date}T00:00:00+07:00`;
     const endISO = `${p.end_date}T23:59:59+07:00`;
 
-    const { data: rows, error } = await supabase
-      .from("transaksi_keluar")
-      .select(`
-        id, tgl_transaksi, total, total_hpp, laba_kotor, diskon_nominal, pajak_nominal,
-        id_kasir, kasir:pengguna!id_kasir(nama),
-        id_pelanggan, pelanggan(id, nama_pelanggan),
-        id_metode_bayar, metode_bayar(nama)
-      `)
-      .gte("tgl_transaksi", startISO)
-      .lte("tgl_transaksi", endISO);
-
-    if (error) throw error;
+    const rows = await fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("transaksi_keluar")
+        .select(`
+          id, tgl_transaksi, total, total_hpp, laba_kotor, diskon_nominal, pajak_nominal,
+          id_kasir, kasir:pengguna!id_kasir(nama),
+          id_pelanggan, pelanggan(id, nama_pelanggan),
+          id_metode_bayar, metode_bayar(nama)
+        `)
+        .gte("tgl_transaksi", startISO)
+        .lte("tgl_transaksi", endISO)
+        .range(from, to)
+    );
 
     // Ambil total qty item per transaksi (untuk total_item_terjual)
-    const { data: itemRows, error: itemError } = await supabase
-      .from("detail_transaksi_keluar")
-      .select("id_transaksi, qty, transaksi_keluar!inner(tgl_transaksi)")
-      .gte("transaksi_keluar.tgl_transaksi", startISO)
-      .lte("transaksi_keluar.tgl_transaksi", endISO);
-
-    if (itemError) throw itemError;
+    const itemRows = await fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("detail_transaksi_keluar")
+        .select("id_transaksi, qty, transaksi_keluar!inner(tgl_transaksi)")
+        .gte("transaksi_keluar.tgl_transaksi", startISO)
+        .lte("transaksi_keluar.tgl_transaksi", endISO)
+        .range(from, to)
+    );
 
     const qtyPerTx: Record<number, number> = {};
     for (const item of itemRows ?? []) {

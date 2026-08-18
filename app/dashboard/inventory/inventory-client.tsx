@@ -469,22 +469,7 @@ export default function InventoryClient({
     setErrorMsg("");
   };
 
-  const getStockBadge = (hitung_stok: boolean, stock: number | null, stok_minimum = 5, isPaket = false, stok_gudang = 0) => {
-    const display = stock ?? 0;
-    const gudang = stok_gudang ?? 0;
-    if (isPaket) {
-      if (display <= 0 && gudang <= 0) return <Badge variant="secondary" className="bg-destructive/10 text-destructive font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Paket Habis</Badge>;
-      if (display <= 0 && gudang > 0) return <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: 0 (Gudang: {gudang}) Paket</Badge>;
-      if (display <= stok_minimum) return <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: {display} Paket Sisa</Badge>;
-      return <Badge variant="secondary" className="bg-primary/10 text-primary font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: {display} Paket</Badge>;
-    }
-    if (!hitung_stok) return <Badge variant="outline" className="text-muted-foreground border-border/50 font-normal rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Tidak dilacak</Badge>;
-    if (stock === null) return null;
-    if (display <= 0 && gudang <= 0) return <Badge variant="secondary" className="bg-destructive/10 text-destructive font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Stok Habis</Badge>;
-    if (display <= 0 && gudang > 0) return <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: 0 (Gudang: {gudang})</Badge>;
-    if (display <= stok_minimum) return <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: {display} Sisa</Badge>;
-    return <Badge variant="secondary" className="bg-primary/10 text-primary font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Display: {display}</Badge>;
-  };
+
 
   const bigPriceOf = (p: Product): number | null => {
     if (!p.jual_satuan || !(Number(p.conversion_ratio) > 0)) return null;
@@ -493,14 +478,66 @@ export default function InventoryClient({
   };
 
   const handleExportCSV = () => {
-    const headers = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo", "Harga Besar"];
+    // Header SAMA dengan template import produk (ImportCSVModal) agar file export
+    // bisa langsung dipakai untuk import ulang (round-trip). Kolom yang dihitung
+    // sistem (HPP/Total Aset/Harga Besar) diletakkan di akhir & diabaikan saat import.
+    const headers = [
+      "Nama Produk",
+      "SKU / Kode Produk",
+      "Barcode",
+      "Kategori",
+      "Satuan Dasar",
+      "Merk / Brand",
+      "Lokasi / Rak",
+      "Hitung Stok (ya/tidak)",
+      "Harga Modal / Beli",
+      "Harga Jual Eceran",
+      "Harga Jual Grosir",
+      "Harga Jual Promo",
+      "Diskon per Item (Rp)",
+      "Stok di Rak / Display",
+      "Stok di Gudang",
+      "Stok Minimum",
+      "Stok Minimum Gudang",
+      "Satuan Beli dari Supplier",
+      "Isi per Satuan Beli",
+      "Satuan Jual Besar",
+      "Produk Master (ID)",
+      "Qty Isi per Paket",
+      "Jenis Isi Paket",
+      "Satuan Isi Paket",
+      "HPP (AVCO)",
+      "Total Aset",
+      "Harga Besar",
+    ];
     const data = filteredData.map(p => [
-      p.sku || "-", p.barcode || "-", p.nama_produk, p.kategori?.nama || "-",
-      p.lokasi_area?.nama || "-",
-      p.hitung_stok ? (p.stock || 0) : "Tidak dilacak", p.hitung_stok ? p.stok_gudang : "-",
-      p.harga_modal, p.harga_pokok_avco, p.nilai_persediaan,
-      p.harga_jual_satuan, p.harga_jual_grosir, p.harga_jual_promo || "-",
-      bigPriceOf(p) ?? "-"
+      p.nama_produk,
+      p.sku || "",
+      p.barcode || "",
+      p.kategori?.nama || "",
+      p.satuan?.nama || "",
+      merks.find((m) => m.id === p.id_merk)?.nama || "",
+      p.lokasi_area?.nama || "",
+      p.hitung_stok ? "ya" : "tidak",
+      p.harga_modal ?? 0,
+      p.harga_jual_satuan ?? 0,
+      p.harga_jual_grosir ?? 0,
+      p.harga_jual_promo ?? "",
+      p.diskon ?? 0,
+      p.stock ?? 0,
+      p.stok_gudang ?? 0,
+      p.stok_minimum ?? 5,
+      p.stok_minimum_gudang ?? "",
+      p.default_purchase_unit ?? "",
+      p.conversion_ratio ?? 1,
+      p.jual_satuan ?? "",
+      p.id_produk_master ?? "",
+      p.qty_per_unit ?? "",
+      p.jenis_isi_paket ?? "",
+      p.isi_satuan ?? "",
+      p.harga_pokok_avco ?? 0,
+      p.nilai_persediaan ?? 0,
+      bigPriceOf(p) ?? "",
     ]);
     exportToCSV("Data_Inventaris", headers, data);
   };
@@ -537,31 +574,71 @@ export default function InventoryClient({
       </div>
     ) },
     { key: "kategori", header: "Kategori", sortable: true, sortKey: "kategori.nama", headerClassName: "w-[160px]", render: (p) => hl(p.kategori?.nama || "-") },
+    { key: "satuan", header: "Satuan", sortable: true, sortKey: "satuan.nama", headerClassName: "w-[110px]", render: (p) => hl(p.satuan?.nama || "-") },
+    {
+      key: "default_purchase_unit", header: "Satuan Beli", sortable: true, headerClassName: "w-[130px]",
+      render: (p) => {
+        if (!p.default_purchase_unit) return <span className="text-muted-foreground">-</span>;
+        const ratio = Number(p.conversion_ratio) || 1;
+        return (
+          <div className="flex flex-col">
+            <span>{hl(p.default_purchase_unit)}</span>
+            <span className="text-[11px] text-muted-foreground">1 = {ratio} {p.satuan?.nama || ""}</span>
+          </div>
+        );
+      },
+    },
+    { key: "conversion_ratio", header: "Rasio", sortable: true, headerClassName: "w-[90px]", render: (p) => <span className="tabular-nums">{Number(p.conversion_ratio) || "-"}</span> },
     { key: "merk", header: "Merk", sortable: true, sortKey: "id_merk", headerClassName: "w-[120px]", render: (p) => { const m = merks.find((mk) => mk.id === p.id_merk); return hl(m?.nama || "-"); } },
     { key: "lokasi_area", header: "Lokasi", sortable: true, sortKey: "lokasi_area.nama", className: "text-muted-foreground", headerClassName: "w-[130px]", render: (p) => hl(p.lokasi_area?.nama || "-") },
     {
-      key: "stock", header: "Status Stok", sortable: true, headerClassName: "w-[140px]",
+      key: "stock", header: "Status Stok", sortable: true, headerClassName: "w-[180px]",
       render: (p) => {
         const isPaket = Boolean(p.id_produk_master);
-        const gudangLow = p.hitung_stok && p.stok_minimum_gudang != null && p.stok_gudang <= p.stok_minimum_gudang;
+        if (!p.hitung_stok && !isPaket) {
+            return <Badge variant="outline" className="text-muted-foreground border-border/50 font-normal rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Tidak dilacak</Badge>;
+        }
+
+        const display = p.stock ?? 0;
+        const gudang = p.stok_gudang ?? 0;
+        const minDisplay = p.stok_minimum ?? 0;
+        const minGudang = p.stok_minimum_gudang;
+
+        const displayLow = display <= minDisplay && display > 0;
+        const displayOut = display <= 0;
+        
+        const gudangLow = minGudang != null && gudang <= minGudang && gudang > 0;
+        const gudangOut = gudang <= 0;
+
         return (
-          <div>
-            <div className="flex flex-wrap items-center gap-1">
-              {getStockBadge(p.hitung_stok, p.stock, p.stok_minimum, isPaket, p.stok_gudang)}
-              {gudangLow && (
-                <Badge variant="secondary" className="bg-warning/10 text-warning font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">
-                  Gudang: {p.stok_gudang} Sisa
-                </Badge>
-              )}
+          <div className="flex flex-col gap-1.5 w-full min-w-[150px]">
+            <div className={`flex items-center justify-between gap-3 text-[12px] px-2 py-1 rounded-md border ${displayOut ? 'bg-destructive/10 border-destructive/20' : displayLow ? 'bg-warning/10 border-warning/20' : 'bg-muted/30 border-border/50'}`}>
+               <div className="flex items-center gap-1.5">
+                 <span className="text-muted-foreground font-medium">Display</span>
+                 <span className={`font-semibold ${displayOut ? 'text-destructive' : displayLow ? 'text-warning' : 'text-primary'}`}>
+                   {display}
+                 </span>
+               </div>
+               <span className="text-[10px] text-muted-foreground/80 font-medium">Min: {minDisplay}</span>
             </div>
-            {isPaket ? (
-              <div className="text-[11px] text-muted-foreground mt-0.5">
-                {p.qty_per_unit ?? 1}{p.isi_satuan ? ` ${p.isi_satuan}` : ""} = 1 {p.satuan?.nama ?? "paket"} · Dari: {p.master?.nama_produk || "-"}
-                {(p.stok_gudang ?? 0) > 0 ? ` · Gudang: ${p.stok_gudang}` : ""}
-              </div>
-            ) : p.hitung_stok && (
-              <div className="text-[11px] text-muted-foreground mt-0.5">
-                Gudang: {p.stok_gudang}{p.stok_minimum_gudang != null ? ` · Min Gudang: ${p.stok_minimum_gudang}` : ""} · Min Display: {p.stok_minimum}
+
+            <div className={`flex items-center justify-between gap-3 text-[12px] px-2 py-1 rounded-md border ${gudangOut && minGudang != null ? 'bg-destructive/10 border-destructive/20' : gudangLow ? 'bg-warning/10 border-warning/20' : 'bg-muted/30 border-border/50'}`}>
+               <div className="flex items-center gap-1.5">
+                 <span className="text-muted-foreground font-medium">Gudang</span>
+                 <span className={`font-semibold ${gudangOut && minGudang != null ? 'text-destructive' : gudangLow ? 'text-warning' : 'text-foreground'}`}>
+                   {gudang}
+                 </span>
+               </div>
+               <span className="text-[10px] text-muted-foreground/80 font-medium">
+                 Min: {minGudang != null ? minGudang : '-'}
+               </span>
+            </div>
+
+            {isPaket && (
+              <div className="text-[10px] text-muted-foreground leading-tight px-1 mt-0.5">
+                <span className="font-medium text-foreground/70">Paket:</span> {p.qty_per_unit ?? 1}{p.isi_satuan ? ` ${p.isi_satuan}` : ""} = 1 {p.satuan?.nama ?? "paket"}
+                <br/>
+                Dari: {p.master?.nama_produk || "-"}
               </div>
             )}
           </div>
@@ -727,6 +804,9 @@ export default function InventoryClient({
         errorBanner={errorMsg && editingId === 'new' ? errorMsg : null}
         selectedKeys={selectedIds}
         onSelectionChange={setSelectedIds}
+        // Checkbox "Pilih semua" memilih SEMUA produk terfilter (lintas halaman),
+        // bukan hanya 25/50/100 baris di halaman aktif.
+        allRowKeys={filteredData.map((p) => p.id)}
         deleteModal={deleteModal}
         emptyState={{
           icon: PackageOpen,

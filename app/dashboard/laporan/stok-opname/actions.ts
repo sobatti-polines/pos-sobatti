@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -84,10 +85,14 @@ export async function fetchLaporanStokOpname(filters: {
     query = query.eq("status", "SELESAI");
   }
 
-  const { data: rawSesi, error } = await query;
-
-  if (error) {
+  const rawSesi = await fetchAllRows(supabase, (db, from, to) =>
+    query.range(from, to)
+  ).catch((error) => {
     console.error("Fetch laporan stok opname error:", error);
+    return null;
+  });
+
+  if (rawSesi == null) {
     return {
       sesiList: [],
       summary: { totalSesi: 0, totalItem: 0, totalSelisih: 0, totalDefisit: 0, totalSurplus: 0, shrinkageRate: 0 },

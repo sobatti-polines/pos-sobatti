@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
 /* ------------------------------------------------------------------ */
@@ -373,10 +374,15 @@ export async function getPengeluaranList(
     query = query.eq("status", parsed.data.status);
   }
 
-  const { data, error } = await query;
-
-  if (error) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: any[] | null = await fetchAllRows(supabase, (db, from, to) =>
+    query.range(from, to)
+  ).catch((error) => {
     console.error("Get pengeluaran list error:", error);
+    return null;
+  });
+
+  if (data == null) {
     return { error: "Gagal memuat data pengeluaran" };
   }
 

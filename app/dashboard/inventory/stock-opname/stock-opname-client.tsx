@@ -20,6 +20,7 @@ import {
   Send,
   X,
   AlertTriangle,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +32,7 @@ import {
 } from "./actions";
 import { z } from "zod";
 import ImportCSVModal from "@/components/import-csv-modal";
+import { exportToCSV } from "@/lib/export-utils";
 
 /* ------------------------------------------------------------------ */
 /*  Zod schemas                                                        */
@@ -493,6 +495,20 @@ function Step2({
     }
   };
 
+  const handleExportCSV = () => {
+    // Header SAMA dengan template import stok opname agar bisa round-trip
+    // (export draft → isi/edit → import ulang).
+    const headers = ["SKU / Barcode", "Stok Fisik", "Keterangan"];
+    const data = items
+      .filter((i) => i.id_produk > 0)
+      .map((item) => {
+        const p = products.find((pp) => pp.id === item.id_produk);
+        const code = p?.sku || p?.barcode || (p ? `#${p.id}` : "");
+        return [code, item.stok_fisik, item.keterangan || ""];
+      });
+    exportToCSV(`Stok_Opname_${sesi.no_sesi}`, headers, data);
+  };
+
   const handleImportCSV = async (rows: Record<string, string>[]) => {
     let added = 0;
     for (const r of rows) {
@@ -579,6 +595,16 @@ function Step2({
               <RefreshCw className="w-3.5 h-3.5" />
             )}
             Muat Ulang Stok
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            className="rounded-full gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
           </Button>
           <Button
             type="button"

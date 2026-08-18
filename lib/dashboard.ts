@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { generateLabaRugi } from "@/lib/laporan-keuangan";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { startOfMonth, format } from "date-fns";
 
 export interface DashboardData {
@@ -95,10 +96,13 @@ export async function getDashboardData(): Promise<DashboardData> {
       `)
       .order("tgl_transaksi", { ascending: false })
       .limit(5),
-    supabase
-      .from("produk")
-      .select("id, nama_produk, hitung_stok, stok, stok_gudang, stok_minimum, stok_minimum_gudang")
-      .eq("hitung_stok", true),
+    fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("produk")
+        .select("id, nama_produk, hitung_stok, stok, stok_gudang, stok_minimum, stok_minimum_gudang")
+        .eq("hitung_stok", true)
+        .range(from, to)
+    ),
     supabase
       .from("transaksi_keluar")
       .select("tgl_transaksi, total")
@@ -130,7 +134,14 @@ export async function getDashboardData(): Promise<DashboardData> {
         : 0;
 
   const lowStockItems: LowStockItem[] = [];
-  for (const p of allProductsRes.data ?? []) {
+  for (const p of (allProductsRes ?? []) as Array<{
+    id: number;
+    nama_produk: string;
+    stok: number | null;
+    stok_gudang: number | null;
+    stok_minimum: number | null;
+    stok_minimum_gudang: number | null;
+  }>) {
     const stok = p.stok ?? 0;
     const stokGudang = p.stok_gudang ?? 0;
     // Display: stok 0 = "Habis" (badge terpisah), bukan menipis — konsisten dengan perilaku lama.

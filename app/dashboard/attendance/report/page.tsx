@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { ReportClient } from "./report-client";
 
 export default async function AdminAttendanceReportPage() {
@@ -16,21 +17,23 @@ export default async function AdminAttendanceReportPage() {
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
   
-  const { data: report, error } = await supabase
-    .from("absensi")
-    .select(`
-      *,
-      pengguna (
-        username,
-        level
-      )
-    `)
-    .gte("tanggal", firstDay)
-    .order("tanggal", { ascending: false });
-
-  if (error) {
+  const report = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("absensi")
+      .select(`
+        *,
+        pengguna (
+          username,
+          level
+        )
+      `)
+      .gte("tanggal", firstDay)
+      .order("tanggal", { ascending: false })
+      .range(from, to)
+  ).catch((error) => {
     console.error("Error fetching report:", error);
-  }
+    return [];
+  });
 
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">

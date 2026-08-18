@@ -1,41 +1,45 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import StockInHistoryClient from "./history-client";
 
 export default async function StockInHistoryPage() {
   const supabase = await createClient();
 
-  const [historyRes, suppliersRes] = await Promise.all([
-    supabase
-      .from("barang_masuk")
-      .select(`
-        id,
-        tgl_masuk,
-        harga_beli,
-        jumlah,
-        total,
-        keterangan,
-        no_surat,
-        status,
-        voided_at,
-        voided_by,
-        alasan_void,
-        created_at,
-        supplied_unit,
-        supplied_qty,
-        applied_conversion_ratio,
-        base_qty_added,
-        total_cost,
-        base_cost_per_piece,
-        produk(nama_produk),
-        supplier(id, nama_supplier)
-      `)
-      .order("tgl_masuk", { ascending: false })
-      .order("created_at", { ascending: false }),
+  const [history, suppliersRes] = await Promise.all([
+    fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("barang_masuk")
+        .select(`
+          id,
+          tgl_masuk,
+          harga_beli,
+          jumlah,
+          total,
+          keterangan,
+          no_surat,
+          status,
+          voided_at,
+          voided_by,
+          alasan_void,
+          created_at,
+          supplied_unit,
+          supplied_qty,
+          applied_conversion_ratio,
+          base_qty_added,
+          total_cost,
+          base_cost_per_piece,
+          produk(nama_produk),
+          supplier(id, nama_supplier)
+        `)
+        .order("tgl_masuk", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(from, to)
+    ),
     supabase.from("supplier").select("id, nama_supplier").order("nama_supplier")
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const history = (historyRes.data ?? []) as any[];
+  const historyData = (history ?? []) as any[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const suppliers = (suppliersRes.data ?? []) as any[];
 
@@ -50,7 +54,7 @@ export default async function StockInHistoryPage() {
         </p>
       </header>
 
-      <StockInHistoryClient initialHistory={history} suppliers={suppliers} />
+      <StockInHistoryClient initialHistory={historyData} suppliers={suppliers} />
     </div>
   );
 }

@@ -4,15 +4,14 @@ import { useLinkStatus } from "next/link";
 import { Loader2 } from "lucide-react";
 
 /**
- * Indikator pending per-link (useLinkStatus).
+ * Indikator pending navigasi (useLinkStatus).
  *
- * Ditempatkan sebagai anak dari `<Link>` dari next/link. Muncul saat navigasi
- * link tersebut masih berlangsung (prefetch belum selesai / belum commit),
- * sehingga user langsung tahu bahwa klik sudah terdaftar.
+ * Saat navigasi link masih berlangsung, tampilkan OVERLAY layar penuh:
+ * spinner di tengah layar dengan latar belakang hitam transparan tipis —
+ * bukan indikator kecil di dalam sidebar/link.
  *
- * Catatan: di production, link yang sudah selesai di-prefetch akan melewati
- * fase pending (navigasi instan) — indikator ini menjadi fallback yang
- * informatif justru saat navigasi benar-benar terhambat.
+ * Dipasang sebagai anak dari `<Link>` (next/link); hanya link yang sedang
+ * pending yang akan merender overlay (hanya satu pada satu waktu).
  */
 export function NavLinkPending() {
   const { pending } = useLinkStatus();
@@ -20,9 +19,13 @@ export function NavLinkPending() {
   if (!pending) return null;
 
   return (
-    <Loader2
-      className="w-3.5 h-3.5 text-primary animate-spin shrink-0 ml-auto"
-      aria-hidden
-    />
+    <div
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-3 bg-black/40 animate-in fade-in duration-200"
+      role="status"
+      aria-label="Memuat halaman"
+    >
+      <Loader2 className="w-10 h-10 text-white animate-spin" />
+      <span className="text-sm font-medium text-white/90">Memuat...</span>
+    </div>
   );
 }

@@ -135,6 +135,12 @@ export interface DataTableProps<T, K extends string | number = string | number> 
 
   selectedKeys?: Set<K>
   onSelectionChange?: (keys: Set<K>) => void
+  /**
+   * Id semua baris pada data TERFILTER (lintas halaman). Bila diberikan,
+   * checkbox "Pilih semua" akan memilih SELURUH data terfilter, bukan hanya
+   * baris di halaman aktif.
+   */
+  allRowKeys?: K[]
 
   mobileCards?: boolean
   mobileBreakpoint?: "md" | "lg" | "xl"
@@ -187,6 +193,7 @@ export default function DataTable<T, K extends string | number = string | number
   deleteModal,
   selectedKeys,
   onSelectionChange,
+  allRowKeys,
   mobileCards = false,
   mobileBreakpoint = "md",
   showRowNumber = true,
@@ -194,9 +201,15 @@ export default function DataTable<T, K extends string | number = string | number
   className,
 }: DataTableProps<T, K>) {
   const bp = mobileBreakpoint
-  const perPage = itemsPerPage || 25
+  // Nilai asli pengaturan "Baris per halaman" (0 = "Semua") — dipakai untuk <select>
+  const perPageSetting = itemsPerPage ?? 25
+  const showAll = perPageSetting <= 0
+  // Nilai yang dipakai untuk perhitungan tampilan (1..total saat mode "Semua")
+  const perPage = showAll ? Math.max(total, 1) : perPageSetting
   const page = currentPage || 1
-  const totalPages = Math.max(1, Math.ceil(total / perPage))
+  const totalPages = showAll
+    ? 1
+    : Math.max(1, Math.ceil(total / perPage))
 
   const showToolbar =
     search !== undefined ||
@@ -214,9 +227,12 @@ export default function DataTable<T, K extends string | number = string | number
     columns.length + (selectable ? 1 : 0) + (showRowNumber ? 1 : 0)
   const pageIds = data.map((item) => rowKey(item))
   const isRowSelected = (id: K) => selectedKeys?.has(id) ?? false
+  // Id untuk aksi "Pilih semua": seluruh data terfilter (lintas halaman) bila
+  // allRowKeys diberikan, selain itu hanya baris di halaman ini.
+  const selectAllIds = allRowKeys ?? pageIds
   const pageAllSelected =
-    pageIds.length > 0 && pageIds.every((id) => isRowSelected(id))
-  const pageSomeSelected = pageIds.some((id) => isRowSelected(id))
+    selectAllIds.length > 0 && selectAllIds.every((id) => isRowSelected(id))
+  const pageSomeSelected = selectAllIds.some((id) => isRowSelected(id))
 
   const handleToggleRow = (id: K, checked: boolean) => {
     if (selectedKeys === undefined || onSelectionChange === undefined) return
@@ -230,9 +246,9 @@ export default function DataTable<T, K extends string | number = string | number
     if (selectedKeys === undefined || onSelectionChange === undefined) return
     const next = new Set(selectedKeys)
     if (pageAllSelected) {
-      for (const id of pageIds) next.delete(id)
+      for (const id of selectAllIds) next.delete(id)
     } else {
-      for (const id of pageIds) next.add(id)
+      for (const id of selectAllIds) next.add(id)
     }
     onSelectionChange(next)
   }
@@ -479,7 +495,11 @@ export default function DataTable<T, K extends string | number = string | number
                 >
                   <input
                     type="checkbox"
-                    aria-label="Pilih semua item di halaman ini"
+                    aria-label={
+                      allRowKeys
+                        ? "Pilih semua data (semua halaman)"
+                        : "Pilih semua item di halaman ini"
+                    }
                     className="h-4 w-4 cursor-pointer accent-primary"
                     checked={pageAllSelected}
                     ref={(el) => {
@@ -708,7 +728,7 @@ export default function DataTable<T, K extends string | number = string | number
                 </span>
                 <select
                   aria-label="Baris per halaman"
-                  value={perPage}
+                  value={perPageSetting}
                   onChange={(e) => {
                     onItemsPerPageChange(Number(e.target.value))
                     onPageChange?.(1)
@@ -721,6 +741,7 @@ export default function DataTable<T, K extends string | number = string | number
                       {n}
                     </option>
                   ))}
+                  <option value={0}>Semua</option>
                 </select>
               </div>
             )}

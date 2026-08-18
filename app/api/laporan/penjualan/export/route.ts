@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 async function checkAuth(req: NextRequest) {
   const supabase = await createClient();
@@ -93,8 +94,9 @@ export async function GET(req: NextRequest) {
     if (p.id_metode_bayar) q = q.eq("id_metode_bayar", p.id_metode_bayar);
     if (p.id_kasir) q = q.eq("id_kasir", p.id_kasir);
 
-    const { data: rows, error } = await q;
-    if (error) throw error;
+    const rows = await fetchAllRows(supabase, (db, from, to) =>
+      q.range(from, to)
+    );
 
     /* ---------- build CSV ---------- */
     const esc = (v: any) => {

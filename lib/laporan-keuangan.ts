@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { format, subDays } from "date-fns";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 export async function generateLabaRugi(
   supabase: SupabaseClient,
@@ -11,17 +12,17 @@ export async function generateLabaRugi(
   const end = `${endDate}T23:59:59+07:00`;
 
   // 1. Fetch sales aggregation
-  const { data: sales, error: salesErr } = await supabase
-    .from("transaksi_keluar")
-    .select("subtotal, diskon_nominal, pajak_nominal, total, total_hpp")
-    .gte("tgl_transaksi", start)
-    .lte("tgl_transaksi", end)
-    .limit(100000);
-
-  if (salesErr) {
+  const sales = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("transaksi_keluar")
+      .select("subtotal, diskon_nominal, pajak_nominal, total, total_hpp")
+      .gte("tgl_transaksi", start)
+      .lte("tgl_transaksi", end)
+      .range(from, to)
+  ).catch((salesErr) => {
     console.error("Failed to fetch sales for P&L:", salesErr);
     throw new Error("Terjadi kesalahan saat mengambil data penjualan");
-  }
+  });
 
   const summary = (sales || []).reduce(
     (acc, s) => {
@@ -50,12 +51,14 @@ export async function generateLabaRugi(
 
   // Selisih kas periode: Σ saldo_kas_harian.selisih pada tanggal dalam rentang
   // Catatan: selisih kas tercatat per hari (tutup kasir), jadi filter per tanggal
-  const { data: selisihRows } = await supabase
-    .from("saldo_kas_harian")
-    .select("selisih")
-    .gte("tanggal", startDate)
-    .lte("tanggal", endDate)
-    .limit(100000);
+  const selisihRows = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("saldo_kas_harian")
+      .select("selisih")
+      .gte("tanggal", startDate)
+      .lte("tanggal", endDate)
+      .range(from, to)
+  );
   const selisihKasPeriode = (selisihRows || []).reduce(
     (acc, r) => acc + Number(r.selisih || 0),
     0
@@ -64,33 +67,39 @@ export async function generateLabaRugi(
   // Koreksi stok periode: Σ(barang_masuk AKTIF.total) − Σ(detail_retur.jumlah)
   //                     − (persediaan akhir periode + Σ total_hpp)
   // Identitas perpetual untuk periode tertentu
-  const { data: purchases } = await supabase
-    .from("barang_masuk")
-    .select("total")
-    .eq("status", "AKTIF")
-    .gte("tgl_masuk", startDate)
-    .lte("tgl_masuk", endDate)
-    .limit(100000);
+  const purchases = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("barang_masuk")
+      .select("total")
+      .eq("status", "AKTIF")
+      .gte("tgl_masuk", startDate)
+      .lte("tgl_masuk", endDate)
+      .range(from, to)
+  );
   const purchaseTotal = (purchases || []).reduce(
     (acc, p) => acc + Number(p.total || 0),
     0
   );
 
-  const { data: returs } = await supabase
-    .from("retur_pembelian")
-    .select("id")
-    .gte("tgl_retur", startDate)
-    .lte("tgl_retur", endDate)
-    .limit(100000);
+  const returs = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("retur_pembelian")
+      .select("id")
+      .gte("tgl_retur", startDate)
+      .lte("tgl_retur", endDate)
+      .range(from, to)
+  );
   const returIds = (returs || []).map((r) => r.id);
 
   let returDetailTotal = 0;
   if (returIds.length > 0) {
-    const { data: returDetails } = await supabase
-      .from("detail_retur_pembelian")
-      .select("jumlah")
-      .in("id_retur", returIds)
-      .limit(100000);
+    const returDetails = await fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("detail_retur_pembelian")
+        .select("jumlah")
+        .in("id_retur", returIds)
+        .range(from, to)
+    );
     returDetailTotal = (returDetails || []).reduce(
       (acc, d) => acc + Number(d.jumlah || 0),
       0
@@ -111,15 +120,17 @@ export async function generateLabaRugi(
   let totalBebanOperasional = 0;
 
   try {
-    const { data: pengeluaran, error: pengeluaranErr } = await supabase
-      .from("pengeluaran")
-      .select("jumlah, kategori_beban(nama)")
-      .eq("status", "AKTIF")
-      .gte("tanggal", startDate)
-      .lte("tanggal", endDate)
-      .limit(100000);
+    const pengeluaran = await fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("pengeluaran")
+        .select("jumlah, kategori_beban(nama)")
+        .eq("status", "AKTIF")
+        .gte("tanggal", startDate)
+        .lte("tanggal", endDate)
+        .range(from, to)
+    );
 
-    if (!pengeluaranErr && pengeluaran && pengeluaran.length > 0) {
+    if (pengeluaran && pengeluaran.length > 0) {
       // Group by kategori
       const kategoriMap = new Map<string, number>();
       for (const p of pengeluaran) {
@@ -193,12 +204,14 @@ export async function getKasKasir(supabase: SupabaseClient, dateStr: string) {
   if (tunaiId == null) return 0;
 
   const end = `${dateStr}T23:59:59+07:00`;
-  const { data: sales } = await supabase
-    .from("transaksi_keluar")
-    .select("bayar, kembali")
-    .eq("id_metode_bayar", tunaiId)
-    .lte("tgl_transaksi", end)
-    .limit(100000);
+  const sales = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("transaksi_keluar")
+      .select("bayar, kembali")
+      .eq("id_metode_bayar", tunaiId)
+      .lte("tgl_transaksi", end)
+      .range(from, to)
+  );
 
   return (sales || []).reduce(
     (acc, s) => acc + (Number(s.bayar) - Number(s.kembali)),
@@ -213,11 +226,13 @@ export async function getKasAdmin(supabase: SupabaseClient, dateStr: string) {
   // MASUK: penambahan saldo (topup) dari owner
   let topupTotal = 0;
   try {
-    const { data: topups } = await supabase
-      .from("kas_admin_topup")
-      .select("jumlah")
-      .lte("tanggal", dateStr)
-      .limit(100000);
+    const topups = await fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("kas_admin_topup")
+        .select("jumlah")
+        .lte("tanggal", dateStr)
+        .range(from, to)
+    );
     topupTotal = (topups || []).reduce(
       (acc, r) => acc + Number(r.jumlah || 0),
       0
@@ -227,11 +242,13 @@ export async function getKasAdmin(supabase: SupabaseClient, dateStr: string) {
   }
 
   // MASUK: refund retur pembelian (uang kembali ke kas operasional)
-  const { data: returs } = await supabase
-    .from("retur_pembelian")
-    .select("total_nilai")
-    .lte("tgl_retur", dateStr)
-    .limit(100000);
+  const returs = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("retur_pembelian")
+      .select("total_nilai")
+      .lte("tgl_retur", dateStr)
+      .range(from, to)
+  );
   const returTotal = (returs || []).reduce(
     (acc, r) => acc + Number(r.total_nilai || 0),
     0
@@ -249,12 +266,14 @@ export async function getKasBankNonTunai(supabase: SupabaseClient, dateStr: stri
   if (tunaiId == null) return 0;
 
   const end = `${dateStr}T23:59:59+07:00`;
-  const { data: sales } = await supabase
-    .from("transaksi_keluar")
-    .select("total")
-    .neq("id_metode_bayar", tunaiId)
-    .lte("tgl_transaksi", end)
-    .limit(100000);
+  const sales = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("transaksi_keluar")
+      .select("total")
+      .neq("id_metode_bayar", tunaiId)
+      .lte("tgl_transaksi", end)
+      .range(from, to)
+  );
 
   return (sales || []).reduce((acc, s) => acc + Number(s.total || 0), 0);
 }
@@ -274,7 +293,9 @@ async function sumPengeluaranTunai(
       .eq("metode_bayar", "Tunai")
       .lte("tanggal", endDate);
     if (startDate) query.gte("tanggal", startDate);
-    const { data } = await query.limit(100000);
+    const data = await fetchAllRows(supabase, (db, from, to) =>
+      query.range(from, to)
+    );
     return (data || []).reduce((acc, p) => acc + Number(p.jumlah || 0), 0);
   } catch {
     return 0;
@@ -314,11 +335,13 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
   // Penambahan modal: top-up kas admin dari owner → bagian dari ekuitas
   let penambahanModal = 0;
   try {
-    const { data: topups } = await supabase
-      .from("kas_admin_topup")
-      .select("jumlah")
-      .lte("tanggal", dateStr)
-      .limit(100000);
+    const topups = await fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("kas_admin_topup")
+        .select("jumlah")
+        .lte("tanggal", dateStr)
+        .range(from, to)
+    );
     penambahanModal = (topups || []).reduce(
       (acc, r) => acc + Number(r.jumlah || 0),
       0
@@ -328,11 +351,13 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
   }
 
   // Laba ditahan = profit kumulatif + selisih kas (K1-05) + penyesuaian stok (K1-06)
-  const { data: allSales } = await supabase
-    .from("transaksi_keluar")
-    .select("total, pajak_nominal, total_hpp")
-    .lte("tgl_transaksi", end)
-    .limit(100000);
+  const allSales = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("transaksi_keluar")
+      .select("total, pajak_nominal, total_hpp")
+      .lte("tgl_transaksi", end)
+      .range(from, to)
+  );
 
   const { profit, hppTotal } = (allSales || []).reduce(
     (acc, s) => {
@@ -345,11 +370,13 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
   );
 
   // K1-05: Σ selisih kas (null → 0) sampai tanggal laporan
-  const { data: selisihRows } = await supabase
-    .from("saldo_kas_harian")
-    .select("selisih")
-    .lte("tanggal", dateStr)
-    .limit(100000);
+  const selisihRows = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("saldo_kas_harian")
+      .select("selisih")
+      .lte("tanggal", dateStr)
+      .range(from, to)
+  );
   const selisihKas = (selisihRows || []).reduce(
     (acc, r) => acc + Number(r.selisih || 0),
     0
@@ -357,31 +384,37 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
 
   // K1-06: penyesuaian stok = Σ(barang_masuk AKTIF.total) − Σ(detail_retur.jumlah)
   //                     − (persediaan + Σ total_hpp) — identitas perpetual
-  const { data: purchases } = await supabase
-    .from("barang_masuk")
-    .select("total")
-    .eq("status", "AKTIF")
-    .lte("tgl_masuk", dateStr)
-    .limit(100000);
+  const purchases = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("barang_masuk")
+      .select("total")
+      .eq("status", "AKTIF")
+      .lte("tgl_masuk", dateStr)
+      .range(from, to)
+  );
   const purchaseTotal = (purchases || []).reduce(
     (acc, p) => acc + Number(p.total || 0),
     0
   );
 
-  const { data: returs } = await supabase
-    .from("retur_pembelian")
-    .select("id")
-    .lte("tgl_retur", dateStr)
-    .limit(100000);
+  const returs = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("retur_pembelian")
+      .select("id")
+      .lte("tgl_retur", dateStr)
+      .range(from, to)
+  );
   const returIds = (returs || []).map((r) => r.id);
 
   let returDetailTotal = 0;
   if (returIds.length > 0) {
-    const { data: returDetails } = await supabase
-      .from("detail_retur_pembelian")
-      .select("jumlah")
-      .in("id_retur", returIds)
-      .limit(100000);
+    const returDetails = await fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("detail_retur_pembelian")
+        .select("jumlah")
+        .in("id_retur", returIds)
+        .range(from, to)
+    );
     returDetailTotal = (returDetails || []).reduce(
       (acc, d) => acc + Number(d.jumlah || 0),
       0
@@ -448,25 +481,29 @@ export async function generateArusKas(
 
   let penerimaanPenjualan = 0;
   if (tunaiId != null) {
-    const { data: sales } = await supabase
-      .from("transaksi_keluar")
-      .select("bayar, kembali")
-      .eq("id_metode_bayar", tunaiId)
-      .gte("tgl_transaksi", start)
-      .lte("tgl_transaksi", end)
-      .limit(100000);
+    const sales = await fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("transaksi_keluar")
+        .select("bayar, kembali")
+        .eq("id_metode_bayar", tunaiId)
+        .gte("tgl_transaksi", start)
+        .lte("tgl_transaksi", end)
+        .range(from, to)
+    );
     penerimaanPenjualan = (sales || []).reduce(
       (acc, s) => acc + (Number(s.bayar) - Number(s.kembali)),
       0
     );
   }
 
-  const { data: returRefunds } = await supabase
-    .from("retur_pembelian")
-    .select("total_nilai")
-    .gte("tgl_retur", startDate)
-    .lte("tgl_retur", endDate)
-    .limit(100000);
+  const returRefunds = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("retur_pembelian")
+      .select("total_nilai")
+      .gte("tgl_retur", startDate)
+      .lte("tgl_retur", endDate)
+      .range(from, to)
+  );
   const penerimaanRetur = (returRefunds || []).reduce(
     (acc, r) => acc + Number(r.total_nilai || 0),
     0
@@ -484,12 +521,14 @@ export async function generateArusKas(
   // ── Pendanaan: penambahan saldo kas admin dari owner ──
   let topupTotal = 0;
   try {
-    const { data: topups } = await supabase
-      .from("kas_admin_topup")
-      .select("jumlah")
-      .gte("tanggal", startDate)
-      .lte("tanggal", endDate)
-      .limit(100000);
+    const topups = await fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("kas_admin_topup")
+        .select("jumlah")
+        .gte("tanggal", startDate)
+        .lte("tanggal", endDate)
+        .range(from, to)
+    );
     topupTotal = (topups || []).reduce(
       (acc, r) => acc + Number(r.jumlah || 0),
       0

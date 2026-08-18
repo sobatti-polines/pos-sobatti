@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { logActivity } from "@/lib/activity-log";
 
 /* ------------------------------------------------------------------ */
@@ -233,31 +234,37 @@ export async function getKasAdminData() {
   if (err) return { error: err };
 
   // MASUK: penambahan saldo (topup) dari owner
-  const { data: topups } = await supabase
-    .from("kas_admin_topup")
-    .select("id, tanggal, jumlah, keterangan, pengguna(nama, username)")
-    .order("tanggal", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1000);
+  const topups = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("kas_admin_topup")
+      .select("id, tanggal, jumlah, keterangan, pengguna(nama, username)")
+      .order("tanggal", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, to)
+  );
 
   // MASUK: refund retur pembelian (uang kembali ke kas operasional)
-  const { data: returs } = await supabase
-    .from("retur_pembelian")
-    .select("id, no_retur, tgl_retur, total_nilai")
-    .order("tgl_retur", { ascending: false })
-    .limit(1000);
+  const returs = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("retur_pembelian")
+      .select("id, no_retur, tgl_retur, total_nilai")
+      .order("tgl_retur", { ascending: false })
+      .range(from, to)
+  );
 
   // KELUAR: pengeluaran operasional Tunai AKTIF
-  const { data: pengeluaran } = await supabase
-    .from("pengeluaran")
-    .select(
-      "id, tanggal, nama_pengeluaran, jumlah, keterangan, kategori_beban(nama), pengguna!pengeluaran_id_pengguna_fkey(nama, username)"
-    )
-    .eq("status", "AKTIF")
-    .eq("metode_bayar", "Tunai")
-    .order("tanggal", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1000);
+  const pengeluaran = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("pengeluaran")
+      .select(
+        "id, tanggal, nama_pengeluaran, jumlah, keterangan, kategori_beban(nama), pengguna!pengeluaran_id_pengguna_fkey(nama, username)"
+      )
+      .eq("status", "AKTIF")
+      .eq("metode_bayar", "Tunai")
+      .order("tanggal", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, to)
+  );
 
   const getNama = (rel: unknown): string | null => {
     if (Array.isArray(rel)) {

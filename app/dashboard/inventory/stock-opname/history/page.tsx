@@ -1,37 +1,41 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import OpnameHistoryClient from "./history-client";
 
 export default async function StockOpnameHistoryPage() {
   const supabase = await createClient();
 
-  const { data: rawSesi } = await supabase
-    .from("sesi_stok_opname")
-    .select(`
-      id,
-      no_sesi,
-      tgl_sesi,
-      status,
-      keterangan,
-      total_item,
-      total_selisih,
-      total_nilai,
-      created_at,
-      applied_at,
-      pengguna(nama, username),
-      stok_opname(
+  const rawSesi = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("sesi_stok_opname")
+      .select(`
         id,
-        id_produk,
-        stok_sistem,
-        stok_fisik,
-        selisih,
-        klasifikasi,
-        harga_pokok_snap,
+        no_sesi,
+        tgl_sesi,
+        status,
         keterangan,
-        produk(nama_produk, sku)
-      )
-    `)
-    .order("tgl_sesi", { ascending: false })
-    .order("created_at", { ascending: false });
+        total_item,
+        total_selisih,
+        total_nilai,
+        created_at,
+        applied_at,
+        pengguna(nama, username),
+        stok_opname(
+          id,
+          id_produk,
+          stok_sistem,
+          stok_fisik,
+          selisih,
+          klasifikasi,
+          harga_pokok_snap,
+          keterangan,
+          produk(nama_produk, sku)
+        )
+      `)
+      .order("tgl_sesi", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, to)
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sesiList = (rawSesi ?? []) as any[];

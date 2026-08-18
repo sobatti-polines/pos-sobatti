@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 async function checkAuth(req: NextRequest) {
   const supabase = await createClient();
@@ -150,8 +151,9 @@ export async function GET(req: NextRequest) {
     if (p.id_metode_bayar) aggQuery = aggQuery.eq("id_metode_bayar", p.id_metode_bayar);
     if (p.id_kasir) aggQuery = aggQuery.eq("id_kasir", p.id_kasir);
 
-    const { data: agg, error: aggErr } = await aggQuery.limit(100000);
-    if (aggErr) throw aggErr;
+    const agg = await fetchAllRows(supabase, (db, from, to) =>
+      aggQuery.range(from, to)
+    );
 
     const safe = (v: any) => Number(v ?? 0);
     const totalPenjualan = agg!.reduce((s, r) => s + safe(r.total), 0);

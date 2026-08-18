@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { format, subDays } from "date-fns";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 // ============================================================================
 // KAS KASIR (laci) — model dua kas
@@ -64,12 +65,15 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
   const { data: tunaiMethod } = await supabase.from("metode_bayar").select("id").eq("nama", "Tunai").single();
   const tunaiId = tunaiMethod?.id;
 
-  const { data: sales } = await supabase
-    .from("transaksi_keluar")
-    .select("total, bayar, kembali")
-    .eq("id_metode_bayar", tunaiId)
-    .gte("tgl_transaksi", start)
-    .lte("tgl_transaksi", end);
+  const sales = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("transaksi_keluar")
+      .select("total, bayar, kembali")
+      .eq("id_metode_bayar", tunaiId)
+      .gte("tgl_transaksi", start)
+      .lte("tgl_transaksi", end)
+      .range(from, to)
+  );
 
   const salesInflow = (sales || []).reduce((acc, s) => {
     return acc + (Number(s.bayar) - Number(s.kembali));

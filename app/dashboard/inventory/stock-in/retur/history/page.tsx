@@ -1,31 +1,35 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import ReturHistoryClient from "./history-client";
 
 export default async function ReturHistoryPage() {
   const supabase = await createClient();
 
-  const [returRes, supplierRes] = await Promise.all([
-    supabase
-      .from("retur_pembelian")
-      .select(`
-        id,
-        no_retur,
-        tgl_retur,
-        total_nilai,
-        keterangan,
-        created_at,
-        supplier(id, nama_supplier),
-        pengguna(id, nama, username),
-        barang_masuk(id, no_surat, produk(nama_produk)),
-        detail_retur_pembelian(id, qty_retur, harga_pokok)
-      `)
-      .order("tgl_retur", { ascending: false })
-      .order("created_at", { ascending: false }),
+  const [returData, supplierRes] = await Promise.all([
+    fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("retur_pembelian")
+        .select(`
+          id,
+          no_retur,
+          tgl_retur,
+          total_nilai,
+          keterangan,
+          created_at,
+          supplier(id, nama_supplier),
+          pengguna(id, nama, username),
+          barang_masuk(id, no_surat, produk(nama_produk)),
+          detail_retur_pembelian(id, qty_retur, harga_pokok)
+        `)
+        .order("tgl_retur", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(from, to)
+    ),
     supabase.from("supplier").select("id, nama_supplier").order("nama_supplier"),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const history = (returRes.data ?? []).map((r: any) => {
+  const history = (returData ?? []).map((r: any) => {
     const details = Array.isArray(r.detail_retur_pembelian) ? r.detail_retur_pembelian : [];
     return {
       id: r.id,

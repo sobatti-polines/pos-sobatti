@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getStoreSettings } from "@/lib/store-settings";
 import LaporanKasirClient from "./laporan-kasir-client";
 
@@ -15,13 +16,16 @@ export default async function LaporanKasirPage() {
   // Laporan kas (kasir harian) untuk admin & owner.
   if (role !== "OWNER" && role !== "ADMIN") redirect("/dashboard");
 
-  const { data: reports } = await supabase
-    .from("saldo_kas_harian")
-    .select(`
-      *,
-      pengguna:id_pengguna ( id, nama, username )
-    `)
-    .order("tanggal", { ascending: false });
+  const reports = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("saldo_kas_harian")
+      .select(`
+        *,
+        pengguna:id_pengguna ( id, nama, username )
+      `)
+      .order("tanggal", { ascending: false })
+      .range(from, to)
+  );
 
   const store = await getStoreSettings(supabase);
 

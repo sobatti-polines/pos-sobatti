@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { NextResponse } from "next/server";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
@@ -7,13 +8,15 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const aktif = searchParams.get("aktif");
 
-  let query = supabase.from("event_promo").select("*").order("created_at", { ascending: false });
-  if (aktif !== null) {
-    query = query.eq("aktif", aktif === "true");
-  }
+  const query = (from: number, to: number) => {
+    let q = supabase.from("event_promo").select("*").order("created_at", { ascending: false }).range(from, to);
+    if (aktif !== null) {
+      q = q.eq("aktif", aktif === "true");
+    }
+    return q;
+  };
 
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const data = await fetchAllRows(supabase, (_db, from, to) => query(from, to));
   return NextResponse.json(data);
 }
 

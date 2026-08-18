@@ -1,25 +1,29 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import TransactionsClient from "./transactions-client";
 import type { Transaction } from "./transactions-client";
 
 export default async function TransactionsPage() {
   const supabase = await createClient();
 
-  const [transactionsRes, paymentMethodsRes] = await Promise.all([
-    supabase
-      .from("transaksi_keluar")
-      .select(`
-        id,
-        no_transaksi,
-        tgl_transaksi,
-        total,
-        bayar,
-        kembali,
-        pelanggan(nama_pelanggan),
-        pengguna!transaksi_keluar_id_kasir_fkey(username, nama),
-        metode_bayar(id, nama)
-      `)
-      .order("tgl_transaksi", { ascending: false }),
+  const [transactions, paymentMethodsRes] = await Promise.all([
+    fetchAllRows(supabase, (db, from, to) =>
+      db
+        .from("transaksi_keluar")
+        .select(`
+          id,
+          no_transaksi,
+          tgl_transaksi,
+          total,
+          bayar,
+          kembali,
+          pelanggan(nama_pelanggan),
+          pengguna!transaksi_keluar_id_kasir_fkey(username, nama),
+          metode_bayar(id, nama)
+        `)
+        .order("tgl_transaksi", { ascending: false })
+        .range(from, to)
+    ),
     supabase.from("metode_bayar").select("*").order("nama"),
   ]);
 
@@ -27,7 +31,7 @@ export default async function TransactionsPage() {
   const role = user?.user_metadata?.role;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const transactions = (transactionsRes.data ?? []) as any[] as Transaction[];
+  const txData = (transactions ?? []) as any[] as Transaction[];
 
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
@@ -41,7 +45,7 @@ export default async function TransactionsPage() {
       </header>
 
       <TransactionsClient 
-        initialTransactions={transactions} 
+        initialTransactions={txData} 
         paymentMethods={paymentMethodsRes.data ?? []} 
         role={role}
       />

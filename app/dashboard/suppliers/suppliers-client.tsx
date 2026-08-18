@@ -110,13 +110,14 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   };
 
   const handleExportCSV = () => {
-    const headers = ["Nama Supplier", "Telepon", "Email", "Alamat", "Keterangan"];
+    // Header SAMA dengan template import supplier agar bisa round-trip (export → import ulang)
+    const headers = ["Nama Supplier", "Alamat", "No. Telepon", "Email", "Keterangan"];
     const data = filteredData.map(s => [
       s.nama_supplier,
-      s.telepon || "-",
-      s.email || "-",
-      s.alamat || "-",
-      s.keterangan || "-"
+      s.alamat || "",
+      s.telepon || "",
+      s.email || "",
+      s.keterangan || ""
     ]);
     exportToCSV("Data_Supplier", headers, data);
   };

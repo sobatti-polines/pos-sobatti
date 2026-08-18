@@ -113,13 +113,16 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
   };
 
   const handleExportCSV = () => {
-    const headers = ["Nama Pelanggan", "No. HP", "Email", "Alamat", "Keterangan", "Poin"];
+    // Header SAMA dengan template import pelanggan (urutan: Nama, Alamat, No. HP,
+    // Email, Keterangan) agar bisa round-trip; kolom Poin diletakkan di akhir
+    // (tidak dibaca import, hanya informasi tambahan).
+    const headers = ["Nama Pelanggan", "Alamat", "No. HP", "Email", "Keterangan", "Poin"];
     const data = filteredData.map(c => [
       c.nama_pelanggan,
-      c.no_hp || "-",
-      c.email || "-",
-      c.alamat || "-",
-      c.keterangan || "-",
+      c.alamat || "",
+      c.no_hp || "",
+      c.email || "",
+      c.keterangan || "",
       String(c.point ?? 0)
     ]);
     exportToCSV("Data_Pelanggan", headers, data);

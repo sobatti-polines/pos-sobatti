@@ -167,8 +167,13 @@ export function ReferenceClient({
   };
 
   const handleExportCSV = () => {
-    const headers = activeTab === "merk" ? ["No", "Kode", "Nama"] : ["No", "Nama"];
-    const data = filteredData.map((item, idx) => activeTab === "merk" ? [idx + 1, item.kode || "-", item.nama] : [idx + 1, item.nama]);
+    // Header SAMA dengan template import data referensi agar bisa round-trip.
+    // Merk → [Kode, Nama Merk]; lainnya → [Nama <label>].
+    const isMerk = activeTab === "merk";
+    const headers = isMerk ? ["Kode", "Nama Merk"] : [`Nama ${getTabLabel(activeTab)}`];
+    const data = filteredData.map((item) =>
+      isMerk ? [item.kode || "", item.nama] : [item.nama]
+    );
     exportToCSV(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, headers, data);
   };
 

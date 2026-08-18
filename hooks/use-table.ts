@@ -59,13 +59,16 @@ export function useTable<T>({
   }, [data, sortConfig])
 
   const total = sortedData.length
-  const totalPages = Math.max(1, Math.ceil(total / itemsPerPage))
+  // itemsPerPage <= 0 (nilai "Semua") → seluruh data ditampilkan dalam 1 halaman
+  const totalPages =
+    itemsPerPage > 0 ? Math.max(1, Math.ceil(total / itemsPerPage)) : 1
 
   // Pengaman: jangan pernah melewati halaman terakhir (data bisa menyusut
   // saat filter diterapkan).
   const safePage = Math.min(currentPage, totalPages)
 
   const paginatedData = useMemo(() => {
+    if (itemsPerPage <= 0) return sortedData
     const start = (safePage - 1) * itemsPerPage
     return sortedData.slice(start, start + itemsPerPage)
   }, [sortedData, safePage, itemsPerPage])
