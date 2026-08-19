@@ -26,8 +26,8 @@ function getStockIcon(name: string) {
   return { icon: Package, bg: "bg-slate-100", color: "text-slate-600" };
 }
 
-export function DashboardLowStock() {
-  const lowStockItems = useLowStockRealtime();
+export function DashboardLowStock({ initialData }: { initialData?: import("@/hooks/use-low-stock-realtime").LowStockItem[] }) {
+  const lowStockItems = useLowStockRealtime(initialData);
 
   return (
     <section className="flex flex-col">
@@ -37,40 +37,52 @@ export function DashboardLowStock() {
       </div>
       <div className="flex flex-col gap-2">
         {lowStockItems.length > 0 ? (
-          lowStockItems.map((item) => {
-            const { icon: Icon, bg, color } = getStockIcon(item.nama_produk);
-            return (
-              <div
-                key={item.id}
-                className="flex items-center justify-between px-4 py-3 rounded-md hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-md flex items-center justify-center ${bg}`}>
-                    <Icon className={`w-4 h-4 ${color}`} />
+          <>
+            {lowStockItems.slice(0, 5).map((item) => {
+              const { icon: Icon, bg, color } = getStockIcon(item.nama_produk);
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between px-4 py-3 rounded-md hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-md flex items-center justify-center ${bg}`}>
+                      <Icon className={`w-4 h-4 ${color}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{item.nama_produk}</p>
+                      {item.displayLow && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Display: {item.stok} {item.satuan?.nama ?? ""} tersisa
+                        </p>
+                      )}
+                      {item.gudangLow && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Gudang: {item.stok_gudang} {item.satuan?.nama ?? ""} tersisa
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{item.nama_produk}</p>
-                    {item.displayLow && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Display: {item.stok} {item.satuan?.nama ?? ""} tersisa
-                      </p>
-                    )}
-                    {item.gudangLow && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Gudang: {item.stok_gudang} {item.satuan?.nama ?? ""} tersisa
-                      </p>
-                    )}
-                  </div>
+                  <Link
+                    href="/dashboard/inventory"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Stok Ulang
+                  </Link>
                 </div>
+              );
+            })}
+            {lowStockItems.length > 5 && (
+              <div className="pt-2 flex justify-center mt-2">
                 <Link
                   href="/dashboard/inventory"
-                  className="text-xs text-primary hover:underline"
+                  className="text-sm font-medium text-primary hover:underline"
                 >
-                  Stok Ulang
+                  Lihat Selengkapnya ({lowStockItems.length - 5} barang lagi)
                 </Link>
               </div>
-            );
-          })
+            )}
+          </>
         ) : (
           <p className="text-sm text-muted-foreground py-8 text-center">Semua stok masih aman</p>
         )}

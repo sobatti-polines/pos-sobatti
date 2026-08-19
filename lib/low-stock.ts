@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 export interface LowStockItem {
   id: number;
   nama_produk: string;
   stok: number; // stok display
   stok_gudang: number;
-  stok_minimum: number; // ambang display (default 5)
+  stok_minimum: number | null; // ambang display (NULL = nonaktif)
   stok_minimum_gudang: number | null; // ambang gudang (NULL = nonaktif)
   displayLow: boolean;
   gudangLow: boolean;
@@ -15,7 +16,7 @@ export interface LowStockItem {
 // Peringatan display: konsisten dengan perilaku lama — stok display 0
 // dianggap "Habis" (badge terpisah), bukan "Menipis".
 function isDisplayLow(stok: number, stok_minimum: number | null): boolean {
-  return stok > 0 && stok <= (stok_minimum ?? 5);
+  return stok > 0 && stok_minimum != null && stok <= stok_minimum;
 }
 
 // Peringatan gudang: aktif jika ambang diisi dan stok_gudang <= ambang
@@ -27,12 +28,18 @@ function isGudangLow(stokGudang: number, stokMinimumGudang: number | null): bool
 export async function getLowStockItems(): Promise<LowStockItem[]> {
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("produk")
-    .select(
-      "id, nama_produk, hitung_stok, stok, stok_gudang, stok_minimum, stok_minimum_gudang, satuan(nama)"
-    )
-    .eq("hitung_stok", true);
+  const data = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("produk")
+      .select(
+        "id, nama_produk, hitung_stok, stok, stok_gudang, stok_minimum, stok_minimum_gudang, satuan(nama)"
+      )
+      .eq("hitung_stok", true)
+      .range(from, to)
+  ).catch((e) => {
+    console.error("Failed to fetch products for low stock:", e);
+    return null;
+  });
 
   if (!data) return [];
 
@@ -49,7 +56,7 @@ export async function getLowStockItems(): Promise<LowStockItem[]> {
       nama_produk: p.nama_produk,
       stok,
       stok_gudang: stokGudang,
-      stok_minimum: p.stok_minimum ?? 5,
+      stok_minimum: p.stok_minimum ?? null,
       stok_minimum_gudang: p.stok_minimum_gudang ?? null,
       displayLow,
       gudangLow,

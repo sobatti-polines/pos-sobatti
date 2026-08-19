@@ -8,7 +8,7 @@ export interface LowStockItem {
   nama_produk: string;
   stok: number;
   stok_gudang: number;
-  stok_minimum: number;
+  stok_minimum: number | null;
   stok_minimum_gudang: number | null;
   displayLow: boolean;
   gudangLow: boolean;
@@ -57,8 +57,14 @@ function unsubscribeRealtime() {
   }
 }
 
-export function useLowStockRealtime() {
-  const [items, setItems] = useState<LowStockItem[]>(() => [...sharedItems]);
+export function useLowStockRealtime(initialData?: LowStockItem[]) {
+  const [items, setItems] = useState<LowStockItem[]>(() => {
+    // Hydrate from server-provided initial data to avoid hydration mismatch
+    if (initialData && initialData.length > 0 && sharedItems.length === 0) {
+      sharedItems = initialData;
+    }
+    return [...sharedItems];
+  });
 
   useEffect(() => {
     const listener = () => setItems([...sharedItems]);

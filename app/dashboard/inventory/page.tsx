@@ -119,7 +119,7 @@ export default async function InventoryPage() {
       ...p,
       stock: p.hitung_stok ? (p.stok ?? 0) : null,
       stok_gudang: p.stok_gudang ?? 0,
-      stok_minimum: p.stok_minimum ?? 5,
+      stok_minimum: p.stok_minimum ?? null,
       stok_minimum_gudang: p.stok_minimum_gudang ?? null,
       harga_pokok_avco: p.harga_pokok_avco ?? 0,
       nilai_persediaan: p.nilai_persediaan ?? 0,

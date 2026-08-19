@@ -1,4 +1,5 @@
 import { getDashboardData } from "@/lib/dashboard";
+import { getLowStockItems } from "@/lib/low-stock";
 import { TrendingUp, TrendingDown, CheckCircle2, Clock, CalendarDays } from "lucide-react";
 import { DashboardLowStock } from "@/components/dashboard-low-stock";
 import { DashboardRecentActivity } from "@/components/dashboard-recent-activity";
@@ -109,7 +110,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const dashboardData = await getDashboardData();
+  const [dashboardData, lowStockItems] = await Promise.all([getDashboardData(), getLowStockItems()]);
 
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-6 md:gap-8 mx-auto">
@@ -174,7 +175,7 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        <DashboardLowStock />
+        <DashboardLowStock initialData={lowStockItems} />
       </div>
 
       {(isOwner || isAdmin) && (
