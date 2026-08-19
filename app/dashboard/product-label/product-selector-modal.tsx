@@ -116,12 +116,19 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
 
   const hasFilters = merkFilter !== "all" || lokasiFilter !== "all";
 
+  const allSelected = filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.has(p.id));
+
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredProducts.length && filteredProducts.length > 0) {
-      setSelectedIds(new Set());
+    if (filteredProducts.length === 0) return;
+    const newSet = new Set(selectedIds);
+    if (allSelected) {
+      // Uncheck all currently visible products
+      filteredProducts.forEach(p => newSet.delete(p.id));
     } else {
-      setSelectedIds(new Set(filteredProducts.map(p => p.id)));
+      // Check all currently visible products (merge with existing)
+      filteredProducts.forEach(p => newSet.add(p.id));
     }
+    setSelectedIds(newSet);
   };
 
   const toggleSelect = (id: number) => {
@@ -144,8 +151,6 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
     setMerkFilter("all");
     setLokasiFilter("all");
   };
-
-  const allSelected = filteredProducts.length > 0 && selectedIds.size === filteredProducts.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -334,7 +339,7 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
             </div>
             {selectedIds.size > 0 && (
               <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())} className="text-muted-foreground hover:text-foreground">
-                Batal Pilih Semua
+                Hapus Semua Pilihan
               </Button>
             )}
           </div>

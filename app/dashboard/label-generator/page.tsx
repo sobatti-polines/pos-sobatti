@@ -15,7 +15,7 @@ export default function LabelGeneratorPage() {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [titleFontSize, setTitleFontSize] = useState(3.2);
+  const [titleFontSize, setTitleFontSize] = useState(2.5);
   const [skuFontSize, setSkuFontSize] = useState(2.0);
   const [rpFontSize, setRpFontSize] = useState(4.5);
   const [priceFontSize, setPriceFontSize] = useState(9.5);
@@ -343,7 +343,7 @@ export default function LabelGeneratorPage() {
                   skuFontSize={skuFontSize}
                   rpFontSize={rpFontSize}
                   priceFontSize={priceFontSize}
-                  className="border-0 shadow-none!"
+                  className="border border-gray-400 shadow-none!"
                 />
               </div>
             ))}

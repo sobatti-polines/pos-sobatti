@@ -30,7 +30,7 @@ export function PriceTag({
   price,
   className,
   orientation = "landscape",
-  titleFontSize = 3.2,
+  titleFontSize = 2.5,
   skuFontSize = 2.0,
   rpFontSize = 4.5,
   priceFontSize = 9.5,
