@@ -220,10 +220,7 @@ export default function ImportCSVModal({
       } else {
         const msg = res.message || `Berhasil mengimpor ${res.count ?? validRows.length} data.`;
         setSuccessMessage(msg);
-        setTimeout(() => {
-          handleOpenChange(false);
-          if (onSuccess) onSuccess();
-        }, 1200);
+        if (onSuccess) onSuccess();
       }
     } catch (err: any) {
       setServerError(err?.message || "Terjadi kesalahan saat mengimpor data.");
@@ -234,7 +231,7 @@ export default function ImportCSVModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-6 overflow-hidden sm:rounded-2xl">
+      <DialogContent className="max-w-6xl w-[95vw] max-h-[92vh] flex flex-col p-6 overflow-hidden sm:rounded-2xl">
         <DialogHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3 border-b space-y-0">
           <div>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
@@ -354,7 +351,7 @@ export default function ImportCSVModal({
               </div>
 
               {/* Table Wrapper */}
-              <div className="border rounded-xl overflow-x-auto max-h-60 overflow-y-auto">
+              <div className="border rounded-xl overflow-x-auto max-h-[50vh] overflow-y-auto">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-muted/50 text-muted-foreground sticky top-0 font-medium">
                     <tr>
@@ -434,24 +431,35 @@ export default function ImportCSVModal({
             Batal
           </Button>
 
-          <Button
-            type="button"
-            onClick={handleImportSubmit}
-            disabled={!file || validRows.length === 0 || isSubmitting || isParsing}
-            className="gap-2 text-xs rounded-full px-5"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Memproses Impor...
-              </>
-            ) : (
-              <>
-                <Upload className="w-3.5 h-3.5" />
-                Impor {validRows.length > 0 ? `${validRows.length} Data Valid` : "Data"}
-              </>
-            )}
-          </Button>
+          {successMessage ? (
+            <Button
+              type="button"
+              onClick={() => handleOpenChange(false)}
+              className="gap-2 text-xs rounded-full px-6 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Tutup
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleImportSubmit}
+              disabled={!file || validRows.length === 0 || isSubmitting || isParsing}
+              className="gap-2 text-xs rounded-full px-5"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Memproses Impor...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-3.5 h-3.5" />
+                  Impor {validRows.length > 0 ? `${validRows.length} Data Valid` : "Data"}
+                </>
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

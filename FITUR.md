@@ -1,6 +1,6 @@
 # Fitur Lengkap — POS Sobatti / PLK POS
 
-> Daftar lengkap SEMUA fitur yang ada di project ini (hasil analisa mendalam: 33 halaman, 22 API route, 23 migrasi SQL, 6 file TODO, komponen, lib, hooks, stores).
+> Daftar lengkap SEMUA fitur yang ada di project ini (hasil analisa mendalam: 58 halaman, 27 API route, 61 migrasi SQL, dll).
 > Status: `[ ]` belum dicek · `[x]` sudah ada & berfungsi · `[!]` ada masalah/catatan
 > Sumber: `TODO1..6` = tertulis di file TODO · `BARU` = tidak tertulis di TODO manapun
 
@@ -76,6 +76,16 @@
 | 49 | SKU & Merk | Tabel `merk` (kode 4 char), kolom `sku` UNIQUE + `id_merk` di produk, unique `(nama_produk, sku)` | migrasi `20260717_*` | BARU | [x] |
 | 50 | Import CSV produk | Modal import (preview, validasi per baris, template), papaparse | `components/import-csv-modal.tsx` | BARU | [x] |
 
+| 78 | Produk Paket (Bundling) | Dukungan produk paket dengan master, `qty_per_unit`, `isi_satuan`, `jenis_isi_paket` (Fixed / Actual Weight), isi stok paket otomatis ke master/gudang | migrasi `20260830`..`20260903` | BARU | [x] |
+| 79 | Lokasi Area Rak | Tambahan tabel `lokasi_area` dan mapping di produk untuk mempermudah pencarian barang di gudang/rak | migrasi `20260901` | BARU | [x] |
+| 80 | Stok Opname Berbasis Sesi | Stok opname menggunakan konsep sesi (simpan draft, selesaikan, void), dengan riwayat per sesi | `app/dashboard/inventory/stock-opname/` | BARU | [x] |
+| 81 | Retur Pembelian | Modul retur pembelian barang ke supplier dengan riwayat, memotong HPP dan mereset AVCO secara proporsional | `app/dashboard/inventory/stock-in/retur/` | BARU | [x] |
+| 82 | Batal/Void Barang Masuk | Fitur membatalkan barang masuk dengan mengembalikan uang dan HPP ke nilai sebelumnya | migrasi `20260810` | BARU | [x] |
+| 83 | Cetak Bukti Barang Masuk | Tombol cetak tanda terima barang masuk ke gudang PDF/Print | `app/dashboard/inventory/stock-in/print/[id]` | BARU | [x] |
+| 84 | Harga Besar Otomatis | Sinkronisasi konversi UoM untuk `harga_jual_besar_*` otomatis di tingkat DB via trigger | migrasi `20260816` | BARU | [x] |
+| 85 | Generate SKU & Barcode | Tombol generate otomatis 6 digit angka acak unik untuk SKU dan Barcode di form produk | `app/dashboard/inventory/inventory-client.tsx` | BARU | [x] |
+| 86 | Stok Minimum Gudang | Indikator stok gudang menipis yang terpisah dari stok display | migrasi `20260816` | BARU | [x] |
+
 ## E. MASTER DATA — PELANGGAN, SUPPLIER, REFERENSI — 6 fitur
 
 | # | Fitur | Deskripsi | Lokasi | Sumber | ✓ |
@@ -86,6 +96,15 @@
 | 54 | Supplier CRUD | DataTable: tambah/edit/hapus, kolom nama/alamat/telepon/email/keterangan | `app/dashboard/suppliers/` | TODO1#12 | [x] |
 | 55 | Data referensi 3 tab | Kategori | Satuan | Metode Bayar — CRUD inline per tab | `app/dashboard/settings/reference-data/reference-client.tsx` | TODO1#18 | [x] |
 | 56 | Import CSV referensi | Import kategori/satuan/metode bayar + template | `reference-client.tsx` | BARU | [x] |
+
+
+## E.2. EVENT PROMO — `app/dashboard/event-promo` — 3 fitur
+
+| # | Fitur | Deskripsi | Lokasi | Sumber | ✓ |
+|---|-------|-----------|--------|--------|---|
+| 87 | CRUD Event Promo | DataTable event promosi: nama, tipe diskon (persen/nominal), nilai, tanggal mulai & selesai, aktif/tidak | `app/dashboard/event-promo/` | BARU | [x] |
+| 88 | Manajemen Produk Promo | Menambahkan produk spesifik yang masuk ke dalam event promo, berlaku dinamis di seluruh POS | `app/dashboard/event-promo/` | BARU | [x] |
+| 89 | API Diskon Efektif | Endpoint kalkulasi diskon otomatis yang sedang aktif berdasar tanggal hari ini (`/api/event-promo/efektif`) | `app/api/event-promo/efektif/route.ts` | BARU | [x] |
 
 ## F. PENGGUNA & AUTH — 7 fitur
 
@@ -139,6 +158,16 @@
 | 87 | Log Aktivitas | Tabel `log_aktivitas` (aksi CREATE/UPDATE/DELETE, entitas, deskripsi, data lama/baru JSONB, IP); halaman dengan search + filter entitas/aksi/tanggal | `app/dashboard/log-aktivitas/`, migrasi `20260729_add_log_aktivitas.sql` | BARU | [x] |
 | 88 | Deskripsi log otomatis | `buildDeskripsi()` — generator kalimat Indonesia otomatis ("Menambahkan Produk 'X': harga_jual: 5000...") | `lib/activity-log.ts` | BARU | [x] |
 | 89 | Export utility | `exportToCSV` (papaparse + BOM UTF-8) & `exportToPDF` (jsPDF + autoTable) | `lib/export-utils.ts` | TODO3#8 | [x] |
+
+
+## I.2. KEUANGAN & PENGELUARAN — `app/dashboard/keuangan` — 4 fitur
+
+| # | Fitur | Deskripsi | Lokasi | Sumber | ✓ |
+|---|-------|-----------|--------|--------|---|
+| 90 | Kas Admin & Modal Awal | Saldo kas berjalan admin, di-set modal awal dari pengaturan keuangan | `app/dashboard/keuangan/kas-admin/` | BARU | [x] |
+| 91 | Arus Kas | Riwayat mutasi masuk/keluar kas admin, tercatat otomatis dari tiap transaksi pengeluaran/retur/modal | `app/dashboard/keuangan/arus-kas/` | BARU | [x] |
+| 92 | Pengeluaran/Beban Operasional | Form pencatatan beban/pengeluaran toko (ATK, Konsumsi, Gaji, dll), langsung potong saldo kas admin | `app/dashboard/keuangan/pengeluaran/` | BARU | [x] |
+| 93 | Laporan Kas | Laporan mutasi kas per rentang tanggal (export PDF/CSV) | `app/dashboard/laporan/kas/` | BARU | [x] |
 
 ## J. ABSENSI — `app/dashboard/attendance` — 9 fitur
 
@@ -195,6 +224,7 @@
 
 ## 📡 DAFTAR 22 API ENDPOINT
 
+
 | Method | Endpoint | Fungsi |
 |--------|----------|--------|
 | POST | `/api/auth/login` | Login email/username, cek aktif, set cookie |
@@ -219,34 +249,76 @@
 | GET | `/api/laporan/penjualan/[id]` | Detail transaksi |
 | GET | `/api/laporan/penjualan/rekap` | Rekap group by hari/kasir/metode/pelanggan |
 | GET | `/api/laporan/penjualan/export` | Export CSV 15 kolom |
+| GET | `/api/event-promo` | CRUD event promo |
+| GET | `/api/event-promo/efektif` | Cek event promo aktif hari ini |
+| GET | `/api/event-promo/[id]/produk` | Produk dalam promo |
 
 ## 🗄️ RINGKASAN 23 MIGRASI SQL
 
-| File | Isi |
-|------|-----|
-| `20260529114225_fix_checkout_race_condition.sql` | Fix race checkout + advisory lock 987654321 |
-| `20260601000001_add_accounting_fields.sql` | Kolom HPP (transaksi, detail) + AVCO (produk) |
-| `20260601000002_create_hutang_piutang.sql` | Tabel hutang/piutang (**di-drop kemudian**) |
-| `20260601000003_create_avco_tracking.sql` | Tabel `riwayat_avco` |
-| `20260601000004_create_kas_dan_laporan.sql` | `saldo_kas_harian` + `pengaturan_keuangan` |
-| `20260606000001_update_process_checkout.sql` | Checkout dengan AVCO/HPP |
-| `20260606000002_process_checkout_piutang.sql` | Checkout buat piutang (**dihapus kemudian**) |
-| `20260606000003_add_neraca_rpc.sql` | RPC `get_inventory_value_at_date` |
-| `20260706_add_stok_gudang.sql` | Kolom `stok_gudang` |
-| `20260707_add_rls_riwayat_avco.sql` | RLS riwayat_avco |
-| `20260708_add_produk_realtime.sql` | ⚠️ Typo: `ADD TABLE publik` (bukan produk) |
-| `20260710_process_barang_masuk.sql` | RPC barang masuk (duplikat dari 20260718) |
-| `20260710_widen_numeric_columns.sql` | Perluas tipe NUMERIC |
-| `20260716_add_rls_hutang_piutang.sql` | RLS hutang/piutang (**tabel sudah drop**) |
-| `20260717_add_sku_dan_merk.sql` | Tabel `merk` + kolom `sku`, `id_merk` |
-| `20260717_drop_produk_nama_produk_unique.sql` | Unique `(nama_produk, sku)` |
-| `20260718104411_update_process_barang_masuk.sql` | RPC barang masuk final (UoM + legacy) |
-| `20260720_add_uom_conversion.sql` | UoM produk + audit barang_masuk |
-| `20260721_drop_hutang_piutang.sql` | DROP tabel hutang/piutang + update checkout (tanpa piutang) |
-| `20260725_add_member_point.sql` | Kolom `point` pelanggan + RPC `increment_point` & `reset_pelanggan_id_seq` |
-| `20260726_add_poin_min_pembelian.sql` | Kolom `poin_min_pembelian` di pengaturan |
-| `20260728_add_bulk_stock_opname.sql` | RPC `process_stock_opname` (bulk + AVCO koreksi) |
-| `20260729_add_log_aktivitas.sql` | Tabel `log_aktivitas` + RPC `tambah_log_aktivitas` |
+| File |
+|------|
+| `20260529114225_fix_checkout_race_condition.sql` |
+| `20260601000001_add_accounting_fields.sql` |
+| `20260601000002_create_hutang_piutang.sql` |
+| `20260601000003_create_avco_tracking.sql` |
+| `20260601000004_create_kas_dan_laporan.sql` |
+| `20260606000001_update_process_checkout.sql` |
+| `20260606000002_process_checkout_piutang.sql` |
+| `20260606000003_add_neraca_rpc.sql` |
+| `20260706_add_stok_gudang.sql` |
+| `20260707_add_rls_riwayat_avco.sql` |
+| `20260708_add_produk_realtime.sql` |
+| `20260710_process_barang_masuk.sql` |
+| `20260710_widen_numeric_columns.sql` |
+| `20260716_add_rls_hutang_piutang.sql` |
+| `20260717_add_sku_dan_merk.sql` |
+| `20260717_drop_produk_nama_produk_unique.sql` |
+| `20260718104411_update_process_barang_masuk.sql` |
+| `20260720_add_uom_conversion.sql` |
+| `20260721_drop_hutang_piutang.sql` |
+| `20260725_add_member_point.sql` |
+| `20260726_add_poin_min_pembelian.sql` |
+| `20260728_add_bulk_stock_opname.sql` |
+| `20260729_add_log_aktivitas.sql` |
+| `20260729_fix_produk_realtime.sql` |
+| `20260803_fix_checkout_stock_validation.sql` |
+| `20260805_merge_base_unit_into_satuan.sql` |
+| `20260807_add_sell_units.sql` |
+| `20260808_drop_produk_jual_ratio.sql` |
+| `20260808_fix_process_barang_masuk_conversion_ratio.sql` |
+| `20260810_barang_masuk_no_surat.sql` |
+| `20260810_barang_masuk_void.sql` |
+| `20260810_fix_db_cleanup_rls.sql` |
+| `20260810_fix_retur_wib_rls.sql` |
+| `20260810_fix_rls_stok_opname_sesi.sql` |
+| `20260810_fix_sequences_after_reset.sql` |
+| `20260810_guard_hitung_stok.sql` |
+| `20260810_reset_transaksi_keep_master.sql` |
+| `20260810_retur_pembelian.sql` |
+| `20260810_sync_harga_modal_avco.sql` |
+| `20260810_update_process_barang_masuk_no_surat.sql` |
+| `20260812_keuangan_pengeluaran.sql` |
+| `20260816_harga_jual_besar_otomatis.sql` |
+| `20260816_kategori_beban_atk_konsumsi_kebersihan.sql` |
+| `20260816_metode_bayar_bank_dinamis.sql` |
+| `20260816_stok_minimum_gudang.sql` |
+| `20260830_produk_paket_stok_manual.sql` |
+| `20260831_stok_opname_sesi.sql` |
+| `20260901_add_lokasi_area.sql` |
+| `20260901_isi_stok_paket_ke_gudang.sql` |
+| `20260902_jenis_paket_actual_weight.sql` |
+| `20260903_add_isi_satuan_paket.sql` |
+| `20260904_reset_data_drop_piutang.sql` |
+| `20260905_add_event_promo.sql` |
+| `20260905_add_event_promo_tasks3to7.sql` |
+| `20260906_guard_bayar_minimum.sql` |
+| `20260906_kas_admin_dan_uang_awal.sql` |
+| `20260907_add_kategori_barang.sql` |
+| `20260908_fix_checkout_harga_besar_fallback.sql` |
+| `20260909_drop_overload_isi_stok_paket.sql` |
+| `20260910_restore_member_point_functions.sql` |
+| `20260911_restore_sync_harga_jual_besar.sql` |
+| `20260912_generate_sku_barcode.sql` |
 
 ## 🐞 TEMUAN & CATATAN PENTING
 

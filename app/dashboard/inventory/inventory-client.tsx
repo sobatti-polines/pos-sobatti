@@ -538,7 +538,10 @@ export default function InventoryClient({
       p.nilai_persediaan ?? 0,
       bigPriceOf(p) ?? "",
     ]);
-    exportToCSV("Data_Inventaris", headers, data);
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const filename = `plk-produk-${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${String(now.getFullYear()).slice(-2)}(${pad(now.getHours())}-${pad(now.getMinutes())})`;
+    exportToCSV(filename, headers, data);
   };
 
   const handleExportPDF = () => {
@@ -551,7 +554,11 @@ export default function InventoryClient({
       formatIDR(p.harga_jual_satuan), formatIDR(p.harga_jual_grosir), p.harga_jual_promo ? formatIDR(p.harga_jual_promo) : "-",
       bigPriceOf(p) != null ? formatIDR(bigPriceOf(p)!) : "-"
     ]);
-    exportToPDF("Data_Inventaris", "Laporan Data Inventaris", headers, data);
+    
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const filename = `plk-produk-${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${String(now.getFullYear()).slice(-2)}(${pad(now.getHours())}-${pad(now.getMinutes())})`;
+    exportToPDF(filename, "Laporan Data Inventaris", headers, data);
   };
 
   const baseColumns: Column<Product>[] = [
@@ -1600,7 +1607,7 @@ export default function InventoryClient({
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
         title="Import Data Produk / Inventaris"
-        description="Unggah file Excel (.xlsx) atau CSV berisi data produk. Kategori, Satuan, Merk, dan Lokasi baru akan dibuat otomatis jika belum ada."
+        description="Unggah file Excel (.xlsx) atau CSV. Produk yang sudah ada (berdasarkan Barcode/SKU/Nama) akan otomatis di-update harganya (stok tetap). Produk baru akan ditambahkan."
         templateFilename="Template_Import_Produk"
         templateHeaders={[
           "Nama Produk",
@@ -1689,8 +1696,10 @@ export default function InventoryClient({
           "2. Kolom yang WAJIB diisi: Nama Produk. Kolom lain boleh dikosongkan (memakai nilai default).",
           "3. Kategori, Satuan, Merk, dan Lokasi dibuat otomatis jika belum ada — gunakan nama yang sama persis agar tidak dobel.",
           "4. Harga ditulis angka Rupiah tanpa titik/koma ribuan (contoh: 68000, bukan 68.000).",
-          "5. Untuk penjelasan lengkap setiap kolom, lihat tabel \"TABEL PENJELASAN KOLOM\" di bawah.",
-          "6. Simpan file sebagai .xlsx lalu unggah melalui tombol \"Import Data\".",
+          "5. Jika Barcode, SKU, atau Nama Produk sama dengan barang di sistem, sistem akan MELAKUKAN UPDATE pada kolom lainnya.",
+          "6. KHUSUS UPDATE: Nilai STOK pada Excel akan DIABAIKAN untuk mencegah tertimpanya stok jika ada barang terjual selama Anda mengedit file.",
+          "7. Untuk penjelasan lengkap setiap kolom, lihat tabel \"TABEL PENJELASAN KOLOM\" di bawah.",
+          "8. Simpan file sebagai .xlsx lalu unggah melalui tombol \"Import Data\".",
         ]}
         templateColumnGuide={[
           { kolom: "Nama Produk", wajib: true, penjelasan: "Nama barang yang dijual. Satu-satunya kolom wajib.", contoh: "Semen Gresik 50kg" },

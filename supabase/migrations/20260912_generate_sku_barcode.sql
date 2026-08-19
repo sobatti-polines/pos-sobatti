@@ -14,13 +14,16 @@ DECLARE
   new_sku TEXT;
   existing_skus TEXT[];
   sku_set TEXT[];
-  is_falsey BOOLEAN;
+  is_sku_falsey BOOLEAN;
+  is_barcode_falsey BOOLEAN;
 BEGIN
-  -- Kumpulkan semua SKU yang sudah ada
-  SELECT COALESCE(array_agg(sku), '{}') INTO existing_skus
-  FROM produk
-  WHERE sku IS NOT NULL
-    AND trim(sku) NOT IN ('', '-', '--', '—', 'null', 'undefined', 'n/a', '#n/a');
+  -- Kumpulkan semua SKU dan Barcode yang sudah ada agar tidak bentrok
+  SELECT COALESCE(array_agg(DISTINCT code), '{}') INTO existing_skus
+  FROM (
+    SELECT sku AS code FROM produk WHERE sku IS NOT NULL AND trim(sku) !~ '^[-–—_]+$'
+    UNION
+    SELECT barcode AS code FROM produk WHERE barcode IS NOT NULL AND trim(barcode) !~ '^[-–—_]+$'
+  ) sub;
 
   -- Inisialisasi set SKU existing
   sku_set := existing_skus;
@@ -30,8 +33,9 @@ BEGIN
              FROM produk p
              ORDER BY p.id
   LOOP
-    -- Cek apakah SKU existing valid
-    is_falsey := (r.sku IS NULL OR trim(r.sku) IN ('', '-', '--', '—', 'null', 'undefined', 'n/a', '#n/a'));
+    -- Cek apakah SKU atau Barcode existing valid
+    is_sku_falsey := (r.sku IS NULL OR trim(r.sku) IN ('', '-', '--', '—', 'null', 'undefined', 'n/a', '#n/a') OR trim(r.sku) ~ '^[-–—_]+$');
+    is_barcode_falsey := (r.barcode IS NULL OR trim(r.barcode) IN ('', '-', '--', '—', 'null', 'undefined', 'n/a', '#n/a') OR trim(r.barcode) ~ '^[-–—_]+$');
 
     -- Ambil kode & nama merk
     IF r.id_merk IS NOT NULL THEN
@@ -67,11 +71,9 @@ BEGIN
     -- Base SKU: M + Merk(2) + Nama(3) = 6 karakter
     base := 'M' || merk_code || nama_letters;
 
-    -- Generate SKU: gunakan counter unik
-    IF NOT is_falsey THEN
-      -- SKU sudah ada → pertahankan
-      new_sku := r.sku;
-    ELSE
+    -- Generate format M baru JIKA DIBUTUHKAN
+    -- Butuh jika SKU kosong, ATAU barcode kosong/tidak diawali M, atau panjangnya bukan 8
+    IF is_sku_falsey OR is_barcode_falsey OR NOT (upper(trim(r.barcode)) LIKE 'M%' AND length(trim(r.barcode)) = 8) THEN
       -- Cari counter yang belum dipakai
       FOR counter IN 1..99 LOOP
         new_sku := base || lpad(counter::text, 2, '0');
@@ -84,10 +86,12 @@ BEGIN
       sku_set := array_append(sku_set, new_sku);
     END IF;
 
-    -- Update: SKU (jika baru) + Barcode SELALU di-generate (= SKU)
+    -- Update:
+    -- 1. Barcode: Kalau sudah diawali M dan 8 karakter, BIAYARKAN SAJA. Kalau tidak (atau kosong), UPDATE ulang.
+    -- 2. SKU: Kalau sudah ada (valid), BIAYARKAN SAJA. Kalau kosong, pakai format M baru (new_sku).
     UPDATE produk
-    SET barcode = new_sku,
-        sku = CASE WHEN is_falsey THEN new_sku ELSE sku END
+    SET barcode = CASE WHEN (NOT is_barcode_falsey AND upper(trim(r.barcode)) LIKE 'M%' AND length(trim(r.barcode)) = 8) THEN r.barcode ELSE new_sku END,
+        sku = CASE WHEN is_sku_falsey THEN new_sku ELSE r.sku END
     WHERE id = r.id;
   END LOOP;
 
@@ -100,8 +104,8 @@ SELECT
   nama_produk,
   sku,
   barcode,
-  length(sku) AS sku_len,
-  CASE WHEN length(sku) = 8 THEN 'OK' ELSE 'WARN' END AS sku_status
+  length(barcode) AS barcode_len,
+  CASE WHEN length(trim(barcode)) = 8 AND upper(barcode) LIKE 'M%' THEN 'OK' ELSE 'WARN' END AS barcode_status
 FROM produk
 ORDER BY id
 LIMIT 20;

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 async function requireAuth() {
   const supabase = await createClient();
@@ -577,11 +578,32 @@ export async function importProducts(
     }
   }
 
-  const payload: any[] = [];
+  // Fetch ALL existing products for UPSERT logic (menggunakan fetchAllRows untuk menghindari limit 1000 baris)
+  const existingProducts = await fetchAllRows(supabase, (db, from, to) =>
+    db
+      .from("produk")
+      .select("id, sku, barcode, nama_produk, stok, stok_gudang, harga_pokok_avco, nilai_persediaan")
+      .range(from, to)
+  );
+
+  const existingByBarcode = new Map<string, any>();
+  const existingBySku = new Map<string, any>();
+  const existingByName = new Map<string, any>();
+
+  if (existingProducts) {
+    for (const p of existingProducts) {
+      if (p.barcode) existingByBarcode.set(p.barcode.trim().toLowerCase(), p);
+      if (p.sku) existingBySku.set(p.sku.trim().toLowerCase(), p);
+      if (p.nama_produk) existingByName.set(p.nama_produk.trim().toLowerCase(), p);
+    }
+  }
+
+  const inserts: any[] = [];
+  const updates: any[] = [];
 
   for (const r of rows) {
-    const nama_produk = r["Nama Produk"] || r["nama_produk"] || "";
-    if (!nama_produk.trim()) continue;
+    const nama_produk = (r["Nama Produk"] || r["nama_produk"] || "").trim();
+    if (!nama_produk) continue;
 
     const catName = r["Kategori Produk"] || r["Kategori"] || r["kategori"] || "";
     const unitName = r["Satuan Dasar"] || r["Satuan"] || r["satuan"] || r["base_unit"] || "";
@@ -659,7 +681,16 @@ export async function importProducts(
     const harga_pokok_avco = harga_modal;
     const nilai_persediaan = harga_modal * totalStok;
 
-    payload.push({
+    let matchedProduct = null;
+    if (barcode && existingByBarcode.has(barcode.toLowerCase())) {
+      matchedProduct = existingByBarcode.get(barcode.toLowerCase());
+    } else if (sku && existingBySku.has(sku.toLowerCase())) {
+      matchedProduct = existingBySku.get(sku.toLowerCase());
+    } else if (existingByName.has(nama_produk.toLowerCase())) {
+      matchedProduct = existingByName.get(nama_produk.toLowerCase());
+    }
+
+    const basePayload = {
       nama_produk,
       id_kategori,
       id_satuan,
@@ -672,8 +703,6 @@ export async function importProducts(
       harga_jual_grosir,
       harga_jual_promo,
       diskon,
-      stok,
-      stok_gudang,
       stok_minimum,
       stok_minimum_gudang,
       hitung_stok: id_produk_master ? true : hitung_stok,
@@ -687,31 +716,66 @@ export async function importProducts(
       harga_jual_besar_satuan,
       harga_jual_besar_grosir,
       harga_jual_besar_promo,
-      harga_pokok_avco,
-      nilai_persediaan,
-    });
+    };
+
+    if (matchedProduct) {
+      // UPDATE: Gunakan nilai stok dan AVCO yang sudah ada di database (Abaikan dari CSV)
+      updates.push({
+        ...basePayload,
+        id: matchedProduct.id,
+        stok: matchedProduct.stok,
+        stok_gudang: matchedProduct.stok_gudang,
+        harga_pokok_avco: matchedProduct.harga_pokok_avco,
+        nilai_persediaan: matchedProduct.nilai_persediaan,
+      });
+    } else {
+      // INSERT: Gunakan nilai stok dan AVCO baru dari CSV
+      inserts.push({
+        ...basePayload,
+        stok,
+        stok_gudang,
+        harga_pokok_avco,
+        nilai_persediaan,
+      });
+    }
   }
 
-  if (payload.length === 0) {
+  if (inserts.length === 0 && updates.length === 0) {
     return { error: "Tidak ada baris data produk yang valid" };
   }
 
-  const { error } = await supabase.from("produk").insert(payload);
+  let insertCount = 0;
+  let updateCount = 0;
 
-  if (error) {
-    console.error("Failed to import products:", error);
-    return { error: "Gagal menyimpan data produk: " + error.message };
+  if (inserts.length > 0) {
+    const { error: errInsert } = await supabase.from("produk").insert(inserts);
+    if (errInsert) {
+      console.error("Failed to insert products:", errInsert);
+      return { error: "Gagal menyimpan data produk baru: " + errInsert.message };
+    }
+    insertCount = inserts.length;
   }
+
+  if (updates.length > 0) {
+    const { error: errUpdate } = await supabase.from("produk").upsert(updates, { onConflict: "id" });
+    if (errUpdate) {
+      console.error("Failed to update products:", errUpdate);
+      return { error: "Gagal memperbarui data produk lama: " + errUpdate.message };
+    }
+    updateCount = updates.length;
+  }
+
+  const msg = `Berhasil mengimpor: ${insertCount} produk baru ditambah, ${updateCount} produk diperbarui.`;
 
   await logActivity(supabase, {
     aksi: "CREATE",
     entitas: "produk",
-    deskripsi: `Bulk import ${payload.length} produk`,
-    data_baru: { count: payload.length },
+    deskripsi: msg,
+    data_baru: { insertCount, updateCount },
   });
 
   revalidatePath("/dashboard/inventory");
-  return { success: true, count: payload.length, message: `Berhasil mengimpor ${payload.length} data produk.` };
+  return { success: true, count: insertCount + updateCount, message: msg };
 }
 
 /**
@@ -769,9 +833,10 @@ export async function generateAllSkuBarcode() {
 
   // 4. Generate SKU untuk produk yang kosong
   const generatedSkus = new Set<string>();
-  // Pre-populate SKU existing agar tidak bentrok
+  // Pre-populate SKU & Barcode existing agar tidak bentrok
   for (const p of products) {
     if (p.sku) generatedSkus.add(p.sku.toUpperCase());
+    if (p.barcode) generatedSkus.add(p.barcode.toUpperCase());
   }
 
   // Counter per kombinasi base (merk2 + nama3)
@@ -798,37 +863,48 @@ export async function generateAllSkuBarcode() {
     const existingSku = isFalsy(p.sku) ? null : p.sku;
     const existingBarcode = isFalsy(p.barcode) ? null : p.barcode;
 
-    if (existingSku) {
-      // SKU sudah ada dan valid → pertahankan
-      sku = existingSku;
-    } else {
-      // Generate SKU baru dengan counter unik
+    let finalSku: string;
+    let finalBarcode: string;
+
+    // Cek apakah barcode sudah sesuai format (diawali huruf M dan panjangnya tepat 8 karakter)
+    const existingBarcodeClean = existingBarcode ? existingBarcode.trim().toUpperCase() : "";
+    const barcodeHasFormatM = existingBarcodeClean.startsWith('M') && existingBarcodeClean.length === 8;
+
+    // Jika SKU kosong ATAU barcode belum sesuai format M, kita butuh men-generate format M baru
+    let generatedFormat: string | null = null;
+    
+    if (!existingSku || !barcodeHasFormatM) {
       const currentCount = baseCounter.get(base) || 0;
       let nextCount = currentCount + 1;
       baseCounter.set(base, nextCount);
 
-      sku = `${base}${String(nextCount).padStart(2, "0")}`;
+      generatedFormat = `${base}${String(nextCount).padStart(2, "0")}`;
 
       // Jika masih bentrok (sangat jarang), cari counter berikutnya
-      while (generatedSkus.has(sku.toUpperCase())) {
+      while (generatedSkus.has(generatedFormat.toUpperCase())) {
         nextCount++;
         baseCounter.set(base, nextCount);
-        sku = `${base}${String(nextCount).padStart(2, "0")}`;
+        generatedFormat = `${base}${String(nextCount).padStart(2, "0")}`;
       }
+      generatedSkus.add(generatedFormat.toUpperCase());
     }
 
-    generatedSkus.add(sku.toUpperCase());
+    // Aturan:
+    // 1. SKU: Kalau sudah ada (valid), BIAYARKAN SAJA apapun formatnya. Kalau kosong, pakai yang digenerate.
+    finalSku = existingSku || generatedFormat!;
+    
+    // 2. Barcode: Kalau sudah diawali M, BIAYARKAN SAJA. Kalau tidak (atau kosong), UPDATE ulang pakai yang digenerate.
+    finalBarcode = barcodeHasFormatM ? existingBarcode : generatedFormat!;
 
-    // Barcode SELALU = SKU (ditimpa)
     // Hanya masukkan ke daftar update jika ada perubahan!
-    const needsSkuUpdate = !existingSku;
-    const needsBarcodeUpdate = existingBarcode !== sku;
+    const needsSkuUpdate = existingSku !== finalSku;
+    const needsBarcodeUpdate = existingBarcode !== finalBarcode;
 
     if (needsSkuUpdate || needsBarcodeUpdate) {
       updates.push({ 
         id: p.id, 
-        sku: needsSkuUpdate ? sku : null, 
-        barcode: sku 
+        sku: needsSkuUpdate ? finalSku : null, 
+        barcode: finalBarcode 
       });
     }
   }
