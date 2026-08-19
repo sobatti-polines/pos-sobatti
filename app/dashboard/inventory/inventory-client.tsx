@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { addProduct, updateProduct, deleteProduct, deleteProducts, restockDisplay, moveToWarehouse, importProducts, isiStokPaket } from "./actions";
+import { addProduct, updateProduct, deleteProduct, deleteProducts, forceDeleteProduct, restockDisplay, moveToWarehouse, importProducts, isiStokPaket } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ProductDetailSheet from "@/components/product-detail-sheet";
 import { Highlight } from "@/components/highlight";
@@ -369,6 +369,27 @@ export default function InventoryClient({
 
   const handleCancelInline = () => { setEditingId(null); setEditForm({}); setIsPaket(false); setErrorMsg(""); };
 
+  
+  const handleForceDelete = async () => {
+    if (!deleteTarget?.id) return;
+    const id = deleteTarget.id;
+    setErrorMsg("");
+    startTransition(async () => {
+      const res = await forceDeleteProduct(id);
+      if (res?.error) { 
+        setErrorMsg(res.error); 
+      } else {
+        setDeleteTarget(null);
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        router.refresh();
+      }
+    });
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deleteTarget?.id) return;
     const id = deleteTarget.id;
@@ -562,9 +583,7 @@ export default function InventoryClient({
   };
 
   const baseColumns: Column<Product>[] = [
-    { key: "sku", header: "SKU", sortable: true, className: "xl:pl-6", headerClassName: "xl:pl-6 w-[130px]", render: (p) => <span className="font-mono text-[14px]">{hl(p.sku || "-")}</span> },
-    { key: "barcode", header: "Barcode", sortable: true, headerClassName: "w-[140px]", render: (p) => <span className="font-mono text-[14px]">{hl(p.barcode || "-")}</span> },
-    { key: "nama_produk", header: "Item", sortable: true, render: (p) => (
+    { key: "nama_produk", header: "Item", sortable: true, className: "xl:pl-6 sticky left-[88px] z-10 bg-background border-r border-border/50", headerClassName: "xl:pl-6 sticky left-[88px] z-40 bg-background border-r border-border/50 min-w-[250px]", render: (p) => (
       <div className="flex items-center gap-2">
         <p className="text-foreground text-[15px] xl:text-[14px] font-medium xl:font-normal line-clamp-2 xl:line-clamp-1">{hl(p.nama_produk)}</p>
         {(p as any).nama_event_promo && (
@@ -579,6 +598,8 @@ export default function InventoryClient({
         )}
       </div>
     ) },
+    { key: "sku", header: "SKU", sortable: true, headerClassName: "w-[130px]", render: (p) => <span className="font-mono text-[14px]">{hl(p.sku || "-")}</span> },
+    { key: "barcode", header: "Barcode", sortable: true, headerClassName: "w-[140px]", render: (p) => <span className="font-mono text-[14px]">{hl(p.barcode || "-")}</span> },
     { key: "kategori", header: "Kategori", sortable: true, sortKey: "kategori.nama", headerClassName: "w-[160px]", render: (p) => hl(p.kategori?.nama || "-") },
     { key: "satuan", header: "Satuan", sortable: true, sortKey: "satuan.nama", headerClassName: "w-[110px]", render: (p) => hl(p.satuan?.nama || "-") },
     {
@@ -750,6 +771,10 @@ export default function InventoryClient({
         onConfirm: handleDeleteConfirm,
         onCancel: () => { setDeleteTarget(null); setErrorMsg(""); },
         isPending, error: errorMsg,
+        secondaryAction: errorMsg && errorMsg.includes("riwayat") ? {
+          label: "Hapus Paksa & Riwayat",
+          onClick: handleForceDelete
+        } : undefined
       }
     : undefined;
 
@@ -770,6 +795,8 @@ export default function InventoryClient({
         itemsPerPage={table.itemsPerPage}
         onItemsPerPageChange={table.setItemsPerPage}
         filters={filters}
+        freezeCheckbox={true}
+        freezeRowNumber={true}
         editingId={null}
         onRowClick={(p) => setSelectedProduct(p)}
         actions={[

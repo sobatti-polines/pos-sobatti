@@ -91,6 +91,7 @@ export interface DeleteModalConfig {
   onCancel: () => void
   isPending?: boolean
   error?: string
+  secondaryAction?: { label: string; onClick: () => void }
 }
 
 export interface EmptyStateConfig {
@@ -146,6 +147,8 @@ export interface DataTableProps<T, K extends string | number = string | number> 
   mobileBreakpoint?: "md" | "lg" | "xl"
 
   showRowNumber?: boolean
+  freezeCheckbox?: boolean
+  freezeRowNumber?: boolean
   loading?: boolean
   className?: string
 }
@@ -197,6 +200,8 @@ export default function DataTable<T, K extends string | number = string | number
   mobileCards = false,
   mobileBreakpoint = "md",
   showRowNumber = true,
+  freezeCheckbox = false,
+  freezeRowNumber = false,
   loading,
   className,
 }: DataTableProps<T, K>) {
@@ -486,12 +491,12 @@ export default function DataTable<T, K extends string | number = string | number
       <div className="flex-1 overflow-auto min-h-0 relative">
         <Table wrapperClassName="overflow-visible min-w-max">
           <TableHeader
-            className={cn(getHeaderVisibilityClass(), "sticky top-0 z-10 bg-background shadow-sm")}
+            className={cn(getHeaderVisibilityClass(), "sticky top-0 z-30 bg-background shadow-sm")}
           >
             <TableRow>
               {selectable && (
                 <TableHead
-                  className={cn("w-10 text-center", getMobileHideClass())}
+                  className={cn("w-10 text-center", getMobileHideClass(), freezeCheckbox && "sticky left-0 z-40 bg-background")}
                 >
                   <input
                     type="checkbox"
@@ -513,7 +518,7 @@ export default function DataTable<T, K extends string | number = string | number
               )}
               {showRowNumber && (
                 <TableHead
-                  className={cn("w-12 text-center", getMobileHideClass())}
+                  className={cn("w-12 text-center", getMobileHideClass(), freezeRowNumber && cn("sticky z-40 bg-background", selectable ? "left-[40px]" : "left-0"))}
                 >
                   No
                 </TableHead>
@@ -547,7 +552,8 @@ export default function DataTable<T, K extends string | number = string | number
                   <TableCell
                     className={cn(
                       getCellBaseClass(),
-                      "text-center text-muted-foreground tabular-nums"
+                      "text-center text-muted-foreground tabular-nums",
+                      freezeRowNumber && cn("sticky z-10 bg-muted", selectable ? "left-[40px]" : "left-0")
                     )}
                   >
                     {mobileCards && (
@@ -615,7 +621,8 @@ export default function DataTable<T, K extends string | number = string | number
                           <TableCell
                             className={cn(
                               getCellBaseClass(),
-                              "text-center text-muted-foreground tabular-nums"
+                              "text-center text-muted-foreground tabular-nums",
+                              freezeRowNumber && cn("sticky z-10 bg-muted", selectable ? "left-[40px]" : "left-0")
                             )}
                           >
                             {(page - 1) * perPage + index + 1}
@@ -641,7 +648,7 @@ export default function DataTable<T, K extends string | number = string | number
                     {selectable && (
                       <TableCell
                         key="__selection"
-                        className={cn(getCellBaseClass(), "text-center")}
+                        className={cn(getCellBaseClass(), "text-center", freezeCheckbox && "sticky left-0 z-10 bg-background")}
                       >
                         <input
                           type="checkbox"
@@ -662,7 +669,8 @@ export default function DataTable<T, K extends string | number = string | number
                         key="__rowNumber"
                         className={cn(
                           getCellBaseClass(),
-                          "text-center text-muted-foreground tabular-nums"
+                          "text-center text-muted-foreground tabular-nums",
+                          freezeRowNumber && cn("sticky z-10 bg-background", selectable ? "left-[40px]" : "left-0")
                         )}
                       >
                         {mobileCards && (
@@ -825,6 +833,19 @@ export default function DataTable<T, K extends string | number = string | number
                 {deleteModal.confirmLabel || "Hapus"}
               </Button>
             </div>
+            {deleteModal.secondaryAction && (
+              <div className="px-6 pb-5 bg-transparent flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full px-6 border-destructive/50 text-destructive hover:bg-destructive hover:text-white"
+                  onClick={deleteModal.secondaryAction.onClick}
+                  disabled={deleteModal.isPending}
+                >
+                  {deleteModal.secondaryAction.label}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
