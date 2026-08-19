@@ -37,7 +37,7 @@ export function DashboardLowStock() {
       </div>
       <div className="flex flex-col gap-2">
         {lowStockItems.length > 0 ? (
-          lowStockItems.slice(0, 5).map((item) => {
+          lowStockItems.map((item) => {
             const { icon: Icon, bg, color } = getStockIcon(item.nama_produk);
             return (
               <div
