@@ -185,7 +185,12 @@ export function PosClient() {
   const [searchOpen, setSearchOpen] = useState(false);
 
   // ── Phone scanner state ───────────────────────────────────────────────────
-  const [sessionId] = useState(() => crypto.randomUUID());
+  const [sessionId] = useState(() => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  });
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerConnected, setScannerConnected] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -594,7 +599,7 @@ export function PosClient() {
               type="button"
               onClick={() => router.push("/dashboard/tutup-kasir")}
               className="flex items-center justify-center w-auto px-3 h-10 rounded-full border border-border bg-background hover:bg-muted/40 transition-colors text-xs font-medium text-muted-foreground"
-              title="Kas Kasir"
+              title="Buka/Tutup Kasir"
             >
               <Calculator className="w-4 h-4 mr-1" />
               Kas
@@ -745,7 +750,7 @@ export function PosClient() {
             className="flex items-center gap-2 h-10 px-4 rounded-full border border-border bg-background hover:bg-muted/40 transition-colors text-sm font-medium text-muted-foreground"
           >
             <Calculator className="w-4 h-4" />
-            Kas Kasir
+            Buka/Tutup Kasir
           </button>
           <button
             type="button"
