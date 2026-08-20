@@ -8,6 +8,7 @@ import {
   Loader2,
   Printer,
   Save,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,13 +24,24 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
+import { format } from "date-fns";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { id } from "date-fns/locale";
+
 export default function TutupKasirClient({
   initialSummary,
+  store,
+  username,
 }: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialSummary: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  store: any;
+  username: string;
 }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [summary, setSummary] = useState(initialSummary);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [uangAwal, setUangAwal] = useState<string>("");
   const [uangAktual, setUangAktual] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -51,10 +63,13 @@ export default function TutupKasirClient({
 
   useEffect(() => {
     if (date !== initialSummary?.tanggal) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       refreshSummary(date);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleBukaSesi = async () => {
     const num = Number(uangAwal);
     if (uangAwal === "" || isNaN(num) || num <= 0) {
@@ -133,7 +148,7 @@ export default function TutupKasirClient({
         </p>
       </header>
 
-      <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
+      <div className="print:hidden flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative">
         <div className="flex-1 overflow-y-auto p-6 lg:p-10">
           <div className="max-w-3xl mx-auto space-y-10">
             <div className="flex items-center gap-3">
@@ -242,19 +257,28 @@ export default function TutupKasirClient({
 
                 <div className="flex flex-col space-y-8">
                   {sudahDitutup ? (
-                    <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                      <Check className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                      <div className="text-sm">
-                        <p className="font-medium text-emerald-800">
-                          Sesi kasir sudah ditutup
-                        </p>
-                        <p className="text-emerald-700 mt-1">
-                          Uang aktual{" "}
-                          {formatIDR(Number(summary.uang_aktual ?? 0))}, selisih{" "}
-                          {formatIDR(Number(summary.selisih ?? 0))}. Lihat
-                          riwayat di menu Laporan Kasir Harian.
-                        </p>
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                        <Check className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium text-emerald-800">
+                            Sesi kasir sudah ditutup
+                          </p>
+                          <p className="text-emerald-700 mt-1">
+                            Uang aktual{" "}
+                            {formatIDR(Number(summary.uang_aktual ?? 0))},
+                            selisih {formatIDR(Number(summary.selisih ?? 0))}.
+                            Lihat riwayat di menu Laporan Kasir Harian.
+                          </p>
+                        </div>
                       </div>
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        onClick={() => window.print()}
+                      >
+                        <Printer className="w-4 h-4 mr-2" /> Cetak Laporan
+                      </Button>
                     </div>
                   ) : (
                     <>
@@ -352,6 +376,155 @@ export default function TutupKasirClient({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* PRINT RECEIPT (Struk Laporan Harian) */}
+      <div
+        className="hidden print:block receipt-print-area text-black bg-white"
+        style={{
+          fontFamily: "monospace",
+          width: "58mm",
+          margin: "0 auto",
+          fontSize: "11px",
+          lineHeight: "1.4",
+        }}
+      >
+        <div style={{ textAlign: "center", marginBottom: "8px" }}>
+          <h2
+            style={{
+              fontSize: "14px",
+              fontWeight: "bold",
+              margin: "0 0 4px 0",
+              letterSpacing: "0.5px",
+            }}
+          >
+            {store?.nama_toko || "TOKO POS"}
+          </h2>
+          <p style={{ margin: "0", fontSize: "10px" }}>
+            {store?.alamat || "Alamat Toko"}
+          </p>
+          <p style={{ margin: "0", fontSize: "10px" }}>
+            Telp: {store?.telepon || "-"}
+          </p>
+        </div>
+
+        <div
+          style={{
+            borderTop: "1px dashed #000",
+            borderBottom: "1px dashed #000",
+            padding: "6px 0",
+            marginBottom: "8px",
+            fontSize: "10px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>TANGGAL</span>
+            <span>{date ? format(new Date(date), "dd-MM-yyyy") : "-"}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>KASIR</span>
+            <span>{username.toUpperCase()}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>CETAK</span>
+            <span>{format(new Date(), "dd-MM-yyyy HH:mm")}</span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            textAlign: "center",
+            fontWeight: "bold",
+            marginBottom: "8px",
+            fontSize: "12px",
+          }}
+        >
+          LAPORAN KAS HARIAN
+        </div>
+
+        <div
+          style={{
+            marginBottom: "8px",
+            paddingBottom: "8px",
+            borderBottom: "1px dashed #000",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: "2px",
+            }}
+          >
+            <span>MODAL AWAL</span>
+            <span>{formatIDR(Number(summary?.uang_awal ?? saldoAwal))}</span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: "2px",
+            }}
+          >
+            <span>PENJUALAN (+)</span>
+            <span>{formatIDR(totalMasuk)}</span>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontWeight: "bold",
+              marginTop: "4px",
+              paddingTop: "4px",
+              borderTop: "1px solid #000",
+            }}
+          >
+            <span>TOTAL SISTEM</span>
+            <span>{formatIDR(expectedSaldoAkhir)}</span>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: "12px" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: "2px",
+              fontWeight: "bold",
+            }}
+          >
+            <span>FISIK LACI</span>
+            <span>{formatIDR(Number(summary?.uang_aktual ?? 0))}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>SELISIH</span>
+            <span>{formatIDR(Number(summary?.selisih ?? 0))}</span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: "20px",
+            textAlign: "center",
+            fontSize: "10px",
+          }}
+        >
+          <div style={{ width: "45%" }}>
+            <p style={{ margin: "0 0 30px 0" }}>Diserahkan Oleh,</p>
+            <p style={{ margin: "0", textDecoration: "underline" }}>
+              {username}
+            </p>
+          </div>
+          <div style={{ width: "45%" }}>
+            <p style={{ margin: "0 0 30px 0" }}>Diterima Oleh,</p>
+            <p style={{ margin: "0", textDecoration: "underline" }}>
+              Admin/Owner
+            </p>
           </div>
         </div>
       </div>

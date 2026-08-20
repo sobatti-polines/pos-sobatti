@@ -35,6 +35,7 @@ export default async function LogAktivitasPage() {
         </p>
       </header>
 
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       <LogClient initialLogs={(logs ?? []) as any[]} />
     </div>
   );

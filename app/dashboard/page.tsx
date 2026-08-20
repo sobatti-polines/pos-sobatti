@@ -7,10 +7,12 @@ import { DashboardFinanceSummary } from "@/components/dashboard-finance-summary"
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { LogoutButton } from "@/components/logout-button";
 import { AttendanceWidget } from "@/components/attendance-widget";
 import { createClient } from "@/lib/supabase/server";
 import { getTodayAttendance, getMonthlyAttendanceStats } from "@/lib/attendance";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,

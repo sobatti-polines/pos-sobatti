@@ -51,6 +51,7 @@ export function PriceTag({
         background: "transparent",
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sku]);
 
   // Format price
@@ -134,6 +135,7 @@ export function PriceTag({
 
       {/* Footer Image */}
       <div className="bg-black w-full h-[8mm] shrink-0 relative flex items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo-perusahaan.png"
           alt="Putra Logam Kencana"

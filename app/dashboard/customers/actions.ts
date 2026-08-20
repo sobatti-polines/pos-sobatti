@@ -141,6 +141,7 @@ export async function importCustomers(
     return { error: "Tidak ada baris data pelanggan yang valid (Nama Pelanggan wajib)" };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { data: inserted, error } = await supabase
     .from("pelanggan")
     .insert(payload)

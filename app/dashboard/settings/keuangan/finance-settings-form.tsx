@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveFinanceSettings } from "./actions";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function FinanceSettingsForm({ initialData }: { initialData: any }) {
   const [modalAwal, setModalAwal] = useState(initialData?.modal_awal || 0);
   const [tanggalMulai, setTanggalMulai] = useState(initialData?.tanggal_mulai || new Date().toISOString().slice(0, 10));

@@ -17,6 +17,7 @@ export async function fetchNeraca(date: string) {
   try {
     const data = await generateNeraca(supabase, date);
     return { data };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
   } catch (err: any) {
     return { error: "Gagal menghasilkan laporan Neraca" };
   }

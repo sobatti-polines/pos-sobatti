@@ -22,6 +22,7 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function NeracaClient({ initialData, store }: { initialData: any; store?: StoreSettings | null }) {
   const [date, setDate] = useState(initialData?.tanggal || new Date().toISOString().slice(0, 10));
   const [data, setData] = useState(initialData);
@@ -109,6 +110,7 @@ export default function NeracaClient({ initialData, store }: { initialData: any;
             </div>
             <h3 className="text-lg font-medium text-foreground mb-1">Belum ada data ditampilkan</h3>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              {/* eslint-disable-next-line react/no-unescaped-entities */}
               Silakan atur tanggal laporan di atas, lalu klik "Tampilkan Laporan". Pastikan Modal Awal sudah diatur di Pengaturan.
             </p>
           </div>

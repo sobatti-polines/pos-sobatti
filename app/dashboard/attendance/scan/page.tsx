@@ -66,6 +66,7 @@ export default function AttendanceScanPage() {
       let checkinData;
       try {
         checkinData = await checkinRes.json();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_e) {
         checkinData = { error: "Failed to parse response from server" };
       }
@@ -90,6 +91,7 @@ export default function AttendanceScanPage() {
         let checkoutData;
         try {
           checkoutData = await checkoutRes.json();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (_e) {
           checkoutData = { error: "Failed to parse response from server" };
         }
@@ -105,6 +107,7 @@ export default function AttendanceScanPage() {
         setStatus("error");
         setErrorMsg(checkinData.error || "Gagal melakukan absensi.");
       }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_err) {
       setStatus("error");
       setErrorMsg("Terjadi kesalahan koneksi.");

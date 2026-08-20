@@ -30,7 +30,7 @@ const CHUNK_SIZE = 1000;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function fetchAllRows<T = any>(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   supabase: SupabaseClient,
   query: (db: SupabaseClient, from: number, to: number) => unknown
 ): Promise<T[]> {

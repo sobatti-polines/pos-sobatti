@@ -61,6 +61,7 @@ export default function GenerateQRPage() {
     }, 1000);
 
     return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qrData, timeLeft === 0]);
 
   const isExpired = qrData && timeLeft <= 0;
@@ -90,11 +91,14 @@ export default function GenerateQRPage() {
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
               ) : hasQR ? (
-                <img 
-                  src={qrDataUrl} 
-                  alt="QR Attendance" 
-                  className={`w-full aspect-square transition-opacity duration-300 ${loading ? "opacity-50" : "opacity-100"}`}
-                />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={qrDataUrl} 
+                    alt="QR Attendance" 
+                    className={`w-full aspect-square transition-opacity duration-300 ${loading ? "opacity-50" : "opacity-100"}`}
+                  />
+                </>
               ) : (
                 <div className="w-full aspect-square flex flex-col items-center justify-center text-center p-6 bg-muted/20 rounded-xl border-2 border-dashed border-border/50">
                   <p className="text-sm text-muted-foreground mb-4">

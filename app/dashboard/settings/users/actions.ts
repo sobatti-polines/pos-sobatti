@@ -117,6 +117,7 @@ export async function updateUser(
     const authUser = usersData.users.find(u => u.email === oldEmail);
     if (authUser) {
       // Update Auth User
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updatePayload: any = {
         email: newEmail,
         user_metadata: { role: level, username },

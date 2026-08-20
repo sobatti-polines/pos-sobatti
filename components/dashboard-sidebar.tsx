@@ -63,7 +63,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
   const lowStockCount = isManagement ? lowStockItems.length : 0;
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setIsMounted(true);
   }, []);
 

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { headers } from "next/headers";
 
 export default async function PosLayout({
@@ -14,6 +15,7 @@ export default async function PosLayout({
     redirect("/");
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const role = user.user_metadata?.role;
 
   // Since we are in a Layout, we can't easily get the current path without 'headers' 

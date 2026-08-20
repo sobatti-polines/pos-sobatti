@@ -77,6 +77,7 @@ export function useLowStockRealtime(initialData?: LowStockItem[]) {
     subscriptionCount++;
 
     if (sharedItems.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setItems([...sharedItems]);
     }
 

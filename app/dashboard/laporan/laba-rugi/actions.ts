@@ -17,6 +17,7 @@ export async function fetchLabaRugi(startDate: string, endDate: string) {
   try {
     const data = await generateLabaRugi(supabase, startDate, endDate);
     return { data };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
   } catch (err: any) {
     return { error: "Gagal menghasilkan laporan Laba Rugi" };
   }

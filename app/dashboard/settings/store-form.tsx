@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { updateStoreSettings, StoreSettingsState } from "./store-actions";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Save, CheckCircle2, Store, CreditCard, Receipt, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

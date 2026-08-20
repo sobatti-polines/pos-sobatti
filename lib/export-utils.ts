@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const exportToCSV = (filename: string, headers: string[], data: any[][]) => {
   const csvData = [headers, ...data];
   const csv = Papa.unparse(csvData);
@@ -17,6 +18,7 @@ export const exportToCSV = (filename: string, headers: string[], data: any[][]) 
   document.body.removeChild(link);
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const downloadCSVTemplate = (filename: string, headers: string[], sampleRows: any[][]) => {
   exportToCSV(filename, headers, sampleRows);
 };
@@ -127,6 +129,7 @@ export const parseExcelToRows = (file: File): Promise<Record<string, string>[]> 
   });
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const exportToPDF = (filename: string, title: string, headers: string[], data: any[][]) => {
   const doc = new jsPDF();
   

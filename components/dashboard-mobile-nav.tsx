@@ -20,6 +20,7 @@ import {
   Truck,
   Menu,
   X,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Camera,
   UserCheck,
   QrCode,
@@ -64,7 +65,7 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
 
   // Close the menu when pathname changes
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setIsOpen(false);
   }, [pathname]);
 

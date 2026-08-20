@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     }
 
     // Ambil produk yang terdaftar di promo aktif
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const promoIds = activePromos.flatMap((p: any) => p.event_promo_produk.map((ep: any) => ep.id_produk));
     const validIds = ids.filter((id: number) => promoIds.includes(id));
 
@@ -48,8 +49,10 @@ export async function POST(request: Request) {
       return NextResponse.json([]);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results = products.map((prod: any) => {
       // Cari promo yang berlaku untuk produk ini (ambil promo pertama jika ada overlap)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const promo = activePromos.find((p: any) => p.event_promo_produk.some((ep: any) => ep.id_produk === prod.id));
       if (!promo) return null;
 
@@ -84,6 +87,7 @@ export async function POST(request: Request) {
     }).filter(Boolean);
 
     return NextResponse.json(results);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

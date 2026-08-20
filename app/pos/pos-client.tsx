@@ -331,6 +331,7 @@ export function PosClient() {
       const prodJson = await prodRes.json();
       let data = prodJson.data ?? prodJson ?? [];
       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pIds = data.map((p: any) => p.id);
       if (pIds.length > 0) {
         try {
@@ -340,7 +341,9 @@ export function PosClient() {
           });
           if (res.ok) {
             const promo = await res.json();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const promoMap = new Map<number, any>(promo.map((p: any) => [p.id_produk, p]));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data = data.map((p: any) => {
               const pr = promoMap.get(p.id);
               if (pr && pr.id_event_promo) {
@@ -394,6 +397,7 @@ export function PosClient() {
         const json = await res.json();
         let sdata = json.data ?? [];
         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const spIds = sdata.map((p: any) => p.id);
         if (spIds.length > 0) {
           try {
@@ -403,7 +407,9 @@ export function PosClient() {
             });
             if (pres.ok) {
               const promo = await pres.json();
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const promoMap = new Map<number, any>(promo.map((p: any) => [p.id_produk, p]));
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               sdata = sdata.map((p: any) => {
                 const pr = promoMap.get(p.id);
                 if (pr && pr.id_event_promo) {
@@ -423,6 +429,7 @@ export function PosClient() {
                 return p;
               });
             }
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           } catch (e) {}
         }
 

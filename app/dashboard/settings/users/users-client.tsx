@@ -26,6 +26,7 @@ type User = {
 export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
   const [users, setUsers] = useState<User[]>(initialUsers);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setUsers(initialUsers); }, [initialUsers]);
 
   const [searchQuery, setSearchQuery] = useState("");

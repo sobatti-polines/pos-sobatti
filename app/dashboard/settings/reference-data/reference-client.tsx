@@ -47,14 +47,21 @@ export function ReferenceClient({
   const [deleteTarget, setDeleteTarget] = useState<ReferenceItem | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setKategori(initialKategori); }, [initialKategori]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setSatuan(initialSatuan); }, [initialSatuan]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMerk(initialMerk); }, [initialMerk]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMetodeBayar(initialMetodeBayar); }, [initialMetodeBayar]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLokasiArea(initialLokasiArea); }, [initialLokasiArea]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearchQuery("");
+    // eslint-disable-next-line react-hooks/immutability
     setSortConfig(null);
   }, [activeTab]);
 

@@ -1,0 +1,1075 @@
+
+> app@0.1.0 lint
+> eslint
+
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/concept-seed.mjs
+  82:3  warning  'WELL_TIERS' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/detect-csp.mjs
+  74:7  warning  'NUXT_ROUTE_RULES_SIGNALS' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/detector/browser/injected/index.mjs
+  263:11  warning  'hasSlop' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/detector/detect-antipatterns-browser.js
+  1123:9   warning  'rgbM' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+  2612:52  warning  'win' is defined but never used                                @typescript-eslint/no-unused-vars
+  2906:10  warning  'buildCustomPropMap' is defined but never used                 @typescript-eslint/no-unused-vars
+  3519:10  warning  'checkNumberedSectionLabelsFromDoc' is defined but never used  @typescript-eslint/no-unused-vars
+  3783:10  warning  'checkElementRadialSpotlight' is defined but never used        @typescript-eslint/no-unused-vars
+  3783:49  warning  'tag' is defined but never used                                @typescript-eslint/no-unused-vars
+  3783:54  warning  'window' is defined but never used                             @typescript-eslint/no-unused-vars
+  4393:10  warning  'checkElementQuality' is defined but never used                @typescript-eslint/no-unused-vars
+  4402:10  warning  'checkElementBorders' is defined but never used                @typescript-eslint/no-unused-vars
+  4437:10  warning  'checkElementColors' is defined but never used                 @typescript-eslint/no-unused-vars
+  4515:10  warning  'checkElementHoverContrast' is defined but never used          @typescript-eslint/no-unused-vars
+  4555:10  warning  'checkElementIconTile' is defined but never used               @typescript-eslint/no-unused-vars
+  4592:10  warning  'checkElementItalicSerif' is defined but never used            @typescript-eslint/no-unused-vars
+  4603:10  warning  'checkElementHeroEyebrow' is defined but never used            @typescript-eslint/no-unused-vars
+  4640:10  warning  'checkKickerAboveHeadingFromDoc' is defined but never used     @typescript-eslint/no-unused-vars
+  4649:10  warning  'checkElementMotion' is defined but never used                 @typescript-eslint/no-unused-vars
+  4659:10  warning  'checkElementGlow' is defined but never used                   @typescript-eslint/no-unused-vars
+  4920:10  warning  'checkPageTypography' is defined but never used                @typescript-eslint/no-unused-vars
+  5005:10  warning  'checkPageLayout' is defined but never used                    @typescript-eslint/no-unused-vars
+  5165:10  warning  'checkRepeatedContainerTextFromDoc' is defined but never used  @typescript-eslint/no-unused-vars
+  5275:10  warning  'checkElementOversizedH1' is defined but never used            @typescript-eslint/no-unused-vars
+  5359:10  warning  'checkElementGptBorderShadow' is defined but never used        @typescript-eslint/no-unused-vars
+  5509:10  warning  'checkElementClippedOverflow' is defined but never used        @typescript-eslint/no-unused-vars
+  5835:10  warning  'checkContentHiddenAtRest' is defined but never used           @typescript-eslint/no-unused-vars
+  6521:11  warning  'hasSlop' is assigned a value but never used                   @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/detector/engines/regex/detect-text.mjs
+  1:10  warning  'GENERIC_FONTS' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/detector/engines/static-html/detect-html.mjs
+  93:70  warning  'customPropMap' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/detector/rules/checks.mjs
+   332:9   warning  'rgbM' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  1821:52  warning  'win' is defined but never used            @typescript-eslint/no-unused-vars
+  2992:49  warning  'tag' is defined but never used            @typescript-eslint/no-unused-vars
+  2992:54  warning  'window' is defined but never used         @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/hook-admin.mjs
+  690:15  warning  'hook' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  690:21  warning  'detector' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/hook-before-edit.mjs
+  291:11  warning  'prefix' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/lib/design-parser.mjs
+  133:7   warning  'RGBA_RE' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  134:7   warning  'BOX_SHADOW_RE' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  135:7   warning  'NAMED_RULE_RE' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  488:10  warning  'scanInlineColors' is defined but never used         @typescript-eslint/no-unused-vars
+  499:10  warning  'parseStitchInlineGroups' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/lib/is-generated.mjs
+  49:12  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/lib/staleness.mjs
+  427:9  warning  'absProductPath' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/live-browser.js
+    277:5   warning  'cssId' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+   1328:12  warning  'configureModifierPillStyle' is defined but never used      @typescript-eslint/no-unused-vars
+   1375:12  warning  'bindConfigureModifierPillHover' is defined but never used  @typescript-eslint/no-unused-vars
+   3063:7   warning  'paramsPanelInner' is assigned a value but never used       @typescript-eslint/no-unused-vars
+   5305:12  warning  'scopeCssBlock' is defined but never used                   @typescript-eslint/no-unused-vars
+   6654:22  warning  'why' is defined but never used                             @typescript-eslint/no-unused-vars
+   6708:23  warning  'why' is defined but never used                             @typescript-eslint/no-unused-vars
+   6710:13  warning  'prevTarget' is assigned a value but never used             @typescript-eslint/no-unused-vars
+   8661:12  warning  'commitAcceptedVariantToDom' is defined but never used      @typescript-eslint/no-unused-vars
+   9295:12  warning  'loadPickPref' is defined but never used                    @typescript-eslint/no-unused-vars
+   9299:12  warning  'savePickPref' is defined but never used                    @typescript-eslint/no-unused-vars
+   9419:31  warning  '_theme' is defined but never used                          @typescript-eslint/no-unused-vars
+   9904:31  warning  'reason' is defined but never used                          @typescript-eslint/no-unused-vars
+  12208:31  warning  'count' is defined but never used                           @typescript-eslint/no-unused-vars
+  12440:12  warning  'highlightBold' is defined but never used                   @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/live-wrap.mjs
+  136:5   warning  'matchedQuery' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  343:7   warning  'outputLines' is defined but never used            @typescript-eslint/no-unused-vars
+  648:10  warning  'attrEscapeDouble' is defined but never used       @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/live/frameworks/index.mjs
+  110:13  warning  'extensions' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/live/frameworks/tag-strategy.mjs
+  99:36  warning  '_syntax' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/live/instructions.mjs
+  88:55  warning  'scriptsPath' is defined but never used  @typescript-eslint/no-unused-vars
+  94:55  warning  'scriptsPath' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/live/manual-apply.mjs
+  849:3  warning  '_reason' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/live/svelte-component.mjs
+  166:10  warning  'buildVariantStub' is defined but never used        @typescript-eslint/no-unused-vars
+  457:10  warning  'appendCssToSvelteStyle' is defined but never used  @typescript-eslint/no-unused-vars
+  477:10  warning  'bakeParamValuesInCss' is defined but never used    @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/modern-screenshot.umd.js
+   1:16    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:597   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:647   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:744   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:818   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:1355  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:1612  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:1910  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:4308  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:4705  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:5212  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:5403  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:5458  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:5465  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:5781  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:5882  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:5977  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:5984  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:6180  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:8171  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:8396  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   1:8941  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:124   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:490   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:677   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:912   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:2200  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:2422  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:2549  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:2626  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:2943  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:3694  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:4000  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:4263  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:4459  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:4500  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:4711  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:4770  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:5678  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:6185  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:6269  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   6:6351  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:21    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:65    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:234   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:376   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:517   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:967   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:1731  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:1804  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:2191  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:2344  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:2833  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:3614  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:3677  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:3813  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:3855  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:4009  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:4211  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:5344  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:5567  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:5623  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:5792  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:6335  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   7:6426  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   8:291   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   8:781   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   8:1010  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+   9:85    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  10:890   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  10:1436  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  14:40    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  14:355   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  14:376   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  14:1075  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  14:2002  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  14:2052  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  14:3467  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/palette.mjs
+  499:8   warning  'L' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  499:11  warning  'C' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/.agents/skills/impeccable/scripts/pin.mjs
+  16:70  warning  'readdirSync' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/api/attendance/generate-qr/route.ts
+  5:28  warning  '_request' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/api/attendance/history/route.ts
+  4:27  warning  'request' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/api/event-promo/efektif/route.ts
+  35:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:85  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  51:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:82  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  87:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/api/laporan/penjualan/export/route.ts
+  7:26  warning  'req' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/api/laporan/penjualan/rekap/route.ts
+  7:26  warning  'req' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/api/laporan/penjualan/route.ts
+  7:26  warning  'req' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/dashboard/attendance/generate-qr/page.tsx
+  64:6   warning  React Hook useEffect has a missing dependency: 'timeLeft'. Either include it or remove the dependency array                                                                                                                                                                              react-hooks/exhaustive-deps
+  64:15  warning  React Hook useEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked                                                                                                                                                 react-hooks/exhaustive-deps
+  93:17  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/home/haydar/Code/POS/app/app/dashboard/attendance/scan/page.tsx
+   69:16  warning  '_e' is defined but never used    @typescript-eslint/no-unused-vars
+   93:18  warning  '_e' is defined but never used    @typescript-eslint/no-unused-vars
+  108:14  warning  '_err' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/dashboard/buka-kasir/buka-kasir-client.tsx
+    5:3   warning  'Calculator' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+    9:3   warning  'Printer' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+   10:3   warning  'Save' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+   21:10  warning  'formatIDR' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   33:19  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+   38:22  warning  'setUangAktual' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   58:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/buka-kasir/buka-kasir-client.tsx:58:7
+  56 |   useEffect(() => {
+  57 |     if (date !== initialSummary?.tanggal) {
+> 58 |       refreshSummary(date);
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  59 |     }
+  60 |   }, [date]);
+  61 |  react-hooks/set-state-in-effect
+   60:6   warning  React Hook useEffect has a missing dependency: 'initialSummary?.tanggal'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 react-hooks/exhaustive-deps
+   81:9   warning  'handleSubmit' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  125:9   warning  'penambahan' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  126:9   warning  'selisih' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/dashboard/customers/actions.ts
+  144:17  warning  'inserted' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/dashboard/customers/customers-client.tsx
+  4:34  warning  'AlertCircle' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/dashboard/event-promo/actions.ts
+  7:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/event-promo/client.tsx
+   23:88   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   23:105  error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   24:18   warning  'setPromos' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   30:36   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   34:52   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   37:52   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   52:31   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   58:61   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   94:25   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  176:54   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  263:46   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/inventory/actions.ts
+  550:26  error    Unexpected any. Specify a different type                 @typescript-eslint/no-explicit-any
+  611:20  error    Unexpected any. Specify a different type                 @typescript-eslint/no-explicit-any
+  658:45  error    Unexpected any. Specify a different type                 @typescript-eslint/no-explicit-any
+  659:41  error    Unexpected any. Specify a different type                 @typescript-eslint/no-explicit-any
+  660:42  error    Unexpected any. Specify a different type                 @typescript-eslint/no-explicit-any
+  670:18  error    Unexpected any. Specify a different type                 @typescript-eslint/no-explicit-any
+  671:18  error    Unexpected any. Specify a different type                 @typescript-eslint/no-explicit-any
+  922:9   warning  'sku' is defined but never used                          @typescript-eslint/no-unused-vars
+  963:5   error    'finalSku' is never reassigned. Use 'const' instead      prefer-const
+  966:5   error    'finalBarcode' is never reassigned. Use 'const' instead  prefer-const
+
+/home/haydar/Code/POS/app/app/dashboard/inventory/inventory-client.tsx
+    5:42  warning  'X' is defined but never used                 @typescript-eslint/no-unused-vars
+   12:10  warning  'TableCell' is defined but never used         @typescript-eslint/no-unused-vars
+   12:21  warning  'TableRow' is defined but never used          @typescript-eslint/no-unused-vars
+  300:15  warning  'isPaket' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  599:16  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  601:20  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  688:16  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  690:30  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/inventory/page.tsx
+  91:9  error  'harga_asli_satuan' is never reassigned. Use 'const' instead        prefer-const
+  92:9  error  'harga_asli_besar_satuan' is never reassigned. Use 'const' instead  prefer-const
+
+/home/haydar/Code/POS/app/app/dashboard/inventory/stock-in/stock-in-client.tsx
+  145:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/inventory/stock-in/stock-in-client.tsx:145:7
+  143 |   useEffect(() => {
+  144 |     if (selectedProduct) {
+> 145 |       setSearchText(selectedProduct.nama_produk);
+      |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  146 |     }
+  147 |   }, [productId]);
+  148 |  react-hooks/set-state-in-effect
+  147:6   warning  React Hook useEffect has a missing dependency: 'selectedProduct'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                react-hooks/exhaustive-deps
+  306:78  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+  545:40  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+  958:43  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/laporan-kasir/laporan-kasir-client.tsx
+   14:3   warning  'TrendingDown' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+   73:9   error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+   80:27  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+   81:29  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  107:6   warning  React Hook useMemo has a missing dependency: 'penambahanRow'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  110:42  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  116:31  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/laporan/laba-rugi/actions.ts
+  20:12  warning  'err' is defined but never used           @typescript-eslint/no-unused-vars
+  20:17  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/laporan/laba-rugi/laba-rugi-client.tsx
+   24:79  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  127:79  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  127:97  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+/home/haydar/Code/POS/app/app/dashboard/laporan/neraca/actions.ts
+  20:12  warning  'err' is defined but never used           @typescript-eslint/no-unused-vars
+  20:17  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/laporan/neraca/neraca-client.tsx
+   25:77  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  112:63  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  112:81  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+/home/haydar/Code/POS/app/app/dashboard/log-aktivitas/page.tsx
+  38:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/page.tsx
+  10:10  warning  'LogoutButton' is defined but never used  @typescript-eslint/no-unused-vars
+  14:29  warning  'CardHeader' is defined but never used    @typescript-eslint/no-unused-vars
+  14:41  warning  'CardTitle' is defined but never used     @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/dashboard/product-label/product-selector-modal.tsx
+  44:7  error  Error: Cannot access variable before it is declared
+
+`fetchProducts` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/home/haydar/Code/POS/app/app/dashboard/product-label/product-selector-modal.tsx:44:7
+  42 |   useEffect(() => {
+  43 |     if (open) {
+> 44 |       fetchProducts("");
+     |       ^^^^^^^^^^^^^ `fetchProducts` accessed before it is declared
+  45 |       fetchRefData();
+  46 |       setSelectedIds(new Set());
+  47 |       setSearch("");
+
+/home/haydar/Code/POS/app/app/dashboard/product-label/product-selector-modal.tsx:63:3
+  61 |   };
+  62 |
+> 63 |   const fetchProducts = async (query: string) => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 64 |     setLoading(true);
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 65 |     const supabase = createClient();
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 84 |     setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 85 |   };
+     | ^^^^^ `fetchProducts` is declared here
+  86 |
+  87 |   const handleSearch = (e: React.FormEvent) => {
+  88 |     e.preventDefault();                                                                                                                                                                                                                                                                                                                                                                                                                                                                      react-hooks/immutability
+  45:7  error  Error: Cannot access variable before it is declared
+
+`fetchRefData` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/home/haydar/Code/POS/app/app/dashboard/product-label/product-selector-modal.tsx:45:7
+  43 |     if (open) {
+  44 |       fetchProducts("");
+> 45 |       fetchRefData();
+     |       ^^^^^^^^^^^^ `fetchRefData` accessed before it is declared
+  46 |       setSelectedIds(new Set());
+  47 |       setSearch("");
+  48 |       setMerkFilter("all");
+
+/home/haydar/Code/POS/app/app/dashboard/product-label/product-selector-modal.tsx:53:3
+  51 |   }, [open]);
+  52 |
+> 53 |   const fetchRefData = async () => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 54 |     const supabase = createClient();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 55 |     const [merksRes, lokasiRes] = await Promise.all([
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 56 |       supabase.from("merk").select("id, nama").order("nama"),
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 57 |       supabase.from("lokasi_area").select("id, nama").order("nama"),
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 58 |     ]);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 59 |     setMerks(merksRes.data || []);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 60 |     setLokasiAreas(lokasiRes.data || []);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 61 |   };
+     | ^^^^^ `fetchRefData` is declared here
+  62 |
+  63 |   const fetchProducts = async (query: string) => {
+  64 |     setLoading(true);  react-hooks/immutability
+  46:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/product-label/product-selector-modal.tsx:46:7
+  44 |       fetchProducts("");
+  45 |       fetchRefData();
+> 46 |       setSelectedIds(new Set());
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  47 |       setSearch("");
+  48 |       setMerkFilter("all");
+  49 |       setLokasiFilter("all");                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/set-state-in-effect
+
+/home/haydar/Code/POS/app/app/dashboard/settings/keuangan/finance-settings-form.tsx
+  10:77  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/settings/reference-data/actions.ts
+  162:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/settings/reference-data/reference-client.tsx
+  50:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/settings/reference-data/reference-client.tsx:50:21
+  48 |   const [errorMsg, setErrorMsg] = useState("");
+  49 |
+> 50 |   useEffect(() => { setKategori(initialKategori); }, [initialKategori]);
+     |                     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  51 |   useEffect(() => { setSatuan(initialSatuan); }, [initialSatuan]);
+  52 |   useEffect(() => { setMerk(initialMerk); }, [initialMerk]);
+  53 |   useEffect(() => { setMetodeBayar(initialMetodeBayar); }, [initialMetodeBayar]);                               react-hooks/set-state-in-effect
+  51:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/settings/reference-data/reference-client.tsx:51:21
+  49 |
+  50 |   useEffect(() => { setKategori(initialKategori); }, [initialKategori]);
+> 51 |   useEffect(() => { setSatuan(initialSatuan); }, [initialSatuan]);
+     |                     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  52 |   useEffect(() => { setMerk(initialMerk); }, [initialMerk]);
+  53 |   useEffect(() => { setMetodeBayar(initialMetodeBayar); }, [initialMetodeBayar]);
+  54 |   useEffect(() => { setLokasiArea(initialLokasiArea); }, [initialLokasiArea]);  react-hooks/set-state-in-effect
+  52:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/settings/reference-data/reference-client.tsx:52:21
+  50 |   useEffect(() => { setKategori(initialKategori); }, [initialKategori]);
+  51 |   useEffect(() => { setSatuan(initialSatuan); }, [initialSatuan]);
+> 52 |   useEffect(() => { setMerk(initialMerk); }, [initialMerk]);
+     |                     ^^^^^^^ Avoid calling setState() directly within an effect
+  53 |   useEffect(() => { setMetodeBayar(initialMetodeBayar); }, [initialMetodeBayar]);
+  54 |   useEffect(() => { setLokasiArea(initialLokasiArea); }, [initialLokasiArea]);
+  55 |    react-hooks/set-state-in-effect
+  53:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/settings/reference-data/reference-client.tsx:53:21
+  51 |   useEffect(() => { setSatuan(initialSatuan); }, [initialSatuan]);
+  52 |   useEffect(() => { setMerk(initialMerk); }, [initialMerk]);
+> 53 |   useEffect(() => { setMetodeBayar(initialMetodeBayar); }, [initialMetodeBayar]);
+     |                     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  54 |   useEffect(() => { setLokasiArea(initialLokasiArea); }, [initialLokasiArea]);
+  55 |
+  56 |   useEffect(() => {                                                  react-hooks/set-state-in-effect
+  54:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/settings/reference-data/reference-client.tsx:54:21
+  52 |   useEffect(() => { setMerk(initialMerk); }, [initialMerk]);
+  53 |   useEffect(() => { setMetodeBayar(initialMetodeBayar); }, [initialMetodeBayar]);
+> 54 |   useEffect(() => { setLokasiArea(initialLokasiArea); }, [initialLokasiArea]);
+     |                     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  55 |
+  56 |   useEffect(() => {
+  57 |     setSearchQuery("");                                                                                              react-hooks/set-state-in-effect
+  57:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/settings/reference-data/reference-client.tsx:57:5
+  55 |
+  56 |   useEffect(() => {
+> 57 |     setSearchQuery("");
+     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  58 |     setSortConfig(null);
+  59 |   }, [activeTab]);
+  60 |                                                                                                                                                                                                                                                                                                react-hooks/set-state-in-effect
+  58:5   error  Error: Cannot access variable before it is declared
+
+`setSortConfig` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/home/haydar/Code/POS/app/app/dashboard/settings/reference-data/reference-client.tsx:58:5
+  56 |   useEffect(() => {
+  57 |     setSearchQuery("");
+> 58 |     setSortConfig(null);
+     |     ^^^^^^^^^^^^^ `setSortConfig` accessed before it is declared
+  59 |   }, [activeTab]);
+  60 |
+  61 |   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+
+/home/haydar/Code/POS/app/app/dashboard/settings/reference-data/reference-client.tsx:61:22
+  59 |   }, [activeTab]);
+  60 |
+> 61 |   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+     |                      ^^^^^^^^^^^^^ `setSortConfig` is declared here
+  62 |
+  63 |   const handleSaveInline = () => {
+  64 |     if (!editForm.nama?.trim()) {                                                                                                                                                                                                                                                                                                 react-hooks/immutability
+
+/home/haydar/Code/POS/app/app/dashboard/settings/store-form.tsx
+  7:30  warning  'Store' is defined but never used          @typescript-eslint/no-unused-vars
+  7:37  warning  'CreditCard' is defined but never used     @typescript-eslint/no-unused-vars
+  7:49  warning  'Receipt' is defined but never used        @typescript-eslint/no-unused-vars
+  7:58  warning  'MessageSquare' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/dashboard/settings/users/actions.ts
+  120:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/settings/users/users-client.tsx
+  29:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/settings/users/users-client.tsx:29:21
+  27 |   const [users, setUsers] = useState<User[]>(initialUsers);
+  28 |
+> 29 |   useEffect(() => { setUsers(initialUsers); }, [initialUsers]);
+     |                     ^^^^^^^^ Avoid calling setState() directly within an effect
+  30 |
+  31 |   const [searchQuery, setSearchQuery] = useState("");
+  32 |   const deferredSearchQuery = useDeferredValue(searchQuery);  react-hooks/set-state-in-effect
+
+/home/haydar/Code/POS/app/app/dashboard/suppliers/suppliers-client.tsx
+  4:34  warning  'AlertCircle' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/dashboard/transactions/transactions-client.tsx
+  4:10  warning  'Search' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/dashboard/tutup-kasir/actions.ts
+  101:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  163:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  243:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/app/dashboard/tutup-kasir/tutup-kasir-client.tsx
+  11:3   warning  'Wallet' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  27:10  warning  'id' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+  34:19  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  35:10  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  40:20  warning  'setUangAwal' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+  61:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/app/dashboard/tutup-kasir/tutup-kasir-client.tsx:61:7
+  59 |   useEffect(() => {
+  60 |     if (date !== initialSummary?.tanggal) {
+> 61 |       refreshSummary(date);
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  62 |     }
+  63 |   }, [date]);
+  64 |  react-hooks/set-state-in-effect
+  63:6   warning  React Hook useEffect has a missing dependency: 'initialSummary?.tanggal'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   react-hooks/exhaustive-deps
+  65:9   warning  'handleBukaSesi' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/pos/layout.tsx
+   3:10  warning  'headers' is defined but never used        @typescript-eslint/no-unused-vars
+  17:9   warning  'role' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/app/pos/pos-client.tsx
+  334:33  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  343:46  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  343:65  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  344:33  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  397:37  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  406:48  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  406:67  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  407:37  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  426:20  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/components/dashboard-mobile-nav.tsx
+  23:3  warning  'Camera' is defined but never used                                                                  @typescript-eslint/no-unused-vars
+  67:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+
+/home/haydar/Code/POS/app/components/dashboard-sidebar.tsx
+  66:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+
+/home/haydar/Code/POS/app/components/import-csv-modal.tsx
+   37:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  225:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/components/price-tag.tsx
+   54:6  warning  React Hook useEffect has a missing dependency: 'barcodeValue'. Either include it or remove the dependency array                                                                                                                                                                          react-hooks/exhaustive-deps
+  137:9  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/home/haydar/Code/POS/app/components/product-detail-sheet.tsx
+    9:3   warning  'X' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   17:10  warning  'Button' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+  121:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/components/product-detail-sheet.tsx:121:5
+  119 |   useEffect(() => {
+  120 |     if (!open || !product) return;
+> 121 |     setLoading(true);
+      |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  122 |     setFetchError("");
+  123 |     getProductMutationHistory(product.id).then((res) => {
+  124 |       if (res.error) {  react-hooks/set-state-in-effect
+  153:18  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  316:42  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/hooks/use-low-stock-realtime.ts
+  80:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/haydar/Code/POS/app/hooks/use-low-stock-realtime.ts:80:7
+  78 |
+  79 |     if (sharedItems.length > 0) {
+> 80 |       setItems([...sharedItems]);
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  81 |     }
+  82 |
+  83 |     return () => {  react-hooks/set-state-in-effect
+
+/home/haydar/Code/POS/app/import_to_db.js
+  1:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/lib/export-utils.ts
+    6:72  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   20:86  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  130:87  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/lib/supabase/fetch-all.ts
+  33:3  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+/home/haydar/Code/POS/app/patch.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_actions.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_actions2.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_buka_kasir.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_cetak.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_data_table.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_data_table_hover.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_inventory_client.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_jsx.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_pos.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_pos2.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_sidebar.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_tutup_jsx.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_tutup_kasir.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_tutup_props.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/patch_uuid.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/public/sw.js
+  1:156  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:209  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:626  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/home/haydar/Code/POS/app/public/workbox-c2c0676f.js
+  1:49     warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:87     warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:211    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:257    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:298    warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:381    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:642    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:813    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:989    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:1093   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:1738   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:2263   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:3058   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:3102   warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:3598   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:3727   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:7052   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:7234   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:7954   warning  'i' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:7962   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8066   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8368   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:9440   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:9550   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:9566   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:9627   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:9962   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:10038  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:10065  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:10081  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:10163  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:10963  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11007  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:11122  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11194  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11301  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11382  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11623  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11941  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:12060  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:12464  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:12684  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:13012  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:13272  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:13319  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:13367  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:14423  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:14555  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:14599  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:15097  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:15191  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:15404  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:15514  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:16025  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:16057  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:16165  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:16591  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:16958  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17076  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17178  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17458  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17719  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17903  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:19089  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20040  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20129  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20260  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20317  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20514  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20635  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20768  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20988  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:21080  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:21657  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:21768  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:21988  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:22227  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:22385  warning  's' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:22450  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:22748  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:22962  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:23349  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:23479  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/home/haydar/Code/POS/app/query_service.js
+   8:17  warning  'error' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  12:37  warning  'err2' is assigned a value but never used   @typescript-eslint/no-unused-vars
+
+/home/haydar/Code/POS/app/supabase/.temp/start-secrets/supabase_edge_runtime_app/main/index.ts
+  1:1      error    Unexpected var, use let or const instead                               no-var
+  1:278    error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:298    error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:311    error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:365    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:445    error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:508    error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:657    error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:672    error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:944    error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:1033   error    Unexpected var, use let or const instead                               no-var
+  1:1073   warning  'Ht' is assigned a value but never used                                @typescript-eslint/no-unused-vars
+  1:1104   error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:1138   error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:1170   error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:1177   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:1227   error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:1286   error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:1469   error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:1479   error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:1696   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:1874   error    Unexpected var, use let or const instead                               no-var
+  1:3102   error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:3322   error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:3380   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:3656   error    Unexpected var, use let or const instead                               no-var
+  1:3763   error    Unexpected var, use let or const instead                               no-var
+  1:3861   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:4128   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:4359   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:4625   error    Unexpected var, use let or const instead                               no-var
+  1:4773   error    Unexpected var, use let or const instead                               no-var
+  1:5531   error    Unexpected var, use let or const instead                               no-var
+  1:5799   error    Unexpected var, use let or const instead                               no-var
+  1:6101   error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:6174   error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:6186   error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:6252   error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:6300   error    Unexpected var, use let or const instead                               no-var
+  1:6593   error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:6741   error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:7589   error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:7626   error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:7709   error    Unexpected var, use let or const instead                               no-var
+  1:7888   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8028   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8145   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8308   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8521   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8709   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8852   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8980   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:9293   error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:9305   error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:9314   error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:9441   error    Unexpected var, use let or const instead                               no-var
+  1:9553   error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:9590   error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:9701   error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:9738   error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:9758   error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:10866  error    'f' is never reassigned. Use 'const' instead                           prefer-const
+  1:11019  error    'd' is never reassigned. Use 'const' instead                           prefer-const
+  1:11065  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11544  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:12774  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:12846  error    's' is never reassigned. Use 'const' instead                           prefer-const
+  1:13314  error    Unexpected var, use let or const instead                               no-var
+  1:13917  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:16419  error    'z' is never reassigned. Use 'const' instead                           prefer-const
+  1:16627  error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:16648  error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:16837  error    'f' is never reassigned. Use 'const' instead                           prefer-const
+  1:16945  error    'd' is never reassigned. Use 'const' instead                           prefer-const
+  1:17294  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17359  error    'c' is never reassigned. Use 'const' instead                           prefer-const
+  1:17495  error    'S' is never reassigned. Use 'const' instead                           prefer-const
+  1:17527  error    'P' is never reassigned. Use 'const' instead                           prefer-const
+  1:17583  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17678  error    'R' is never reassigned. Use 'const' instead                           prefer-const
+  1:17962  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:17966  error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:17970  error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:17979  error    's' is never reassigned. Use 'const' instead                           prefer-const
+  1:18043  error    'f' is never reassigned. Use 'const' instead                           prefer-const
+  1:18095  error    'd' is never reassigned. Use 'const' instead                           prefer-const
+  1:18198  error    Unexpected var, use let or const instead                               no-var
+  1:18435  error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:18520  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:18539  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:18986  error    Unexpected var, use let or const instead                               no-var
+  1:19311  error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:19457  error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:19469  error    's' is never reassigned. Use 'const' instead                           prefer-const
+  1:19479  error    'f' is never reassigned. Use 'const' instead                           prefer-const
+  1:19490  error    'd' is never reassigned. Use 'const' instead                           prefer-const
+  1:19504  error    'a' is never reassigned. Use 'const' instead                           prefer-const
+  1:19509  error    'c' is never reassigned. Use 'const' instead                           prefer-const
+  1:19518  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:19630  error    'E' is never reassigned. Use 'const' instead                           prefer-const
+  1:20261  error    'P' is never reassigned. Use 'const' instead                           prefer-const
+  1:20266  error    'C' is never reassigned. Use 'const' instead                           prefer-const
+  1:20790  error    'E' is never reassigned. Use 'const' instead                           prefer-const
+  1:20800  error    'R' is never reassigned. Use 'const' instead                           prefer-const
+  1:21079  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:21223  error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:21681  error    Unexpected var, use let or const instead                               no-var
+  1:21854  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:21860  error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:21883  error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:21891  error    's' is never reassigned. Use 'const' instead                           prefer-const
+  1:22320  error    'f' is never reassigned. Use 'const' instead                           prefer-const
+  1:22329  error    'd' is never reassigned. Use 'const' instead                           prefer-const
+  1:22369  error    'a' is never reassigned. Use 'const' instead                           prefer-const
+  1:22377  error    'c' is never reassigned. Use 'const' instead                           prefer-const
+  1:22443  error    'S' is never reassigned. Use 'const' instead                           prefer-const
+  1:22541  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:22594  error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:22765  error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:22777  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:23088  error    Unexpected var, use let or const instead                               no-var
+  1:23095  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:23190  error    Unexpected var, use let or const instead                               no-var
+  1:23243  error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:23554  error    Unexpected var, use let or const instead                               no-var
+  1:23783  error    Unexpected var, use let or const instead                               no-var
+  1:23920  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:24691  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:24884  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:24997  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:25167  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:25181  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:25626  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:25641  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:25862  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:26000  error    Unexpected var, use let or const instead                               no-var
+  1:27482  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:27852  error    Unexpected var, use let or const instead                               no-var
+  1:27872  error    'e' is never reassigned. Use 'const' instead                           prefer-const
+  1:28055  error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:28071  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:28073  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:28138  error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:28171  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:28327  error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:28339  error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:28476  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:28643  error    Unexpected var, use let or const instead                               no-var
+  1:28762  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:29469  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:29602  error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:29619  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:29684  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:29819  error    't' is never reassigned. Use 'const' instead                           prefer-const
+  1:29846  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:29940  error    'p' is never reassigned. Use 'const' instead                           prefer-const
+  1:30008  error    'n' is never reassigned. Use 'const' instead                           prefer-const
+  1:30133  error    'p' is never reassigned. Use 'const' instead                           prefer-const
+  1:30180  error    'b' is never reassigned. Use 'const' instead                           prefer-const
+  1:30329  error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:30406  error    's' is never reassigned. Use 'const' instead                           prefer-const
+  1:30412  error    'f' is never reassigned. Use 'const' instead                           prefer-const
+  1:30442  error    'd' is never reassigned. Use 'const' instead                           prefer-const
+  1:30447  error    'a' is never reassigned. Use 'const' instead                           prefer-const
+  1:30535  warning  'b' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:30570  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:30695  error    'c' is never reassigned. Use 'const' instead                           prefer-const
+  1:30726  warning  'b' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:30785  error    'S' is never reassigned. Use 'const' instead                           prefer-const
+  1:30790  error    'P' is never reassigned. Use 'const' instead                           prefer-const
+  1:30795  error    'C' is never reassigned. Use 'const' instead                           prefer-const
+  1:30801  error    'E' is never reassigned. Use 'const' instead                           prefer-const
+  1:30807  error    'R' is never reassigned. Use 'const' instead                           prefer-const
+  1:30816  error    'z' is never reassigned. Use 'const' instead                           prefer-const
+  1:30852  error    'Xe' is never reassigned. Use 'const' instead                          prefer-const
+  1:30866  error    'Ye' is never reassigned. Use 'const' instead                          prefer-const
+  1:30884  error    'qe' is never reassigned. Use 'const' instead                          prefer-const
+  1:30912  error    'p' is never reassigned. Use 'const' instead                           prefer-const
+  1:31231  error    'b' is never reassigned. Use 'const' instead                           prefer-const
+  1:31297  error    'b' is never reassigned. Use 'const' instead                           prefer-const
+  1:31299  error    'Z' is never reassigned. Use 'const' instead                           prefer-const
+  1:31561  error    'e' is never reassigned. Use 'const' instead                           prefer-const
+  1:31624  error    'r' is never reassigned. Use 'const' instead                           prefer-const
+  1:31640  error    'o' is never reassigned. Use 'const' instead                           prefer-const
+  1:31657  error    'i' is never reassigned. Use 'const' instead                           prefer-const
+  1:31726  error    's' is never reassigned. Use 'const' instead                           prefer-const
+
+/home/haydar/Code/POS/app/test_sql.js
+  1:9   warning  'createClient' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  1:26  error    A `require()` style import is forbidden            @typescript-eslint/no-require-imports
+
+/home/haydar/Code/POS/app/tests/screenshot-level2-complete.spec.ts
+  18:7   warning  'SVC' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  19:7   warning  'SB_URL' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  22:27  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  28:28  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  41:26  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  48:28  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  62:32  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  68:27  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  70:31  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  76:26  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  79:36  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  88:33  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+
+/home/haydar/Code/POS/app/tests/screenshot-responsive.spec.ts
+  72:16  warning  'closeDialog' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 605 problems (272 errors, 333 warnings)
+  101 errors and 3 warnings potentially fixable with the `--fix` option.
+

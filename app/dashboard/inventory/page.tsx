@@ -88,8 +88,8 @@ export default async function InventoryPage() {
   }
 
   const productsWithStock = withMaster.map((p) => {
-    let harga_asli_satuan = p.harga_jual_satuan;
-    let harga_asli_besar_satuan = p.harga_jual_besar_satuan;
+    const harga_asli_satuan = p.harga_jual_satuan;
+    const harga_asli_besar_satuan = p.harga_jual_besar_satuan;
     let harga_jual_satuan = p.harga_jual_satuan;
     let harga_jual_grosir = p.harga_jual_grosir;
     let harga_jual_promo = p.harga_jual_promo;

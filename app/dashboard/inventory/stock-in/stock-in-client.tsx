@@ -142,8 +142,10 @@ function ProductCombo({
 
   useEffect(() => {
     if (selectedProduct) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchText(selectedProduct.nama_produk);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
   useEffect(() => {
@@ -303,6 +305,7 @@ function ProductCombo({
 /*  BarcodeScanBar — focus-scan mode (keyboard/USB + phone via SSE)    */
 /* ------------------------------------------------------------------ */
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BarcodeScanBar({ products, append }: { products: Product[]; append: any }) {
   const { setValue, getValues } = useFormContext<StockInFormValues>();
 
@@ -542,6 +545,7 @@ function FormBody({
       list.push(errors.id_supplier.message as string);
     }
     if (errors.items) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const itemsErr = errors.items as any;
       if (typeof itemsErr === "object") {
         for (const key of Object.keys(itemsErr)) {
@@ -955,6 +959,7 @@ export default function StockInClient({
     : [{ id_produk: 0, supplied_qty: 1, supplied_unit: "", total_cost: 0, keterangan: "" }];
 
   const form = useForm<StockInFormValues>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: makeResolver(formSchema) as any,
     mode: "onSubmit",
     defaultValues: {

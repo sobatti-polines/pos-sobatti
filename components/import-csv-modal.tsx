@@ -34,6 +34,7 @@ export interface ImportCSVModalProps {
   description?: string;
   templateFilename: string;
   templateHeaders: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sampleRows: any[][];
   /** Catatan umum pengisian yang disertakan di sheet "Petunjuk" pada template Excel */
   templateInstructions?: string[];
@@ -222,6 +223,7 @@ export default function ImportCSVModal({
         setSuccessMessage(msg);
         if (onSuccess) onSuccess();
       }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setServerError(err?.message || "Terjadi kesalahan saat mengimpor data.");
     } finally {

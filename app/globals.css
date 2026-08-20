@@ -308,3 +308,14 @@
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
+
+@media print {
+  .receipt-print-area {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    font-family: monospace !important;
+  }
+}

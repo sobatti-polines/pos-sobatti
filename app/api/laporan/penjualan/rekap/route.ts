@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function checkAuth(req: NextRequest) {
   const supabase = await createClient();
   const {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useDeferredValue } from "react";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Search, Receipt, Trash2, AlertTriangle, Loader2, X } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";

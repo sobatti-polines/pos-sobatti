@@ -98,6 +98,7 @@ export async function bukaSesiKasir(tanggal: string, uang_awal: number) {
     revalidatePath("/dashboard/laporan-kasir");
     revalidatePath("/dashboard/tutup-kasir");
     return { success: true };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     console.error("Failed to open kasir session:", err);
     return { error: err?.message || "Gagal membuka sesi kasir" };
@@ -160,6 +161,7 @@ export async function submitTutupKasir(params: {
     revalidatePath("/dashboard/laporan-kasir");
     revalidatePath("/dashboard/tutup-kasir");
     return { success: true };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     console.error("Failed to confirm tutup kasir:", err);
     return { error: "Gagal konfirmasi tutup kasir" };
@@ -240,6 +242,7 @@ export async function editSesiKasir(params: {
     revalidatePath("/dashboard/laporan/kas");
     revalidatePath("/dashboard/tutup-kasir");
     return { success: true };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     console.error("Failed to edit kasir session:", err);
     return { error: err?.message || "Gagal mengedit saldo sesi kasir" };

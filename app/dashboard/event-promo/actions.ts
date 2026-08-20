@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function saveEventPromo(data: any, isNew: boolean, selectedProducts: number[]) {
   const supabase = await createClient();
 

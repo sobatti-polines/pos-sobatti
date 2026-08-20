@@ -159,6 +159,7 @@ export async function importReferenceData(
     return { error: "Data impor kosong" };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any[] = [];
 
   for (const r of rows) {

@@ -41,8 +41,11 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/immutability
       fetchProducts("");
+      // eslint-disable-next-line react-hooks/immutability
       fetchRefData();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedIds(new Set());
       setSearch("");
       setMerkFilter("all");

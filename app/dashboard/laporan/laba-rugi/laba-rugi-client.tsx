@@ -21,6 +21,7 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function LabaRugiClient({ initialData, store }: { initialData: any; store?: StoreSettings | null }) {
   const [start, setStart] = useState(initialData?.periode?.start || "");
   const [end, setEnd] = useState(initialData?.periode?.end || "");
@@ -124,6 +125,7 @@ export default function LabaRugiClient({ initialData, store }: { initialData: an
             </div>
             <h3 className="text-lg font-medium text-foreground mb-1">Belum ada data ditampilkan</h3>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              {/* eslint-disable-next-line react/no-unescaped-entities */}
               Silakan atur tanggal mulai dan tanggal akhir di atas, lalu klik "Tampilkan Laporan".
             </p>
           </div>
