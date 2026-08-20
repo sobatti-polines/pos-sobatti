@@ -298,7 +298,7 @@ export default function InventoryClient({
     if (stockFilter !== "all") {
       result = result.filter((p) => {
         const isPaket = Boolean(p.id_produk_master);
-        if (stockFilter === "untracked") return !p.hitung_stok && !isPaket;
+        if (stockFilter === "untracked") return !p.hitung_stok;
         if (!p.hitung_stok) return false;
         const display = p.stock ?? 0;
         const gudang = p.stok_gudang ?? 0;
@@ -331,16 +331,12 @@ export default function InventoryClient({
         setErrorMsg("Jumlah per satuan (qty per unit) wajib diisi dan lebih dari 0 untuk produk paket");
         return;
       }
-      if (!editForm.sku?.trim()) {
-        setErrorMsg("SKU wajib diisi untuk produk paket (gunakan suffix unik, berbeda dari SKU master)");
-        return;
-      }
     }
     setErrorMsg("");
 
     const data = {
       nama_produk: editForm.nama_produk, id_kategori: Number(editForm.id_kategori),
-      id_satuan: Number(editForm.id_satuan), id_merk: editForm.id_merk ?? null, hitung_stok: isPaketMode ? true : (editForm.hitung_stok ?? true),
+      id_satuan: Number(editForm.id_satuan), id_merk: editForm.id_merk ?? null, hitung_stok: editForm.hitung_stok ?? true,
       id_lokasi_area: editForm.id_lokasi_area ? Number(editForm.id_lokasi_area) : null,
       jenis_isi_paket: isPaketMode ? (editForm.jenis_isi_paket || 'FIXED_RATIO') : null,
       isi_satuan: isPaketMode ? (editForm.isi_satuan || null) : null,
@@ -636,7 +632,7 @@ export default function InventoryClient({
       key: "stock", header: "Status Stok", sortable: true, headerClassName: "w-[180px]",
       render: (p) => {
         const isPaket = Boolean(p.id_produk_master);
-        if (!p.hitung_stok && !isPaket) {
+        if (!p.hitung_stok) {
             return <Badge variant="outline" className="text-muted-foreground border-border/50 font-normal rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Tidak dilacak</Badge>;
         }
 
@@ -1287,7 +1283,7 @@ export default function InventoryClient({
               </div>
 
               {/* 3. Manajemen Stok (Full width card with 2 columns inside) */}
-              {!isPaket && (
+              
               <div className="lg:col-span-12 bg-card border border-border/70 rounded-2xl p-6 sm:p-7 shadow-2xs flex flex-col gap-5">
                 <div className="flex items-center justify-between border-b border-border/60 pb-3">
                   <div>
@@ -1346,7 +1342,7 @@ export default function InventoryClient({
                   </div>
                 </div>
               </div>
-              )}
+              
               {/* Info stok paket */}
               {isPaket && (
                 <div className="lg:col-span-12 bg-card border border-border/70 rounded-2xl p-6 sm:p-7 shadow-2xs flex flex-col gap-4">

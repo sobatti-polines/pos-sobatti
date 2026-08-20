@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
     webpackMemoryOptimizations: true,
     serverSourceMaps: false,
     serverActions: {
-      allowedOrigins: [getLocalIp(), 'localhost:3000'],
+      allowedOrigins: [getLocalIp(), 'localhost:3000', "*.trycloudflare.com"],
     },
     optimizePackageImports: [
       "lucide-react",
@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
     useCache: true,
   },
   turbopack: {},
-  allowedDevOrigins: [getLocalIp()],
+  allowedDevOrigins: [getLocalIp(), "*.trycloudflare.com"],
   compress: true,
   images: {
     formats: ["image/avif", "image/webp"],

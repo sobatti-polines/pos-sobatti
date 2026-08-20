@@ -774,7 +774,7 @@ export async function importProducts(
       diskon,
       stok_minimum,
       stok_minimum_gudang,
-      hitung_stok: id_produk_master ? true : hitung_stok,
+      hitung_stok: hitung_stok,
       id_produk_master,
       qty_per_unit,
       isi_satuan,

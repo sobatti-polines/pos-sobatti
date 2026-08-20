@@ -25,10 +25,17 @@ import {
   Phone,
   Award,
   Calculator,
+  Printer,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -167,6 +174,8 @@ export function PosClient() {
   }, [supabase]);
 
   const [taxRate, setTaxRate] = useState(0);
+  const [printUrl, setPrintUrl] = useState<string | null>(null);
+  const [printIframeOpen, setPrintIframeOpen] = useState(false);
   const [jenisNota, setJenisNota] = useState("Invoice");
   const [metodeCetak, setMetodeCetak] = useState("Preview");
 
@@ -553,7 +562,11 @@ export function PosClient() {
         url = `/pos/invoice/${result.id}?type=invoice${isAutoPrint}`;
       }
       
-      router.push(url);
+      setPrintUrl(url);
+      setPrintIframeOpen(true);
+      
+      // Reset POS
+      usePosStore.setState({ cart: [], activeCartItemId: null, selectedCustomer: null, selectedPayment: 1, numpadValue: "" });
     }
   };
 
@@ -1555,6 +1568,38 @@ export function PosClient() {
         </div>
       )}
 
+      {/* ── Print Iframe Dialog ──────────────────────────────────────────────── */}
+      <Dialog open={printIframeOpen} onOpenChange={setPrintIframeOpen}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden bg-background">
+          <DialogHeader className="px-6 py-4 border-b shrink-0 flex flex-row items-center justify-between">
+            <DialogTitle className="text-xl">Pratinjau {jenisNota}</DialogTitle>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="default" 
+                className="rounded-full"
+                onClick={() => {
+                  const iframe = document.getElementById("print-iframe") as HTMLIFrameElement;
+                  iframe?.contentWindow?.print();
+                }}
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Cetak Sekarang
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 bg-muted/30 relative">
+            {printUrl && (
+              <iframe 
+                id="print-iframe"
+                src={printUrl} 
+                className="w-full h-full border-0 bg-transparent" 
+                title="Print Preview"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      
       {/* ── Add Item Dialog (4A: choose unit on search click) ──────────────── */}
       {addItemOpen && addItemProduct && (
         <div
