@@ -23,6 +23,7 @@ const getLocalIp = () => {
 };
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   productionBrowserSourceMaps: false,
   experimental: {
     webpackMemoryOptimizations: true,
