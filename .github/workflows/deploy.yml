@@ -104,6 +104,10 @@ jobs:
             "DEPLOY_PATH='${{ env.DEPLOY_PATH }}' PM2_APP_NAME='${{ env.PM2_APP_NAME }}' APP_PORT='${{ env.APP_PORT }}' RELEASE='${RELEASE}' KEEP_RELEASES='${{ env.KEEP_RELEASES }}' bash -s" <<'ENDSSH'
           set -euo pipefail
 
+          # Load nvm so pm2/node/npm are in PATH
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
           RELEASE_DIR="$DEPLOY_PATH/releases/$RELEASE"
           CURRENT_LINK="$DEPLOY_PATH/current"
           PREV_RELEASE=""
