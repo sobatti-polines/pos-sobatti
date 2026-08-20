@@ -1,0 +1,160 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+  DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}       # /var/www/plk-pos
+  PM2_APP_NAME: ${{ secrets.PM2_APP_NAME }}     # plk-pos
+  APP_PORT: ${{ secrets.APP_PORT }}             # 3000
+  KEEP_RELEASES: 5
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm run test --if-present -- --ci
+
+      - name: Build (standalone output)
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SERVICE_ROLE: ${{ secrets.SERVICE_ROLE }}
+        run: npm run build
+
+      - name: Verify standalone output exists
+        run: |
+          if [ ! -d ".next/standalone" ]; then
+            echo "::error::.next/standalone tidak ditemukan. Pastikan next.config.js punya output: 'standalone'."
+            exit 1
+          fi
+
+      - name: Package release
+        run: |
+          mkdir -p deploy_package/.next
+          cp -r .next/standalone/. deploy_package/
+          cp -r .next/static deploy_package/.next/static
+          if [ -d public ]; then cp -r public deploy_package/public; fi
+          tar -czf release.tar.gz -C deploy_package .
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: release.tar.gz
+          retention-days: 3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Add VPS to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.VPS_PORT || 22 }} ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Set release name
+        id: vars
+        run: echo "release=$(date +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release archive to VPS
+        run: |
+          scp -P ${{ secrets.VPS_PORT || 22 }} release.tar.gz \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/release-${{ steps.vars.outputs.release }}.tar.gz
+
+      - name: Deploy on VPS (extract, symlink, reload, health check, rollback on failure)
+        env:
+          RELEASE: ${{ steps.vars.outputs.release }}
+        run: |
+          ssh -p ${{ secrets.VPS_PORT || 22 }} ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "DEPLOY_PATH='${{ env.DEPLOY_PATH }}' PM2_APP_NAME='${{ env.PM2_APP_NAME }}' APP_PORT='${{ env.APP_PORT }}' RELEASE='${RELEASE}' KEEP_RELEASES='${{ env.KEEP_RELEASES }}' bash -s" <<'ENDSSH'
+          set -euo pipefail
+
+          RELEASE_DIR="$DEPLOY_PATH/releases/$RELEASE"
+          CURRENT_LINK="$DEPLOY_PATH/current"
+          PREV_RELEASE=""
+          if [ -L "$CURRENT_LINK" ]; then
+            PREV_RELEASE=$(readlink "$CURRENT_LINK")
+          fi
+
+          echo ">> Extracting release $RELEASE"
+          mkdir -p "$RELEASE_DIR"
+          tar -xzf "/tmp/release-$RELEASE.tar.gz" -C "$RELEASE_DIR"
+          rm -f "/tmp/release-$RELEASE.tar.gz"
+
+          echo ">> Linking shared runtime env"
+          mkdir -p "$DEPLOY_PATH/shared"
+          if [ -f "$DEPLOY_PATH/shared/.env" ]; then
+            ln -sf "$DEPLOY_PATH/shared/.env" "$RELEASE_DIR/.env"
+          fi
+
+          echo ">> Switching current symlink (atomic)"
+          ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+
+          echo ">> Reloading PM2 (zero-downtime)"
+          if pm2 describe "$PM2_APP_NAME" > /dev/null 2>&1; then
+            pm2 reload "$PM2_APP_NAME" --update-env
+          else
+            pm2 start "$CURRENT_LINK/server.js" --name "$PM2_APP_NAME" --update-env
+          fi
+          pm2 save
+
+          echo ">> Health check on port $APP_PORT"
+          HEALTHY=0
+          for i in $(seq 1 10); do
+            if curl -fsS "http://127.0.0.1:$APP_PORT" -o /dev/null; then
+              HEALTHY=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$HEALTHY" -ne 1 ]; then
+            echo "!! Health check failed, rolling back"
+            if [ -n "$PREV_RELEASE" ] && [ -d "$PREV_RELEASE" ]; then
+              ln -sfn "$PREV_RELEASE" "$CURRENT_LINK"
+              pm2 reload "$PM2_APP_NAME" --update-env
+              echo "!! Rolled back to $PREV_RELEASE"
+            else
+              echo "!! No previous release to roll back to"
+            fi
+            exit 1
+          fi
+
+          echo ">> Deploy healthy. Cleaning old releases (keep last $KEEP_RELEASES)"
+          cd "$DEPLOY_PATH/releases"
+          ls -1t | tail -n +$((KEEP_RELEASES + 1)) | xargs -r rm -rf
+
+          echo ">> Deploy $RELEASE finished successfully"
+          ENDSSH
