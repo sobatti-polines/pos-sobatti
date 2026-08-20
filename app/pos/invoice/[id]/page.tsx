@@ -1,3 +1,4 @@
+import { AutoPrint } from "../../auto-print";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PrintButton } from "./print-button";
@@ -30,7 +31,7 @@ export default async function InvoicePage({
   searchParams
 }: { 
   params: Promise<{ id: string }>,
-  searchParams: Promise<{ type?: string }>
+  searchParams: Promise<{ type?: string, print?: string }>
 }) {
   const supabase = await createClient();
 
@@ -49,6 +50,7 @@ export default async function InvoicePage({
   const resolvedSearchParams = await searchParams;
   const id = parseInt(resolvedParams.id, 10);
   const typeParam = resolvedSearchParams.type;
+  const printParam = resolvedSearchParams.print;
 
   if (isNaN(id)) {
     notFound();
@@ -140,7 +142,7 @@ export default async function InvoicePage({
           <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
             <PrintButton />
             <a
-              href={`/pos/invoice/${id}/receipt`}
+              href={`/pos/invoice/${id}/receipt?print=auto`}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 h-9 rounded-full text-sm font-medium text-muted-foreground bg-muted hover:bg-muted/80 transition-colors border border-border"
@@ -296,6 +298,9 @@ export default async function InvoicePage({
           {pengaturan?.footer_invoice_3 && <p className="text-[12px] text-[#64748d] font-light">{pengaturan.footer_invoice_3}</p>}
         </div>
       </div>
+      {printParam === "auto" && (
+        <AutoPrint />
+      )}
     </div>
   );
 }

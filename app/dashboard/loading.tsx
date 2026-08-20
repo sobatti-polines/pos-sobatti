@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 export default function DashboardLoading() {
   return (
     <div
-      className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto"
+      className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto print:hidden"
       role="status"
       aria-label="Memuat halaman"
     >

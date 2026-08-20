@@ -340,7 +340,7 @@ export default function InventoryClient({
 
     const data = {
       nama_produk: editForm.nama_produk, id_kategori: Number(editForm.id_kategori),
-      id_satuan: Number(editForm.id_satuan), id_merk: editForm.id_merk ?? null, hitung_stok: true,
+      id_satuan: Number(editForm.id_satuan), id_merk: editForm.id_merk ?? null, hitung_stok: isPaketMode ? true : (editForm.hitung_stok ?? true),
       id_lokasi_area: editForm.id_lokasi_area ? Number(editForm.id_lokasi_area) : null,
       jenis_isi_paket: isPaketMode ? (editForm.jenis_isi_paket || 'FIXED_RATIO') : null,
       isi_satuan: isPaketMode ? (editForm.isi_satuan || null) : null,

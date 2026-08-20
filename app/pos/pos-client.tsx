@@ -1,4 +1,6 @@
 "use client";
+import { Clock } from "./clock";
+
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -164,18 +166,14 @@ export function PosClient() {
     fetchUser();
   }, [supabase]);
 
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [taxRate, setTaxRate] = useState(0);
+  const [jenisNota, setJenisNota] = useState("Invoice");
+  const [metodeCetak, setMetodeCetak] = useState("Preview");
 
   // ── Server-side search state ─────────────────────────────────────────────
   const [serverSearch, setServerSearch] = useState<{ q: string; data: Product[] } | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // ── Phone scanner state ───────────────────────────────────────────────────
   const [sessionId] = useState(() => crypto.randomUUID());
@@ -314,7 +312,7 @@ export function PosClient() {
         fetch("/api/pos/products"),
         fetch("/api/pos/customers"),
         fetch("/api/pos/payment-methods"),
-        supabase.from("pengaturan").select("pajak_persen").eq("id", 1).single()
+        supabase.from("pengaturan").select("pajak_persen, jenis_nota, metode_cetak").eq("id", 1).single()
       ]);
       const prodJson = await prodRes.json();
       let data = prodJson.data ?? prodJson ?? [];
@@ -358,6 +356,8 @@ export function PosClient() {
       
       if (settingsRes.data) {
         setTaxRate(settingsRes.data.pajak_persen || 0);
+        setJenisNota(settingsRes.data.jenis_nota || "Invoice");
+        setMetodeCetak(settingsRes.data.metode_cetak || "Preview");
       }
     };
     load();
@@ -542,7 +542,18 @@ export function PosClient() {
     const result = await checkout();
     if (result.success && result.id) {
       setNumpadValue("");
-      router.push(`/pos/invoice/${result.id}`);
+      let url = `/pos/invoice/${result.id}`;
+      const isAutoPrint = metodeCetak === "Direct" ? "&print=auto" : "";
+      
+      if (jenisNota === "Struk") {
+        url = `/pos/invoice/${result.id}/receipt?mode=struk${isAutoPrint}`;
+      } else if (jenisNota === "Faktur") {
+        url = `/pos/invoice/${result.id}?type=faktur${isAutoPrint}`;
+      } else {
+        url = `/pos/invoice/${result.id}?type=invoice${isAutoPrint}`;
+      }
+      
+      router.push(url);
     }
   };
 
@@ -751,15 +762,7 @@ export function PosClient() {
             )}
             <Smartphone className="w-4 h-4 text-muted-foreground" />
           </button>
-          <div className="hidden xl:block w-24 text-right">
-            <p className="text-xl font-light tracking-tight tabular-nums text-foreground">
-              {currentTime.toLocaleTimeString("id-ID", { 
-                hour: "2-digit", 
-                minute: "2-digit",
-                timeZone: "Asia/Jakarta"
-              })}
-            </p>
-          </div>
+          <Clock />
           <button
             type="button"
             id="logout-btn"

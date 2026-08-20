@@ -1,3 +1,4 @@
+import { AutoPrint } from "../../../auto-print";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { terbilang } from "@/lib/terbilang";
@@ -22,7 +23,7 @@ function formatDate(dateStr: string) {
   }).format(new Date(dateStr));
 }
 
-export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ReceiptPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ print?: string }> }) {
   const supabase = await createClient();
 
   // VULN-003 fix: layouts are not a security boundary in Next.js; verify auth per-page.
@@ -34,6 +35,8 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   }
 
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+  const printParam = resolvedSearchParams.print;
   const id = parseInt(resolvedParams.id, 10);
 
   if (isNaN(id)) {
@@ -184,7 +187,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         </div>
 
         {/* Print triggering script */}
-        <script dangerouslySetInnerHTML={{ __html: `window.onload = function() { window.print(); }` }} />
+        {printParam === "auto" && <AutoPrint />} 
       </div>
 
       {/* Print styles */}
