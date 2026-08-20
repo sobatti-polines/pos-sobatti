@@ -55,6 +55,7 @@ export interface CartItem {
   harga_jual: number;          // price per sold unit
   diskon_item: number;
   tipe_harga: "Satuan" | "Grosir" | "Promo";
+  harga_jual_custom?: number;
 }
 
 interface PosState {
@@ -90,6 +91,7 @@ interface PosState {
   applyNumpadAsQty: () => void;
   setPriceType: (type: "Satuan" | "Grosir" | "Promo") => void;
   setSellUnit: (satuanJual: string | null) => void;
+  setCustomPrice: (id_produk: number, satuan_jual: string | null, customPrice: number) => void;
 
   checkout: () => Promise<{ success: boolean; id?: number; no_transaksi?: number }>;
 }
@@ -276,6 +278,7 @@ export const usePosStore = create<PosState>((set, get) => ({
         if (type === "Grosir") newPrice = product.harga_jual_grosir;
         if (type === "Promo" && product.harga_jual_promo != null) newPrice = product.harga_jual_promo;
       }
+      if (newPrice === 0 && item.harga_jual_custom !== undefined) newPrice = item.harga_jual_custom;
 
       return {
         cart: state.cart.map((i) =>
@@ -283,6 +286,16 @@ export const usePosStore = create<PosState>((set, get) => ({
         ),
       };
     }),
+
+  
+  setCustomPrice: (id_produk, satuan_jual, customPrice) =>
+    set((state) => ({
+      cart: state.cart.map((i) =>
+        i.id_produk === id_produk && i.satuan_jual === satuan_jual
+          ? { ...i, harga_jual_custom: customPrice, harga_jual: customPrice }
+          : i
+      ),
+    })),
 
   setSellUnit: (satuanJual) =>
     set((state) => {
@@ -316,6 +329,7 @@ export const usePosStore = create<PosState>((set, get) => ({
         if (item.tipe_harga === "Grosir") newPrice = product.harga_jual_grosir;
         if (item.tipe_harga === "Promo" && product.harga_jual_promo != null) newPrice = product.harga_jual_promo;
       }
+      if (newPrice === 0 && item.harga_jual_custom !== undefined) newPrice = item.harga_jual_custom;
 
       // Recompute base qty from current qty_satuan and new ratio
       const newBaseQty = item.qty_satuan * ratio;
@@ -348,6 +362,7 @@ export const usePosStore = create<PosState>((set, get) => ({
           satuan_jual: i.satuan_jual, // sold unit name (null = base)
           diskon_item: i.diskon_item,
           tipe_harga: i.tipe_harga,
+          harga_jual_custom: i.harga_jual_custom,
         })),
         id_pelanggan: state.selectedCustomer?.id ?? null,
         id_metode_bayar: state.selectedPayment,

@@ -73,6 +73,7 @@ export async function POST(request: Request) {
     satuan_jual?: string | null;
     diskon_item?: number;
     tipe_harga?: string;
+    harga_jual_custom?: number;
   }) => ({
     id_produk: i.id_produk,
     qty: i.qty,
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
     satuan_jual: i.satuan_jual ?? null,
     diskon_item: i.diskon_item || 0,
     type_harga_jual: i.tipe_harga ? i.tipe_harga.toUpperCase() : "SATUAN",
+    harga_jual_custom: i.harga_jual_custom,
   }));
 
   /**

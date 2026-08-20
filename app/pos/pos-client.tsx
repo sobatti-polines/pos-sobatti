@@ -9,6 +9,7 @@ import {
   Minus,
   Plus,
   Trash2,
+  Pencil,
   Delete,
   UserCircle,
   X,
@@ -35,6 +36,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -115,6 +117,10 @@ export function PosClient() {
   const supabase = createClient();
   const [cashier, setCashier] = useState<{ name: string; username: string } | null>(null);
 
+  const [editingPriceItem, setEditingPriceItem] = useState<{id_produk: number, satuan_jual: string | null} | null>(null);
+  const [editingPriceValue, setEditingPriceValue] = useState<string>("");
+
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.refresh();
@@ -147,6 +153,7 @@ export function PosClient() {
   const applyNumpadAsQty = usePosStore((s) => s.applyNumpadAsQty);
   const setPriceType = usePosStore((s) => s.setPriceType);
   const setSellUnit = usePosStore((s) => s.setSellUnit);
+  const setCustomPrice = usePosStore((s) => s.setCustomPrice);
   const checkout = usePosStore((s) => s.checkout);
   const clearCart = usePosStore((s) => s.clearCart);
 
@@ -500,6 +507,11 @@ export function PosClient() {
       }
 
       // ── Numpad Controls ──
+      // Jangan cegat input numpad jika pengguna sedang fokus di text input (seperti set harga kustom atau pencarian)
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
       const numpadMap: Record<string, string> = {
         Numpad0: "0", Numpad1: "1", Numpad2: "2", Numpad3: "3",
         Numpad4: "4", Numpad5: "5", Numpad6: "6", Numpad7: "7",
@@ -584,6 +596,47 @@ export function PosClient() {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background">
+
+      {/* Dialog Custom Price */}
+      <Dialog open={!!editingPriceItem} onOpenChange={(open) => !open && setEditingPriceItem(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Set Harga Baru</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="custom-price" className="text-sm font-medium">Harga Satuan</label>
+              <Input
+                id="custom-price"
+                type="number"
+                value={editingPriceValue}
+                onChange={(e) => setEditingPriceValue(e.target.value)}
+                placeholder="Masukkan harga"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (editingPriceItem) {
+                      setCustomPrice(editingPriceItem.id_produk, editingPriceItem.satuan_jual, Number(editingPriceValue) || 0);
+                      setEditingPriceItem(null);
+                    }
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingPriceItem(null)}>Batal</Button>
+            <Button onClick={() => {
+              if (editingPriceItem) {
+                setCustomPrice(editingPriceItem.id_produk, editingPriceItem.satuan_jual, Number(editingPriceValue) || 0);
+                setEditingPriceItem(null);
+              }
+            }}>Simpan Harga</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <header className="shrink-0 flex flex-col md:flex-row items-center justify-between px-4 lg:px-10 py-3 md:py-5 border-b border-border bg-background relative z-50 gap-3 md:gap-0">
         <div className="flex items-center justify-between w-full md:w-auto min-w-0">
           <div className="flex items-center gap-3 md:gap-4 min-w-0">
@@ -888,7 +941,22 @@ export function PosClient() {
                             
                             {/* Mobile Jumlah & Delete */}
                             <div className="flex md:hidden items-center gap-3">
-                              <span className="font-medium text-base tabular-nums">{formatIDR((item.harga_jual - item.diskon_item) * item.qty_satuan)}</span>
+                              {(item.harga_jual === 0 || item.harga_jual_custom !== undefined) ? (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="h-7 gap-1.5 px-2 text-base font-medium"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingPriceValue(String(item.harga_jual || ""));
+                                    setEditingPriceItem({ id_produk: item.id_produk, satuan_jual: item.satuan_jual });
+                                  }}
+                                >
+                                  {formatIDR((item.harga_jual - item.diskon_item) * item.qty_satuan)} <Pencil className="w-3 h-3 text-muted-foreground" />
+                                </Button>
+                              ) : (
+                                <span className="font-medium text-base tabular-nums">{formatIDR((item.harga_jual - item.diskon_item) * item.qty_satuan)}</span>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -905,7 +973,22 @@ export function PosClient() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right hidden md:table-cell">
-                          {formatIDR(item.harga_jual)}
+                          {(item.harga_jual === 0 || item.harga_jual_custom !== undefined) ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-8 gap-1.5 px-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingPriceValue(String(item.harga_jual || ""));
+                                setEditingPriceItem({ id_produk: item.id_produk, satuan_jual: item.satuan_jual });
+                              }}
+                            >
+                              {formatIDR(item.harga_jual)} <Pencil className="w-3 h-3 text-muted-foreground" />
+                            </Button>
+                          ) : (
+                            formatIDR(item.harga_jual)
+                          )}
                         </TableCell>
                         <TableCell className="text-right hidden md:table-cell">
                           {formatIDR((item.harga_jual - item.diskon_item) * item.qty_satuan)}
