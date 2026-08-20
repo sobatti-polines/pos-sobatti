@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getTodayWIB } from "@/lib/utils";
 import { fetchCashSummary, submitTutupKasir, bukaSesiKasir } from "./actions";
 
 function formatIDR(n: number) {
@@ -39,7 +40,7 @@ export default function TutupKasirClient({
   store: any;
   username: string;
 }) {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(getTodayWIB());
   const [summary, setSummary] = useState(initialSummary);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [uangAwal, setUangAwal] = useState<string>("");

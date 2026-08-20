@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getDailyCashSummary } from "@/lib/laporan-kasir";
 import { redirect } from "next/navigation";
+import { getTodayWIB } from "@/lib/utils";
 import BukaKasirClient from "./buka-kasir-client";
 
 export default async function BukaKasirPage() {
@@ -13,7 +14,7 @@ export default async function BukaKasirPage() {
   // Halaman Kas Kasir (buka/tutup sesi) HANYA untuk kasir.
   if (role !== "KASIR") redirect("/dashboard");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayWIB();
   
   let initialSummary = null;
   try {
