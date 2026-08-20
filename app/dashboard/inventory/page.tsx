@@ -62,6 +62,8 @@ export default async function InventoryPage() {
     kategori: { nama: string } | null;
     satuan: { nama: string } | null;
     lokasi_area: { nama: string } | null;
+    created_at: string;
+    updated_at: string;
   }
 
   const withMaster = await attachMasterInfo(supabase, (productsData ?? []) as RawProduct[]);
@@ -143,6 +145,8 @@ export default async function InventoryPage() {
       harga_jual_grosir,
       harga_jual_promo,
       nama_event_promo,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
     };
   });
 

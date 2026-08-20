@@ -34,6 +34,18 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
+function formatDate(dateStr: string) {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const dd = pad(d.getDate());
+  const mm = pad(d.getMonth() + 1);
+  const yy = String(d.getFullYear()).slice(-2);
+  const hh = pad(d.getHours());
+  const min = pad(d.getMinutes());
+  return `${dd}/${mm}/${yy} ${hh}:${min}`;
+}
+
 // ── Combobox pencarian produk master ────────────────────────────────────────
 function MasterCombobox({
   products,
@@ -193,6 +205,8 @@ interface Product {
   satuan: { nama: string } | null;
   id_lokasi_area: number | null;
   lokasi_area: { nama: string } | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function InventoryClient({
@@ -698,6 +712,8 @@ export default function InventoryClient({
         );
       },
     },
+    { key: "created_at", header: "Dibuat Pada", sortable: true, headerClassName: "w-[140px]", render: (p) => <span className="text-[13px] text-muted-foreground">{formatDate(p.created_at)}</span> },
+    { key: "updated_at", header: "Diperbarui Pada", sortable: true, headerClassName: "w-[140px]", render: (p) => <span className="text-[13px] text-muted-foreground">{formatDate(p.updated_at)}</span> },
   ];
 
   const avcoColumns: Column<Product>[] = [
