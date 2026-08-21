@@ -148,3 +148,14 @@ export const exportToPDF = (filename: string, title: string, headers: string[], 
 
   doc.save(`${filename}.pdf`);
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const exportToExcel = (filename: string, headers: string[], data: any[][], sheetName = "Data") => {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  ws["!cols"] = headers.map((h) => ({
+    wch: Math.max(12, Math.min(30, h.length + 8)),
+  }));
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, `${filename}.xlsx`);
+};
