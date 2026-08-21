@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { voidTransaction, getTransactionDetails } from "./actions";
-import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { exportToCSV, exportToPDF, exportToExcel } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 import { createClient } from "@/lib/supabase/client";
 
@@ -231,13 +231,48 @@ export default function TransactionsClient({
              formatIDR(item.harga_jual),
              `${item.qty_satuan ?? item.qty} ${item.satuan_jual ?? ""}`.trim(),
              formatIDR(item.jumlah),
-             idx === 0 ? formatIDR(t.total) : ""
+             idx === items.length - 1 ? formatIDR(t.total) : ""
            ]);
          });
       }
     });
     
     exportToCSV("Data_Transaksi", headers, data);
+  };
+
+  const handleExportExcel = async () => {
+    const detailsMap = await fetchExportData();
+    const headers = ["No. Transaksi", "Tanggal", "Kasir", "Pelanggan", "Status Pembayaran", "Nama Barang", "Harga", "Qty", "Subtotal Item", "Total Keseluruhan"];
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any[][] = [];
+    filteredData.forEach(t => {
+      const items = detailsMap.get(t.id) || [];
+      const baseInfo = [
+        `#${t.no_transaksi}`,
+        formatDate(t.tgl_transaksi),
+        t.pengguna?.nama || t.pengguna?.username || "-",
+        t.pelanggan?.nama_pelanggan || "Umum",
+        t.bayar >= t.total ? "Selesai" : (t.bayar > 0 ? "Sebagian" : "Tertunda")
+      ];
+      
+      if (items.length === 0) {
+         data.push([...baseInfo, "-", "-", "-", "-", formatIDR(t.total)]);
+      } else {
+         items.forEach((item, idx) => {
+           data.push([
+             ...baseInfo,
+             item.produk?.nama_produk || "-",
+             formatIDR(item.harga_jual),
+             `${item.qty_satuan ?? item.qty} ${item.satuan_jual ?? ""}`.trim(),
+             formatIDR(item.jumlah),
+             idx === items.length - 1 ? formatIDR(t.total) : ""
+           ]);
+         });
+      }
+    });
+    
+    exportToExcel("Laporan_Transaksi", headers, data);
   };
 
   const handleExportPDF = async () => {
@@ -341,6 +376,7 @@ export default function TransactionsClient({
             customRender: () => (
               <ExportDropdown
                 onExportCSV={handleExportCSV}
+                onExportExcel={handleExportExcel}
                 onExportPDF={handleExportPDF}
                 className="flex-1 md:flex-none"
                 isLoading={isExporting}
