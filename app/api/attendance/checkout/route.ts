@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     const { error: updateError } = await supabase
       .from("absensi")
       .update({
-        jam_pulang: nowUtc.toISOString(),
+        jam_pulang: nowWIB.toISOString().slice(0, 19),
       })
       .eq("id", attendance.id);
 

@@ -141,7 +141,7 @@ export async function POST(request: Request) {
 
     // 4. Calculate Lateness using WIB hours
     // Store as ISO but ensure it represents the correct point in time
-    const jam_masuk = nowUtc.toISOString();
+    const jam_masuk = nowWIB.toISOString().slice(0, 19);
 
     // Get current hour/minute in WIB (UTC+7) for lateness check
     const wibHours = nowWIB.getUTCHours();
@@ -150,36 +150,31 @@ export async function POST(request: Request) {
 
     // Batas telat: karyawan dianggap TELAT jika check-in lebih dari 10 menit
     // setelah absen dibuka ("absen dibuka" = QR absensi pertama yang dibuat owner hari itu).
-    const LATE_GRACE_MINUTES = 10;
+    const envTolerance = parseInt(process.env.ATTENDANCE_TOLERANCE_MINUTES || "10", 10);
+    const LATE_GRACE_MINUTES = Number.isNaN(envTolerance) ? 10 : envTolerance;
 
     // Cari QR absensi pertama (paling awal) yang dibuat hari ini (WIB).
     // Kolom `created_at` bertipe `timestamp without time zone` yang menyimpan waktu UTC wall-clock.
-    const startOfTodayUtc = new Date(
-      Date.parse(`${today}T00:00:00Z`) - wibOffset
-    ).toISOString();
+    const startOfTodayWIB = `${today}T00:00:00`;
+    const endOfTodayWIB = `${today}T23:59:59`;
 
     const { data: firstQrSession } = await supabase
       .from("qr_session")
       .select("created_at")
-      .gte("created_at", startOfTodayUtc)
+      .gte("created_at", startOfTodayWIB)
+      .lte("created_at", endOfTodayWIB)
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
 
-    // Pastikan created_at diinterpretasikan sebagai UTC meskipun kolomnya `timestamp without time zone`
-    const openingCreatedStr =
-      typeof firstQrSession?.created_at === "string"
-        ? firstQrSession.created_at.endsWith("Z")
-          ? firstQrSession.created_at
-          : firstQrSession.created_at + "Z"
-        : null;
-
     let openingMinutesWIB: number;
 
-    if (openingCreatedStr) {
-      // Waktu absen dibuka dalam menit WIB
-      const openingWIB = new Date(new Date(openingCreatedStr).getTime() + wibOffset);
-      openingMinutesWIB = openingWIB.getUTCHours() * 60 + openingWIB.getUTCMinutes();
+    if (firstQrSession?.created_at) {
+      // Waktu absen dibuka dalam menit WIB (karena DB timezone Asia/Jakarta, created_at menyimpan waktu WIB secara literal)
+      // Contoh: "2026-08-21T08:15:00"
+      const timePart = firstQrSession.created_at.split("T")[1] || "09:00:00";
+      const [hh, mm] = timePart.split(":");
+      openingMinutesWIB = parseInt(hh, 10) * 60 + parseInt(mm, 10);
     } else {
       // Fallback: jika belum ada QR hari ini, gunakan jam mulai kerja (ATTENDANCE_START_TIME)
       const envStartTime = process.env.ATTENDANCE_START_TIME || "09:00";

@@ -1,5 +1,6 @@
 "use server";
 
+import { getTodayWIB } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import {
@@ -67,7 +68,7 @@ export async function getLaporanKas(input?: {
   const { supabase, error: authErr } = await requireAdminOwner();
   if (authErr || !supabase) return { error: authErr || "Unauthorized" };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayWIB();
   const startDate = input?.tanggal_awal || "1970-01-01";
   const endDate = input?.tanggal_akhir || today;
 

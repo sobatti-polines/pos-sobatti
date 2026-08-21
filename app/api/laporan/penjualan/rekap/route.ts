@@ -1,3 +1,4 @@
+import { getTodayWIB } from "@/lib/utils";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -35,7 +36,7 @@ function parseParams(req: NextRequest) {
   const sp = (key: string, fallback: string): string =>
     req.nextUrl.searchParams.get(key) ?? fallback;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayWIB();
   const start_date = sp("start_date", today);
   const end_date = sp("end_date", today);
   const group_by = sp("group_by", "hari");

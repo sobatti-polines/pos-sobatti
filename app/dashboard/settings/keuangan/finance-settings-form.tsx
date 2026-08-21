@@ -1,5 +1,6 @@
 "use client";
 
+import { getTodayWIB } from "@/lib/utils";
 import { useState } from "react";
 import { Save, Check, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { saveFinanceSettings } from "./actions";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function FinanceSettingsForm({ initialData }: { initialData: any }) {
   const [modalAwal, setModalAwal] = useState(initialData?.modal_awal || 0);
-  const [tanggalMulai, setTanggalMulai] = useState(initialData?.tanggal_mulai || new Date().toISOString().slice(0, 10));
+  const [tanggalMulai, setTanggalMulai] = useState(initialData?.tanggal_mulai || getTodayWIB());
   const [namaPemilik, setNamaPemilik] = useState(initialData?.nama_pemilik || "");
   const [npwp, setNpwp] = useState(initialData?.npwp || "");
   

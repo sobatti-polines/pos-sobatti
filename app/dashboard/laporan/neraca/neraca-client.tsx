@@ -1,5 +1,6 @@
 "use client";
 
+import { getTodayWIB } from "@/lib/utils";
 import { useState } from "react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -24,7 +25,7 @@ function formatIDR(n: number) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function NeracaClient({ initialData, store }: { initialData: any; store?: StoreSettings | null }) {
-  const [date, setDate] = useState(initialData?.tanggal || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(initialData?.tanggal || getTodayWIB());
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

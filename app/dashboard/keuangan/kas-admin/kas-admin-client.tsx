@@ -1,5 +1,6 @@
 "use client";
 
+import { getTodayWIB } from "@/lib/utils";
 import { useState, useTransition } from "react";
 import {
   Wallet,
@@ -38,7 +39,7 @@ interface KasAdminData {
 
 export default function KasAdminClient({ initialData }: { initialData: KasAdminData }) {
   const [data, setData] = useState(initialData);
-  const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [tanggal, setTanggal] = useState(getTodayWIB());
   const [jumlah, setJumlah] = useState<string>("");
   const [keterangan, setKeterangan] = useState("");
   const [error, setError] = useState("");
@@ -48,7 +49,7 @@ export default function KasAdminClient({ initialData }: { initialData: KasAdminD
   const [editingTopup, setEditingTopup] = useState<{ id: string } | null>(null);
 
   const resetForm = () => {
-    setTanggal(new Date().toISOString().slice(0, 10));
+    setTanggal(getTodayWIB());
     setJumlah("");
     setKeterangan("");
     setEditingTopup(null);
@@ -116,7 +117,7 @@ export default function KasAdminClient({ initialData }: { initialData: KasAdminD
       m.jenis === "MASUK" ? m.jumlah : -m.jumlah,
       m.oleh || "-",
     ]);
-    exportToCSV(`kas-admin-${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`kas-admin-${getTodayWIB()}`, headers, rows);
   };
 
   return (

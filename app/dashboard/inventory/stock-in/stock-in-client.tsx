@@ -1,5 +1,6 @@
 "use client";
 
+import { getTodayWIB } from "@/lib/utils";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   useForm,
@@ -531,7 +532,7 @@ function FormBody({
   const [lastInsertId, setLastInsertId] = useState<number | null>(null);
   const [reorderActive, setReorderActive] = useState(!!reorderInfo);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayWIB();
 
   const computedTotal = watch("items")?.reduce(
     (sum: number, item: { total_cost?: number }) => sum + (item.total_cost || 0),
@@ -946,7 +947,7 @@ export default function StockInClient({
   satuanOptions: { id: number; nama: string }[];
   initialReorder?: ReorderPrefill | null;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayWIB();
 
   const prefilledItems = initialReorder
     ? initialReorder.items.map((it) => ({
