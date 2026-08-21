@@ -125,17 +125,14 @@ Ini membuat:
 
 ### 2.5 Konfigurasi Connection Pool
 
-PostgreSQL di VPS yang sama (bukan serverless), jadi connection pool bisa lebih besar:
+PgBouncer sudah di-setup di VPS sebagai connection pooler, jadi **tidak perlu** menambahkan `connection_limit` atau `pool_timeout` di DATABASE_URL. PgBouncer menangani pooling secara terpusat.
 
 ```
 # .env
-DATABASE_URL="postgresql://pos_user:PASSWORD@localhost:5432/pos_sobatti?connection_limit=10&pool_timeout=20"
+DATABASE_URL="postgresql://pos_user:PASSWORD@localhost:6432/pos_sobatti"
 ```
 
-| Parameter | Nilai | Alasan |
-|-----------|-------|--------|
-| `connection_limit` | `10` | VPS standalone, 15 users, cukup |
-| `pool_timeout` | `20` | 20 detik timeout sebelum error |
+> **Catatan:** Port `6432` adalah port default PgBouncer (transaction mode). Sesuaikan dengan port PgBouncer yang kamu konfigurasi di VPS.
 
 ---
 
@@ -1336,7 +1333,7 @@ channel = supabaseClient
 // SESUDAH (Polling):
 useEffect(() => {
   fetchItems(); // initial fetch
-  const interval = setInterval(fetchItems, 30000); // poll tiap 30 detik
+  const interval = setInterval(fetchItems, 10000); // poll tiap 10 detik
   return () => clearInterval(interval);
 }, []);
 ```
@@ -1494,6 +1491,30 @@ serverActions: {
 **Estimasi:** 1 hari
 **Goal:** Deploy aplikasi yang sudah dimigrasi ke VPS
 
+### Branch Strategy
+
+```
+dev  ← push perubahan kode di sini dulu
+ │
+ └─→ main  ← merge ke main hanya jika sudah dicek di lokal
+       │
+       └─→ Deploy otomatis ke VPS (triggered by push to main)
+```
+
+**Alur:**
+1. Semua perubahan kode di-push ke branch `dev` dulu
+2. Cek & test di lokal (branch `dev`)
+3. Jika sudah oke, merge `dev` → `main`
+4. Push ke `main` → otomatis trigger deploy ke VPS via GitHub Actions
+
+**Kenapa workflow hanya trigger di `main`:**
+```yaml
+on:
+  push:
+    branches: [main]  # ← hanya main yang trigger deploy
+```
+Push ke branch `dev` tidak akan trigger deploy. Aman untuk trial and error.
+
 ### Step 10.1: Setup PostgreSQL di VPS
 
 (Lihat Phase 2 di atas)
@@ -1504,33 +1525,75 @@ serverActions: {
 # Di local development
 npx prisma migrate dev --name init
 
-# Commit migration files
+# Commit migration files ke branch dev
+git checkout -b dev
 git add prisma/
 git commit -m "feat: prisma schema migration"
 
-# Push ke remote
+# Push ke branch dev
+git push origin dev
+
+# Cek di lokal, test, pastikan OK
+
+# Jika sudah oke, merge ke main
+git checkout main
+git merge dev
 git push origin main
+# → Deploy otomatis ter-trigger
 ```
 
 ### Step 10.3: Update Deploy Workflow
 
 **File:** `.github/workflows/deploy.yml`
 
-```yaml
-# Tambah step prisma migrate SEBELUM build
-- name: Run Prisma migrations
-  env:
-    DATABASE_URL: ${{ secrets.DATABASE_URL }}
-  run: npx prisma migrate deploy
+Tambahkan `npx prisma migrate deploy` di dalam heredoc SSH script, **setelah** `.env` di-link tapi **sebelum** PM2 reload:
 
-# Update build step
-- name: Build (standalone output)
+```yaml
+- name: Deploy on VPS (extract, symlink, reload, health check, rollback on failure)
   env:
-    NODE_ENV: production
-    DATABASE_URL: ${{ secrets.DATABASE_URL }}
-    JWT_SECRET: ${{ secrets.JWT_SECRET }}
-  run: npm run build
+    RELEASE: ${{ steps.vars.outputs.release }}
+  run: |
+    ssh -p ${{ secrets.VPS_PORT || 22 }} ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+      "..." bash -s" <<'ENDSSH'
+    set -euo pipefail
+
+    # ... (load nvm, extract, dll)
+
+    echo ">> Linking shared runtime env"
+    mkdir -p "$DEPLOY_PATH/shared"
+    if [ -f "$DEPLOY_PATH/shared/.env" ]; then
+      ln -sf "$DEPLOY_PATH/shared/.env" "$RELEASE_DIR/.env"
+    fi
+
+    echo ">> Running Prisma migrations"
+    cd "$RELEASE_DIR"
+    npx prisma migrate deploy
+
+    echo ">> Switching current symlink (atomic)"
+    ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+
+    # ... (PM2 reload, health check, dll)
+    ENDSSH
 ```
+
+**Urutan di deploy script:**
+
+| Step | Keterangan |
+|------|-----------|
+| 1. Extract release | File code sudah ada |
+| 2. Link shared `.env` | `DATABASE_URL` sudah tersedia |
+| 3. `npx prisma migrate deploy` | **Migration jalan otomatis di sini** |
+| 4. Switch symlink | Code baru aktif |
+| 5. PM2 reload | Server restart dengan code baru |
+| 6. Health check | Pastikan server jalan |
+
+**Kenapa di posisi ini:**
+- `.env` sudah di-link → `DATABASE_URL` tersedia
+- Release sudah extracted → `prisma/schema.prisma` sudah ada
+- Sebelum PM2 reload → database sudah updated sebelum code baru jalan
+- Jika migration gagal → PM2 tidak reload, deployment gagal (fail-fast)
+
+> **Satu-satunya tempat migration dijalankan adalah di CI/CD ini.** Tidak perlu manual di VPS.
 
 ### Step 10.4: Setup Shared `.env` di VPS
 
@@ -1538,7 +1601,7 @@ git push origin main
 # Di VPS
 mkdir -p /var/www/pos-sobatti/shared
 cat > /var/www/pos-sobatti/shared/.env << 'EOF'
-DATABASE_URL="postgresql://pos_user:PASSWORD@localhost:5432/pos_sobatti?connection_limit=10&pool_timeout=20"
+DATABASE_URL="postgresql://pos_user:PASSWORD@localhost:6432/pos_sobatti"
 JWT_SECRET="random-64-characters-here"
 STORE_LATITUDE=-7.xxx
 STORE_LONGITUDE=110.xxx
@@ -1558,15 +1621,7 @@ chmod 600 /var/www/pos-sobatti/shared/.env
 psql -h localhost -U pos_user -d pos_sobatti -f prisma/migrations/functions.sql
 ```
 
-### Step 10.6: Jalankan Migration di VPS
-
-```bash
-# Di VPS, setelah deploy
-cd /var/www/pos-sobatti/current
-npx prisma migrate deploy
-```
-
-### Step 10.7: Restart PM2
+### Step 10.6: Restart PM2
 
 ```bash
 pm2 restart pos-sobatti
@@ -1639,10 +1694,13 @@ pm2 restart pos-sobatti
 
 ### Phase 8: Deploy ☐
 - [ ] Setup PostgreSQL di VPS
+- [ ] Setup PgBouncer di VPS
 - [ ] Setup shared/.env
-- [ ] Update deploy workflow
+- [ ] Update deploy workflow (opsional, karena migration di VPS)
+- [ ] Push ke branch `dev` → cek di lokal
+- [ ] Merge `dev` → `main` → deploy otomatis
+- [ ] Jalankan migration di VPS (`npx prisma migrate deploy`)
 - [ ] Migrate functions ke VPS
-- [ ] Jalankan migration
 - [ ] Restart PM2
 - [ ] Health check
 - [ ] Rollback plan siap
@@ -1682,9 +1740,9 @@ sudo nano /etc/postgresql/17/main/pg_hba.conf
 ### Error: `P2024 - Timed out fetching connection`
 
 ```typescript
-// Increase pool_timeout di DATABASE_URL
-// Atau kurangi connection_limit
-DATABASE_URL="postgresql://...?connection_limit=5&pool_timeout=30"
+// Cek PgBouncer running di VPS
+// Cek connection_limit di PgBouncer config (bukan di DATABASE_URL)
+// PgBouncer default pool_mode: transaction
 ```
 
 ### Error: `Cannot find module '@prisma/client'`
