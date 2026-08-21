@@ -138,6 +138,11 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
               <span className="text-sm">Tutup Kasir</span>
               <NavLinkPending />
             </Link>
+            <Link href="/dashboard/transactions" className={linkClass("/dashboard/transactions")} prefetch={true}>
+              <Receipt className="w-5 h-5" />
+              <span className="text-sm">Riwayat Transaksi</span>
+              <NavLinkPending />
+            </Link>
           </>
         )}
 

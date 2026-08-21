@@ -198,6 +198,11 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
                       <span>Kas Kasir</span>
                       <NavLinkPending />
                     </Link>
+                    <Link href="/dashboard/transactions" className={linkClass("/dashboard/transactions")} prefetch={true} onClick={() => setIsOpen(false)}>
+                      <Receipt className="w-5 h-5" />
+                      <span>Riwayat Transaksi</span>
+                      <NavLinkPending />
+                    </Link>
                   </>
                 )}
 
