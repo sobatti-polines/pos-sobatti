@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, Download, FileSpreadsheet, FileText } from "lucide-react"
+import { ChevronDown, Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -17,6 +17,7 @@ interface ExportDropdownProps {
   className?: string
   size?: "default" | "sm"
   disabled?: boolean
+  isLoading?: boolean
 }
 
 export function ExportDropdown({
@@ -25,6 +26,7 @@ export function ExportDropdown({
   className,
   size = "default",
   disabled = false,
+  isLoading = false,
 }: ExportDropdownProps) {
   if (onExportCSV && !onExportPDF) {
     return (
@@ -33,10 +35,10 @@ export function ExportDropdown({
         size={size}
         className={cn("gap-2", className)}
         onClick={onExportCSV}
-        disabled={disabled}
+        disabled={disabled || isLoading}
       >
-        <Download className="w-4 h-4" />
-        Export
+        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+        {isLoading ? "Loading..." : "Export"}
       </Button>
     )
   }
@@ -48,10 +50,10 @@ export function ExportDropdown({
         size={size}
         className={cn("gap-2", className)}
         onClick={onExportPDF}
-        disabled={disabled}
+        disabled={disabled || isLoading}
       >
-        <Download className="w-4 h-4" />
-        Export
+        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+        {isLoading ? "Loading..." : "Export"}
       </Button>
     )
   }
@@ -63,10 +65,10 @@ export function ExportDropdown({
           variant="outline"
           size={size}
           className={cn("gap-2", className)}
-          disabled={disabled}
+          disabled={disabled || isLoading}
         >
-          <Download className="w-4 h-4" />
-          Export
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          {isLoading ? "Loading..." : "Export"}
           <ChevronDown className="w-4 h-4" />
         </Button>
       </DropdownMenuTrigger>

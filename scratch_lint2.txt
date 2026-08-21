@@ -1,0 +1,10 @@
+
+> app@0.1.0 lint
+> eslint
+
+
+/home/haydar/Code/POS/app/app/dashboard/transactions/transactions-client.tsx
+  97:14  warning  '_e' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 1 problem (0 errors, 1 warning)
+
