@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { getTodayWIB } from "@/lib/utils";
 import TutupKasirClient from "./tutup-kasir-client";
 
+export const dynamic = "force-dynamic";
+
 export default async function TutupKasirPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     const { data: barcodeMatch } = await supabase
       .from("produk")
       .select(fields)
-      .eq("barcode", code)
+      .ilike("barcode", code)
       .maybeSingle();
 
     if (barcodeMatch) return barcodeMatch;

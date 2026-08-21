@@ -476,7 +476,7 @@ export function PosClient() {
           const barcode = barcodeBufferRef.current;
           barcodeBufferRef.current = "";
           
-          let product = products.find(p => p.barcode === barcode);
+          let product = products.find(p => p.barcode && p.barcode.toLowerCase() === barcode.toLowerCase());
           if (!product) {
             // Produk mungkin berada di luar 500 pertama yang dimuat di memori
             const res = await fetch(`/api/pos/barcode?code=${encodeURIComponent(barcode)}`);
