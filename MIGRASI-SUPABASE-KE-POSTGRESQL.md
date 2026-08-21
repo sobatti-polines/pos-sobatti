@@ -1,0 +1,1721 @@
+# MIGRASI SUPABASE → POSTGRESQL + PRISMA
+
+**Status:** Belum mulai
+**Estimasi:** 14-21 hari kerja
+**Metode:** Migrasi bertahap (phase by phase)
+**Stack tujuan:** PostgreSQL + Prisma ORM + polling (tanpa realtime)
+
+---
+
+## DAFTAR ISI
+
+1. [Arsitektur Before vs After](#1-arsitektur-before-vs-after)
+2. [Persiapan VPS](#2-persiapan-vps)
+3. [Phase 1: Setup Prisma & Schema Migration](#3-phase-1-setup-prisma--schema-migration)
+4. [Phase 2: Auth System Custom](#4-phase-2-auth-system-custom)
+5. [Phase 3: Database Query Layer (Prisma)](#5-phase-3-database-query-layer-prisma)
+6. [Phase 4: RPC Functions ke Prisma Transactions](#6-phase-4-rpc-functions-ke-prisma-transactions)
+7. [Phase 5: Admin Client & Service Layer](#7-phase-5-admin-client--service-layer)
+8. [Phase 6: Realtime → Polling](#8-phase-6-realtime--polling)
+9. [Phase 7: Cleanup & Testing](#9-phase-7-cleanup--testing)
+10. [Phase 8: Deploy ke VPS](#10-phase-8-deploy-ke-vps)
+11. [Checklist per Phase](#11-checklist-per-phase)
+12. [Troubleshooting](#12-troubleshooting)
+
+---
+
+## 1. ARSITEKTUR BEFORE VS AFTER
+
+### BEFORE (Supabase Cloud)
+
+```
+Browser → Next.js (VPS) → Supabase Cloud
+                              ├── PostgreSQL (managed)
+                              ├── Auth (GoTrue)
+                              ├── PostgREST (auto API)
+                              ├── Realtime (WebSocket)
+                              └── RLS (Row Level Security)
+```
+
+### AFTER (PostgreSQL + Prisma di VPS yang sama)
+
+```
+Browser → Next.js (VPS) → Prisma ORM → PostgreSQL (lokal)
+                              ├── Auth (custom JWT + bcrypt)
+                              ├── Queries (Prisma Client)
+                              ├── Transactions (Prisma TX)
+                              └── Polling (interval, bukan realtime)
+```
+
+### Env Variables BEFORE vs AFTER
+
+| BEFORE (Supabase) | AFTER (PostgreSQL + Prisma) |
+|-------------------|----------------------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | `DATABASE_URL` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `JWT_SECRET` |
+| `SERVICE_ROLE` | _(hapus, tidak diperlukan)_ |
+| `STORE_LATITUDE` | `STORE_LATITUDE` (tetap) |
+| `STORE_LONGITUDE` | `STORE_LONGITUDE` (tetap) |
+| `MAX_ATTENDANCE_RADIUS` | `MAX_ATTENDANCE_RADIUS` (tetap) |
+| `QR_EXPIRE_SECONDS` | `QR_EXPIRE_SECONDS` (tetap) |
+| `ATTENDANCE_START_TIME` | `ATTENDANCE_START_TIME` (tetap) |
+| `ATTENDANCE_TOLERANCE_MINUTES` | `ATTENDANCE_TOLERANCE_MINUTES` (tetap) |
+
+---
+
+## 2. PERSIAPAN VPS
+
+### 2.1 Install PostgreSQL di VPS
+
+```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install PostgreSQL 17
+sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+sudo apt update
+sudo apt install -y postgresql-17 postgresql-client-17
+
+# Verify
+psql --version
+sudo systemctl status postgresql
+```
+
+### 2.2 Setup Database & User
+
+```bash
+# Masuk ke PostgreSQL shell
+sudo -u postgres psql
+
+-- Buat database
+CREATE DATABASE pos_sobatti;
+
+-- Buat user
+CREATE USER pos_user WITH PASSWORD 'GANTI_DENGAN_PASSWORD_YANG_KUAT';
+
+-- Grant privileges
+GRANT ALL PRIVILEGES ON DATABASE pos_sobatti TO pos_user;
+\c pos_sobatti
+GRANT ALL ON SCHEMA public TO pos_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO pos_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO pos_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO pos_user;
+
+\q
+```
+
+### 2.3 Install Node.js Dependencies
+
+```bash
+# Di direktori project
+npm install prisma @prisma/client jsonwebtoken bcryptjs jose
+npm install -D @types/jsonwebtoken @types/bcryptjs tsx
+```
+
+### 2.4 Inisialisasi Prisma
+
+```bash
+npx prisma init --datasource-provider postgresql
+```
+
+Ini membuat:
+- `prisma/schema.prisma` (template kosong)
+- `.env` (dengan `DATABASE_URL`)
+
+### 2.5 Konfigurasi Connection Pool
+
+PostgreSQL di VPS yang sama (bukan serverless), jadi connection pool bisa lebih besar:
+
+```
+# .env
+DATABASE_URL="postgresql://pos_user:PASSWORD@localhost:5432/pos_sobatti?connection_limit=10&pool_timeout=20"
+```
+
+| Parameter | Nilai | Alasan |
+|-----------|-------|--------|
+| `connection_limit` | `10` | VPS standalone, 15 users, cukup |
+| `pool_timeout` | `20` | 20 detik timeout sebelum error |
+
+---
+
+## 3. PHASE 1: SETUP PRISMA & SCHEMA MIGRATION
+
+**Estimasi:** 1-2 hari
+**Goal:** Pindahkan seluruh schema database dari Supabase ke PostgreSQL lokal via Prisma
+
+### Step 1.1: Dump Schema dari Supabase Cloud
+
+```bash
+# Login ke Supabase CLI
+npx supabase login
+
+# Dump schema saja (tanpa data)
+npx supabase db dump --schema-only --db-url "postgresql://postgres:PASSWORD@db.xxxx.supabase.co:5432/postgres" > supabase-schema.sql
+```
+
+### Step 1.2: Inspect Supabase Schema
+
+Buka `supabase-schema.sql` dan catat:
+- Semua `CREATE TABLE` statements
+- Semua `CREATE FUNCTION` (PL/pgSQL functions)
+- Semua `CREATE TRIGGER` statements
+- Semua `CREATE INDEX` statements
+- **HAPUS** semua `GRANT ... TO anon, authenticated, service_role`
+- **HAPUS** semua `CREATE POLICY` (RLS policies)
+- **HAPUS** semua `supabase_realtime` publication
+
+### Step 1.3: Buat Prisma Schema
+
+Buka `prisma/schema.prisma` dan tulis seluruh schema. Contoh untuk beberapa tabel utama:
+
+```prisma
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// === TABEL MASTER ===
+
+model kategori {
+  id   Int    @id @default(autoincrement())
+  nama String @unique
+
+  produk produk[]
+}
+
+model satuan {
+  id   Int    @id @default(autoincrement())
+  nama String @unique
+
+  produk produk[]
+}
+
+model merk {
+  id   Int    @id @default(autoincrement())
+  nama String @unique
+  kode String @unique @db.VarChar(4)
+
+  produk produk[]
+}
+
+model metode_bayar {
+  id   Int    @id @default(autoincrement())
+  nama String @unique
+
+  transaksi_keluar     transaksi_keluar[]
+  saldo_kas_harian     saldo_kas_harian[]
+}
+
+model lokasi_area {
+  id   Int    @id @default(autoincrement())
+  nama String
+
+  produk produk[]
+}
+
+// === TABEL PENGGUNA ===
+
+model pengguna {
+  id       Int     @id @default(autoincrement())
+  username String  @unique
+  password String
+  level    String  // ADMIN, KASIR, OWNER, KARYAWAN
+  aktif    Boolean @default(true)
+  nama     String
+
+  transaksi_keluar   transaksi_keluar[]
+  absensi            absensi[]
+  log_aktivitas      log_aktivitas[]
+  saldo_kas_harian   saldo_kas_harian[]
+}
+
+// === TABEL PRODUK ===
+
+model produk {
+  id                         Int      @id @default(autoincrement())
+  nama_produk                String
+  sku                        String   @unique
+  id_kategori                Int
+  id_satuan                  Int
+  id_merk                    Int?
+  id_lokasi                  Int?
+  hitung_stok                Boolean  @default(true)
+  harga_modal                Decimal? @db.Decimal(15, 2)
+  harga_jual_satuan          Decimal  @db.Decimal(15, 2)
+  harga_jual_grosir          Decimal  @db.Decimal(15, 2)
+  harga_jual_promo           Decimal? @db.Decimal(15, 2)
+  diskon                     Decimal? @db.Decimal(15, 2)
+  stok                       Decimal  @default(0) @db.Decimal(15, 2)
+  stok_gudang                Decimal  @default(0) @db.Decimal(15, 2)
+  stok_minimum               Int      @default(5)
+  stok_minimum_gudang        Decimal? @db.Decimal(15, 2)
+  barcode                    String?  @unique
+  harga_pokok_avco           Decimal? @db.Decimal(15, 2)
+  nilai_persediaan           Decimal? @db.Decimal(15, 2)
+  default_purchase_unit      String?
+  conversion_ratio           Decimal? @default(1) @db.Decimal(15, 2)
+  jual_satuan                String?
+  harga_jual_besar_satuan    Decimal? @db.Decimal(15, 2)
+  harga_jual_besar_grosir    Decimal? @db.Decimal(15, 2)
+  harga_jual_besar_promo     Decimal? @db.Decimal(15, 2)
+  id_produk_master           Int?
+
+  kategori                   kategori  @relation(fields: [id_kategori], references: [id])
+  satuan                     satuan    @relation(fields: [id_satuan], references: [id])
+  merk                       merk?     @relation(fields: [id_merk], references: [id])
+  lokasi_area                lokasi_area? @relation(fields: [id_lokasi], references: [id])
+  detail_transaksi_keluar    detail_transaksi_keluar[]
+  barang_masuk               barang_masuk[]
+  stok_opname                stok_opname[]
+  riwayat_avco               riwayat_avco[]
+  event_promo_produk         event_promo_produk[]
+}
+
+// === TABEL PELANGGAN ===
+
+model pelanggan {
+  id             Int     @id @default(autoincrement())
+  nama_pelanggan String
+  alamat         String?
+  no_hp          String?
+  email          String?
+  keterangan     String?
+  point          Int     @default(0)
+
+  transaksi_keluar transaksi_keluar[]
+}
+
+// === TABEL SUPPLIER ===
+
+model supplier {
+  id             Int     @id @default(autoincrement())
+  nama_supplier  String
+  alamat         String?
+  telepon        String?
+  email          String?
+  keterangan     String?
+
+  barang_masuk barang_masuk[]
+}
+
+// === TABEL TRANSAKSI ===
+
+model transaksi_keluar {
+  id              Int      @id @default(autoincrement())
+  no_transaksi    BigInt   @unique
+  tgl_transaksi   DateTime @default(now())
+  id_kasir        Int
+  id_pelanggan    Int?
+  id_metode_bayar Int?
+  subtotal        Decimal  @db.Decimal(15, 2)
+  diskon_persen   Decimal? @db.Decimal(5, 2)
+  diskon_nominal  Decimal? @db.Decimal(15, 2)
+  pajak_persen    Decimal? @db.Decimal(5, 2)
+  pajak_nominal   Decimal? @db.Decimal(15, 2)
+  total           Decimal  @db.Decimal(15, 2)
+  bayar           Decimal  @db.Decimal(15, 2)
+  kembali         Decimal? @db.Decimal(15, 2)
+  dp              Decimal? @db.Decimal(15, 2)
+  sisa            Decimal? @db.Decimal(15, 2)
+  total_hpp       Decimal? @db.Decimal(15, 2)
+  laba_kotor      Decimal? @db.Decimal(15, 2)
+
+  pengguna            pengguna              @relation(fields: [id_kasir], references: [id])
+  pelanggan           pelanggan?            @relation(fields: [id_pelanggan], references: [id])
+  metode_bayar        metode_bayar?         @relation(fields: [id_metode_bayar], references: [id])
+  detail_transaksi_keluar detail_transaksi_keluar[]
+}
+
+model detail_transaksi_keluar {
+  id                 Int     @id @default(autoincrement())
+  id_transaksi       Int
+  id_produk          Int
+  type_harga_jual    String? // SATUAN, GROSIR, PROMO
+  harga_modal        Decimal @db.Decimal(15, 2)
+  harga_jual         Decimal @db.Decimal(15, 2)
+  diskon_item        Decimal @default(0) @db.Decimal(15, 2)
+  qty                Decimal @db.Decimal(15, 2)
+  jumlah             Decimal @db.Decimal(15, 2)
+  kas_masuk          Decimal @db.Decimal(15, 2)
+  profit             Decimal @db.Decimal(15, 2)
+  harga_pokok_satuan Decimal? @db.Decimal(15, 2)
+  total_harga_pokok  Decimal? @db.Decimal(15, 2)
+  satuan_jual        String?
+  qty_satuan         Decimal? @db.Decimal(15, 2)
+  jual_ratio         Decimal? @db.Decimal(15, 2)
+
+  transaksi_keluar transaksi_keluar @relation(fields: [id_transaksi], references: [id])
+  produk           produk           @relation(fields: [id_produk], references: [id])
+}
+
+// === TABEL BARANG MASUK ===
+
+model barang_masuk {
+  id                        Int      @id @default(autoincrement())
+  tgl_masuk                 DateTime @default(now())
+  id_supplier               Int?
+  id_produk                 Int
+  harga_beli                Decimal  @db.Decimal(15, 2)
+  jumlah                    Decimal  @db.Decimal(15, 2)
+  total                     Decimal  @db.Decimal(15, 2)
+  keterangan                String?
+  supplied_unit             String?
+  supplied_qty              Decimal? @db.Decimal(15, 2)
+  applied_conversion_ratio  Decimal? @db.Decimal(15, 2)
+  base_qty_added            Decimal? @db.Decimal(15, 2)
+  total_cost                Decimal? @db.Decimal(15, 2)
+  base_cost_per_piece       Decimal? @db.Decimal(15, 2)
+  status                    String?  @default("ACTIVE")
+  no_surat                  String?
+
+  supplier supplier? @relation(fields: [id_supplier], references: [id])
+  produk   produk    @relation(fields: [id_produk], references: [id])
+}
+
+// === TABEL STOK OPNAME ===
+
+model stok_opname {
+  id            Int      @id @default(autoincrement())
+  tgl_opname    DateTime @default(now())
+  id_produk     Int
+  stok_sistem   Decimal  @db.Decimal(15, 2)
+  stok_fisik    Decimal  @db.Decimal(15, 2)
+  selisih       Decimal? @db.Decimal(15, 2)
+  keterangan    String?
+  id_sesi       String?
+
+  produk produk @relation(fields: [id_produk], references: [id])
+}
+
+// === TABEL ABSENSI ===
+
+model absensi {
+  id            BigInt   @id @default(autoincrement())
+  id_pengguna   Int
+  tanggal       DateTime @db.Date
+  jam_masuk     DateTime?
+  jam_pulang    DateTime?
+  status        String?  // HADIR, TELAT
+  telat_menit   Int?
+  latitude      Decimal? @db.Decimal(10, 8)
+  longitude     Decimal? @db.Decimal(11, 8)
+  foto_masuk    String?
+  foto_pulang   String?
+  device_info   String?
+
+  pengguna pengguna @relation(fields: [id_pengguna], references: [id])
+}
+
+// === TABEL QR SESSION ===
+
+model qr_session {
+  id         BigInt   @id @default(autoincrement())
+  token      String   @unique
+  expired_at DateTime
+  is_active  Boolean  @default(true)
+  created_by Int
+  created_at DateTime @default(now())
+
+  pengguna pengguna @relation(fields: [created_by], references: [id])
+}
+
+// === TABEL PENGATURAN ===
+
+model pengaturan {
+  id                   Int     @id @default(1)
+  nama_toko            String?
+  alamat               String?
+  telepon              String?
+  email                String?
+  nama_kasir_aktif     String?
+  metode_diskon        String?
+  bank1_nama           String?
+  bank1_rekening       String?
+  bank1_atas_nama      String?
+  bank2_nama           String?
+  bank2_rekening       String?
+  bank2_atas_nama      String?
+  footer_struk_1       String?
+  footer_struk_2       String?
+  footer_struk_3       String?
+  footer_invoice_1     String?
+  footer_invoice_2     String?
+  footer_invoice_3     String?
+  pajak_persen         Decimal? @db.Decimal(5, 2)
+  jenis_nota           String?
+  metode_cetak         String?
+  logo_nota            Boolean? @default(false)
+  hormat_kami_nama     String?
+  poin_min_pembelian   Int?     @default(100000)
+}
+
+// === TABEL RIWAYAT AVCO ===
+
+model riwayat_avco {
+  id                           String   @id @default(uuid())
+  id_produk                    Int
+  tanggal                      DateTime @default(now())
+  jenis_mutasi                 String
+  id_referensi                 Int?
+  qty_masuk                    Decimal? @db.Decimal(15, 2)
+  qty_keluar                   Decimal? @db.Decimal(15, 2)
+  harga_satuan_transaksi       Decimal? @db.Decimal(15, 2)
+  stok_sebelum                 Decimal? @db.Decimal(15, 2)
+  avco_sebelum                 Decimal? @db.Decimal(15, 2)
+  stok_sesudah                 Decimal? @db.Decimal(15, 2)
+  avco_sesudah                 Decimal? @db.Decimal(15, 2)
+  nilai_persediaan_sesudah     Decimal? @db.Decimal(15, 2)
+
+  produk produk @relation(fields: [id_produk], references: [id])
+}
+
+// === TABEL SALDO KAS HARIAN ===
+
+model saldo_kas_harian {
+  id            String   @id @default(uuid())
+  tanggal       DateTime @db.Date @unique
+  saldo_awal    Decimal  @db.Decimal(15, 2)
+  total_masuk   Decimal  @default(0) @db.Decimal(15, 2)
+  total_keluar  Decimal  @default(0) @db.Decimal(15, 2)
+  saldo_akhir   Decimal  @db.Decimal(15, 2) @default(0)
+  uang_aktual   Decimal? @db.Decimal(15, 2)
+  selisih       Decimal? @db.Decimal(15, 2)
+  dikonfirmasi  Boolean  @default(false)
+  id_pengguna   Int?
+
+  metode_bayar metode_bayar? @relation(fields: [id_metode_bayar], references: [id])
+  pengguna     pengguna?     @relation(fields: [id_pengguna], references: [id])
+}
+
+// === TABEL PENGATURAN KEUANGAN ===
+
+model pengaturan_keuangan {
+  id            String   @id @default(uuid())
+  modal_awal    Decimal  @db.Decimal(15, 2)
+  tanggal_mulai DateTime @db.Date
+  nama_pemilik  String?
+  npwp          String?
+}
+
+// === TABEL PENGELUARAN ===
+
+model pengeluaran {
+  id             Int      @id @default(autoincrement())
+  tanggal        DateTime @default(now())
+  jumlah         Decimal  @db.Decimal(15, 2)
+  keterangan     String
+  metode_bayar   String
+  status         String   @default("AKTIF")
+  id_pengguna    Int
+  id_kategori    Int?
+  created_at     DateTime @default(now())
+}
+
+// === TABEL EVENT PROMO ===
+
+model event_promo {
+  id              Int      @id @default(autoincrement())
+  nama            String
+  tipe_diskon     String
+  nilai_diskon    Decimal  @db.Decimal(15, 2)
+  mulai           DateTime
+  berakhir        DateTime
+  created_at      DateTime @default(now())
+
+  event_promo_produk event_promo_produk[]
+}
+
+model event_promo_produk {
+  id             Int @id @default(autoincrement())
+  id_event_promo Int
+  id_produk      Int
+
+  event_promo event_promo @relation(fields: [id_event_promo], references: [id])
+  produk      produk      @relation(fields: [id_produk], references: [id])
+
+  @@unique([id_event_promo, id_produk])
+}
+
+// === TABEL LOG AKTIVITAS ===
+
+model log_aktivitas {
+  id          Int      @id @default(autoincrement())
+  id_pengguna Int
+  aksi        String
+  entitas     String
+  id_entitas  Int?
+  deskripsi   String
+  data_lama   Json?
+  data_baru   Json?
+  ip_address  String?
+  created_at  DateTime @default(now())
+
+  pengguna pengguna @relation(fields: [id_pengguna], references: [id])
+}
+
+// === TABEL KAS ADMIN ===
+
+model kas_admin_topup {
+  id             Int      @id @default(autoincrement())
+  tanggal        DateTime @default(now())
+  jumlah         Decimal  @db.Decimal(15, 2)
+  keterangan     String?
+  metode_bayar   String
+  id_pengguna    Int
+}
+
+// === TABEL RETUR PEMBELIAN ===
+
+model retur_pembelian {
+  id             Int      @id @default(autoincrement())
+  id_barang_masuk Int
+  id_pengguna    Int
+  tanggal        DateTime @default(now())
+  keterangan     String?
+
+  detail_retur_pembelian detail_retur_pembelian[]
+}
+
+model detail_retur_pembelian {
+  id             Int     @id @default(autoincrement())
+  id_retur       Int
+  id_produk      Int
+  qty_retur      Decimal @db.Decimal(15, 2)
+  keterangan     String?
+
+  retur_pembelian retur_pembelian @relation(fields: [id_retur], references: [id])
+  produk          produk          @relation(fields: [id_produk], references: [id])
+}
+```
+
+> **PENTING:** Schema di atas adalah contoh. Sesuaikan dengan schema asli Supabase kamu setelah dump. Jalankan `npx prisma format` untuk format schema.
+
+### Step 1.4: Generate Prisma Client & Push ke Database
+
+```bash
+# Generate Prisma Client
+npx prisma generate
+
+# Push schema ke PostgreSQL (tanpa migration, langsung sync)
+npx prisma db push
+
+# Atau pakai migration (recommended untuk production)
+npx prisma migrate dev --name init
+```
+
+### Step 1.5: Verifikasi Schema
+
+```bash
+# Buka Prisma Studio (GUI) untuk cek data
+npx prisma studio
+```
+
+### Step 1.6: Migrate PL/pgSQL Functions
+
+Prisma tidak manage PostgreSQL functions. Function-function ini harus dijalankan manual:
+
+```bash
+# Dump functions dari Supabase
+npx supabase db dump --data-only --db-url "..." > functions.sql
+
+# Atau buat file SQL terpisah untuk functions:
+# prisma/migrations/functions.sql
+```
+
+Functions yang harus dimigrasikan (dari Supabase ke PostgreSQL lokal):
+
+| Function | File SQL | Keterangan |
+|----------|----------|------------|
+| `process_checkout` | `prisma/migrations/functions.sql` | Checkout transaksi |
+| `process_barang_masuk` | `prisma/migrations/functions.sql` | Barang masuk |
+| `process_stock_opname` | `prisma/migrations/functions.sql` | Stok opname |
+| `cancel_barang_masuk` | `prisma/migrations/functions.sql` | Batalkan barang masuk |
+| `process_retur_pembelian` | `prisma/migrations/functions.sql` | Retur pembelian |
+| `process_isi_stok_paket` | `prisma/migrations/functions.sql` | Isi stok paket |
+| `increment_point` | `prisma/migrations/functions.sql` | Tambah point member |
+| `reset_pelanggan_id_seq` | `prisma/migrations/functions.sql` | Reset sequence |
+| `tambah_log_aktivitas` | `prisma/migrations/functions.sql` | Log aktivitas |
+| `get_inventory_value_at_date` | `prisma/migrations/functions.sql` | Nilai persediaan |
+| `generate_no_transaksi` | `prisma/migrations/functions.sql` | Generate no transaksi |
+| `sync_harga_jual_besar` | `prisma/migrations/functions.sql` | Sync harga besar |
+| `cek_overlap_event_promo` | `prisma/migrations/functions.sql` | Cek overlap promo |
+| `guard_produk_paket` | `prisma/migrations/functions.sql` | Guard produk paket |
+| `fn_hitung_selisih_opname` | `prisma/migrations/functions.sql` | Hitung selisih opname |
+
+Jalankan functions:
+```bash
+psql -h localhost -U pos_user -d pos_sobatti -f prisma/migrations/functions.sql
+```
+
+### Step 1.7: Migrate Triggers
+
+```sql
+-- Trigger sync harga jual besar
+CREATE TRIGGER trg_sync_harga_jual_besar
+  AFTER INSERT OR UPDATE ON produk
+  FOR EACH ROW
+  EXECUTE FUNCTION sync_harga_jual_besar();
+
+-- Trigger cek overlap event promo
+CREATE TRIGGER trg_cek_overlap_event_promo
+  BEFORE INSERT OR UPDATE ON event_promo
+  FOR EACH ROW
+  EXECUTE FUNCTION cek_overlap_event_promo();
+
+-- Trigger guard produk paket
+CREATE TRIGGER trg_guard_produk_paket
+  BEFORE INSERT OR UPDATE ON produk
+  FOR EACH ROW
+  EXECUTE FUNCTION guard_produk_paket();
+```
+
+### Step 1.8: Migrate Data (jika perlu)
+
+```bash
+# Dump data dari Supabase
+npx supabase db dump --data-only --db-url "postgresql://postgres:xxx@db.xxx.supabase.co:5432/postgres" > data.sql
+
+# Bersihkan data.sql dari Supabase-specific syntax
+# (hapus COPY statements, ganti dengan INSERT)
+
+# Jalankan ke PostgreSQL lokal
+psql -h localhost -U pos_user -d pos_sobatti -f data.sql
+```
+
+---
+
+## 4. PHASE 2: AUTH SYSTEM CUSTOM
+
+**Estimasi:** 3-5 hari
+**Goal:** Ganti Supabase Auth dengan custom JWT + bcrypt + session cookies
+
+### Step 2.1: Buat `lib/auth.ts`
+
+```typescript
+// lib/auth.ts
+import { SignJWT, jwtVerify } from "jose";
+import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+const COOKIE_NAME = "session_token";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 hari
+
+export interface SessionUser {
+  id: number;
+  username: string;
+  role: string; // ADMIN, KASIR, OWNER, KARYAWAN
+}
+
+// Hash password
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
+}
+
+// Verify password
+export async function verifyPassword(
+  password: string,
+  hash: string
+): Promise<boolean> {
+  return bcrypt.compare(password, hash);
+}
+
+// Sign JWT
+export async function signToken(user: SessionUser): Promise<string> {
+  return new SignJWT(user as any)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .sign(JWT_SECRET);
+}
+
+// Verify JWT
+export async function verifyToken(token: string): Promise<SessionUser | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload as unknown as SessionUser;
+  } catch {
+    return null;
+  }
+}
+
+// Set session cookie
+export async function setSessionCookie(token: string) {
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: COOKIE_MAX_AGE,
+  });
+}
+
+// Get session from cookies
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifyToken(token);
+}
+
+// Clear session cookie
+export async function clearSessionCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAME);
+}
+```
+
+### Step 2.2: Buat `lib/db.ts` (Prisma Singleton)
+
+```typescript
+// lib/db.ts
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  });
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+```
+
+### Step 2.3: Rewrite Login Route
+
+**File:** `app/api/auth/login/route.ts`
+
+```typescript
+// SEBELUM (Supabase):
+// import { createServerClient } from "@supabase/ssr";
+// const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+// SESUDAH (Custom):
+import { prisma } from "@/lib/db";
+import { hashPassword, verifyPassword, signToken, setSessionCookie } from "@/lib/auth";
+import { NextResponse } from "next/server";
+
+export async function POST(request: Request) {
+  const { email, password } = await request.json();
+
+  // Transform email: jika tidak ada @, tambahkan @sobats.com
+  const loginEmail = email.includes("@") ? email : `${email}@sobats.com`;
+  const username = loginEmail.split("@")[0];
+
+  // Cari user di database
+  const pengguna = await prisma.pengguna.findUnique({
+    where: { username },
+  });
+
+  if (!pengguna) {
+    return NextResponse.json(
+      { error: "Username atau password salah" },
+      { status: 401 }
+    );
+  }
+
+  if (!pengguna.aktif) {
+    return NextResponse.json(
+      { error: "Akun Anda dinonaktifkan. Hubungi admin." },
+      { status: 401 }
+    );
+  }
+
+  // Verify password
+  const valid = await verifyPassword(password, pengguna.password);
+  if (!valid) {
+    return NextResponse.json(
+      { error: "Username atau password salah" },
+      { status: 401 }
+    );
+  }
+
+  // Sign JWT
+  const token = await signToken({
+    id: pengguna.id,
+    username: pengguna.username,
+    role: pengguna.level,
+  });
+
+  // Set cookie
+  await setSessionCookie(token);
+
+  return NextResponse.json({ ok: true, role: pengguna.level });
+}
+```
+
+### Step 2.4: Rewrite `lib/supabase/server.ts` → `lib/auth.ts` (helper)
+
+Ganti semua usage di server components:
+
+```typescript
+// SEBELUM:
+import { createClient } from "@/lib/supabase/server";
+const supabase = await createClient();
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) redirect("/");
+const role = user.user_metadata?.role;
+
+// SESUDAH:
+import { getSessionUser } from "@/lib/auth";
+const user = await getSessionUser();
+if (!user) redirect("/");
+const role = user.role;
+```
+
+### Step 2.5: Update `lib/supabase/client.ts` → Browser Auth
+
+```typescript
+// lib/auth-client.ts
+"use client";
+
+import { jwtDecode } from "jwt-decode";
+
+interface ClientUser {
+  id: number;
+  username: string;
+  role: string;
+}
+
+export function getClientUser(): ClientUser | null {
+  if (typeof document === "undefined") return null;
+
+  const cookies = document.cookie.split(";").map((c) => c.trim());
+  const sessionCookie = cookies.find((c) => c.startsWith("session_token="));
+  if (!sessionCookie) return null;
+
+  const token = sessionCookie.split("=")[1];
+  if (!token) return null;
+
+  try {
+    const decoded = jwtDecode<ClientUser>(token);
+    // Cek expiry
+    if (decoded.exp && decoded.exp * 1000 < Date.now()) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+```
+
+### Step 2.6: Update Logout di 5 Lokasi
+
+```typescript
+// SEBELUM (5 file):
+import { createClient } from "@/lib/supabase/client";
+const supabase = createClient();
+await supabase.auth.signOut();
+router.push("/");
+router.refresh();
+
+// SESUDAH:
+import { clearSessionCookie } from "@/lib/auth";
+await clearSessionCookie();
+router.push("/");
+router.refresh();
+```
+
+File yang harus diupdate:
+- `components/logout-button.tsx`
+- `components/dashboard-sidebar.tsx` (baris ~71)
+- `components/dashboard-mobile-nav.tsx` (baris ~61)
+- `app/pos/pos-client.tsx` (baris ~119)
+- `app/api/auth/login/route.ts` (baris ~65, forced signout)
+
+### Step 2.7: Update User Management
+
+**File:** `app/dashboard/settings/users/actions.ts`
+
+Ganti semua `supabaseAdmin.auth.admin.*` dengan direct Prisma queries:
+
+```typescript
+// SEBELUM:
+const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+  email, password, email_confirm: true,
+  user_metadata: { role: level, username },
+});
+
+// SESUDAH:
+import { hashPassword } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+
+const hashedPassword = await hashPassword(password);
+const newUser = await prisma.pengguna.create({
+  data: {
+    username,
+    password: hashedPassword,
+    level,
+    nama,
+    aktif: true,
+  },
+});
+```
+
+```typescript
+// SEBELUM:
+const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
+
+// SESUDAH:
+const users = await prisma.pengguna.findMany({
+  select: { id: true, username: true, level: true, nama: true, aktif: true },
+  orderBy: { id: "asc" },
+});
+```
+
+### Step 2.8: Update Role Checks
+
+36 lokasi yang akses `user.user_metadata?.role` harus diupdate:
+
+```typescript
+// SEBELUM:
+const role = user.user_metadata?.role;
+
+// SESUDAH (sudah di-handle di Step 2.4):
+const role = user.role; // dari SessionUser interface
+```
+
+---
+
+## 5. PHASE 3: DATABASE QUERY LAYER (PRISMA)
+
+**Estimasi:** 5-7 hari
+**Goal:** Ganti semua `supabase.from()` calls dengan Prisma queries
+
+### Step 3.1: Pattern Translation Guide
+
+| Supabase Pattern | Prisma Equivalent |
+|-----------------|-------------------|
+| `.from("produk").select("id, nama")` | `prisma.produk.findMany({ select: { id: true, nama: true } })` |
+| `.from("produk").select("*").eq("id", 1).single()` | `prisma.produk.findUnique({ where: { id: 1 } })` |
+| `.from("produk").select("*").eq("id", 1).maybeSingle()` | `prisma.produk.findUnique({ where: { id: 1 } })` |
+| `.from("produk").select("*").eq("id", 1)` | `prisma.produk.findMany({ where: { id: 1 } })` |
+| `.from("produk").select("*").ilike("nama", "%abc%")` | `prisma.produk.findMany({ where: { nama_produk: { contains: "abc", mode: "insensitive" } } })` |
+| `.from("produk").select("*").or("a.ilike.x,b.ilike.y")` | `prisma.produk.findMany({ where: { OR: [{ nama: { contains: "x", mode: "insensitive" } }, { barcode: { contains: "y", mode: "insensitive" } }] } })` |
+| `.from("produk").select("*").in("id", [1,2,3])` | `prisma.produk.findMany({ where: { id: { in: [1,2,3] } } })` |
+| `.from("produk").select("*").gte("stok", 5)` | `prisma.produk.findMany({ where: { stok: { gte: 5 } } })` |
+| `.from("produk").select("*").order("nama")` | `prisma.produk.findMany({ orderBy: { nama_produk: "asc" } })` |
+| `.from("produk").select("*").range(0, 99)` | `prisma.produk.findMany({ skip: 0, take: 100 })` |
+| `.from("produk").insert(data)` | `prisma.produk.create({ data })` |
+| `.from("produk").update(data).eq("id", 1)` | `prisma.produk.update({ where: { id: 1 }, data })` |
+| `.from("produk").delete().eq("id", 1)` | `prisma.produk.delete({ where: { id: 1 } })` |
+| `.from("produk").upsert(data, { onConflict: "id" })` | `prisma.produk.upsert({ where: { id: data.id }, create: data, update: data })` |
+| `.from("produk").select("*", { count: "exact", head: true })` | `prisma.produk.count()` |
+| `.rpc("function_name", { params })` | `prisma.$queryRaw\`SELECT * FROM function_name(${params})\`` |
+| `.select("..., pelanggan(nama)")` (FK join) | `include: { pelanggan: { select: { nama_pelanggan: true } } }` |
+| `.select("..., pengguna!fk_name(nama)")` | `include: { pengguna: { select: { nama: true } } }` |
+
+### Step 3.2: Contoh Implementasi per Modul
+
+#### Modul Produk (CRUD)
+
+```typescript
+// app/dashboard/inventory/actions.ts
+
+import { prisma } from "@/lib/db";
+
+// GET produk
+export async function getProducts() {
+  return prisma.produk.findMany({
+    include: {
+      kategori: { select: { nama: true } },
+      satuan: { select: { nama: true } },
+      merk: { select: { nama: true } },
+    },
+    orderBy: { nama_produk: "asc" },
+  });
+}
+
+// CREATE produk
+export async function createProduct(data: any) {
+  return prisma.produk.create({ data });
+}
+
+// UPDATE produk
+export async function updateProduct(id: number, data: any) {
+  return prisma.produk.update({ where: { id }, data });
+}
+
+// DELETE produk
+export async function deleteProduct(id: number) {
+  // Hapus relasi manual (cascade delete)
+  await prisma.event_promo_produk.deleteMany({ where: { id_produk: id } });
+  await prisma.stok_opname.deleteMany({ where: { id_produk: id } });
+  await prisma.barang_masuk.deleteMany({ where: { id_produk: id } });
+  await prisma.riwayat_avco.deleteMany({ where: { id_produk: id } });
+  await prisma.detail_transaksi_keluar.deleteMany({ where: { id_produk: id } });
+  return prisma.produk.delete({ where: { id } });
+}
+```
+
+#### Modul Transaksi
+
+```typescript
+// app/dashboard/transactions/page.tsx
+
+const [transactions, paymentMethods] = await Promise.all([
+  prisma.transaksi_keluar.findMany({
+    include: {
+      pengguna: { select: { username: true, nama: true } },
+      pelanggan: { select: { nama_pelanggan: true } },
+      metode_bayar: { select: { id: true, nama: true } },
+    },
+    orderBy: { tgl_transaksi: "desc" },
+    skip: page * pageSize,
+    take: pageSize,
+  }),
+  prisma.metode_bayar.findMany({ orderBy: { nama: "asc" } }),
+]);
+```
+
+#### Modul Pelanggan
+
+```typescript
+// app/dashboard/customers/actions.ts
+
+import { prisma } from "@/lib/db";
+
+export async function addCustomer(data: any) {
+  return prisma.pelanggan.create({ data });
+}
+
+export async function updateCustomer(id: number, data: any) {
+  return prisma.pelanggan.update({ where: { id }, data });
+}
+
+export async function deleteCustomer(id: number, name: string) {
+  if (name.toUpperCase() === "UMUM") {
+    return { error: "Pelanggan UMUM tidak dapat dihapus" };
+  }
+  return prisma.pelanggan.delete({ where: { id } });
+}
+```
+
+### Step 3.3: Handle `fetchAllRows` (Pagination Helper)
+
+```typescript
+// lib/fetch-all.ts
+
+import { prisma } from "./db";
+
+type FindManyArgs = Parameters<typeof prisma.produk.findMany>[0];
+
+export async function fetchAllRows<T>(
+  model: { findMany: (args: any) => Promise<T[]> },
+  baseArgs: any,
+  pageSize: number = 1000
+): Promise<T[]> {
+  let allRows: T[] = [];
+  let offset = 0;
+
+  while (true) {
+    const rows = await model.findMany({
+      ...baseArgs,
+      skip: offset,
+      take: pageSize,
+    });
+    allRows = allRows.concat(rows);
+    if (rows.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return allRows;
+}
+```
+
+### Step 3.4: Update Error Handling
+
+```typescript
+// SEBELUM (Supabase):
+const { error } = await supabase.from("produk").insert([data]);
+if (error) {
+  if (error.code === "23505") return { error: "Data sudah ada" };
+  return { error: "Gagal menambah produk" };
+}
+
+// SESUDAH (Prisma):
+import { Prisma } from "@prisma/client";
+try {
+  await prisma.produk.create({ data });
+} catch (e) {
+  if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e.code === "P2002") return { error: "Data sudah ada" };
+    if (e.code === "P2003") return { error: "Referensi tidak ditemukan" };
+  }
+  return { error: "Gagal menambah produk" };
+}
+```
+
+### Step 3.5: File yang Harus Diupdate
+
+| File | Operasi | Estimasi |
+|------|---------|----------|
+| `app/dashboard/inventory/actions.ts` | SELECT, INSERT, UPDATE, DELETE, UPSERT | 2 hari |
+| `app/dashboard/customers/actions.ts` | CRUD pelanggan | 0.5 hari |
+| `app/dashboard/suppliers/actions.ts` | CRUD supplier | 0.5 hari |
+| `app/dashboard/transactions/actions.ts` | DELETE transaksi | 0.5 hari |
+| `app/dashboard/settings/actions.ts` | UPDATE pengaturan | 0.5 hari |
+| `app/dashboard/settings/store-actions.ts` | UPSERT pengaturan | 0.5 hari |
+| `app/dashboard/settings/keuangan/actions.ts` | UPSERT pengaturan_keuangan | 0.5 hari |
+| `app/dashboard/settings/reference-data/actions.ts` | CRUD kategori/satuan/merk | 0.5 hari |
+| `app/dashboard/inventory/stock-in/actions.ts` | Complex queries + joins | 1 hari |
+| `app/dashboard/inventory/stock-opname/actions.ts` | Complex queries | 1 hari |
+| `app/api/pos/products/route.ts` | Search + pagination | 0.5 hari |
+| `app/api/pos/barcode/route.ts` | Search by barcode | 0.5 hari |
+| `app/api/pos/customers/route.ts` | Select pelanggan | 0.5 hari |
+| `app/api/pos/payment-methods/route.ts` | Select metode_bayar | 0.5 hari |
+| `app/api/pos/checkout/route.ts` | Complex queries | 1 hari |
+| `app/api/pos/member-register/route.ts` | INSERT pelanggan | 0.5 hari |
+| `app/api/pos/member-search/route.ts` | Search member | 0.5 hari |
+| `app/api/laporan/penjualan/route.ts` | Complex queries + joins | 1 hari |
+| `app/api/laporan/penjualan/[id]/route.ts` | Select detail | 0.5 hari |
+| `app/api/laporan/penjualan/rekap/route.ts` | Complex queries | 1 hari |
+| `app/api/laporan/penjualan/export/route.ts` | Export queries | 0.5 hari |
+| `app/api/attendance/*.ts` | Attendance queries | 1 hari |
+| `app/api/low-stock/route.ts` | Low stock query | 0.5 hari |
+| `lib/dashboard.ts` | Dashboard stats | 0.5 hari |
+| `lib/low-stock.ts` | Low stock query | 0.5 hari |
+| `lib/attendance.ts` | Attendance queries | 0.5 hari |
+| `lib/laporan-kasir.ts` | Cash summary | 1 hari |
+| `lib/laporan-keuangan.ts` | Financial reports | 1 hari |
+| `lib/avco.ts` | AVCO calculations | 0.5 hari |
+| `app/dashboard/buka-kasir/*.ts` | Buka kasir | 0.5 hari |
+| `app/dashboard/tutup-kasir/*.ts` | Tutup kasir | 0.5 hari |
+| `app/dashboard/laporan-kasir/*.ts` | Laporan kasir | 0.5 hari |
+| `app/dashboard/keuangan/*.ts` | Keuangan | 1 hari |
+| `app/dashboard/event-promo/*.ts` | Event promo | 0.5 hari |
+
+---
+
+## 6. PHASE 4: RPC FUNCTIONS KE PRISMA TRANSACTIONS
+
+**Estimasi:** 1-2 hari
+**Goal:** Ganti `supabase.rpc()` dengan Prisma `$queryRaw` atau Prisma transactions
+
+### Step 4.1: RPC Calling Pattern
+
+```typescript
+// lib/rpc.ts
+
+import { prisma } from "./db";
+
+export async function rpc<T = any>(
+  functionName: string,
+  params: Record<string, any>
+): Promise<T> {
+  // Build parameterized query
+  const keys = Object.keys(params);
+  const values = Object.values(params);
+
+  // PostgreSQL named parameters: function_name(p1 => $1, p2 => $2)
+  const paramStr = keys
+    .map((k, i) => `"${k}" => $${i + 1}`)
+    .join(", ");
+
+  const result = await prisma.$queryRawUnsafe<T>(
+    `SELECT * FROM ${functionName}(${paramStr})`,
+    ...values
+  );
+
+  return result;
+}
+```
+
+### Step 4.2: Update RPC Calls
+
+```typescript
+// SEBELUM:
+const { data, error } = await supabase.rpc("process_checkout", {
+  p_items: itemsForRpc,
+  p_id_kasir: id_kasir,
+  // ...
+});
+
+// SESUDAH:
+import { rpc } from "@/lib/rpc";
+
+try {
+  const result = await rpc("process_checkout", {
+    p_items: itemsForRpc,
+    p_id_kasir: id_kasir,
+    p_id_pelanggan: id_pelanggan || null,
+    p_id_metode_bayar: id_metode_bayar,
+    p_diskon_persen: diskon_persen || 0,
+    p_bayar: bayar ?? 0,
+    p_pajak_persen: pajak_persen,
+    p_is_dp: isDP,
+  });
+} catch (e: any) {
+  const msg = e.message ?? "";
+  const domainErrors = [
+    "Stok tidak mencukupi",
+    "Pelanggan harus dipilih",
+    "Jumlah bayar kurang",
+    "tidak ditemukan",
+    "Qty tidak valid",
+  ];
+  if (domainErrors.some((d) => msg.includes(d))) {
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+  return NextResponse.json(
+    { error: "Gagal memproses checkout" },
+    { status: 500 }
+  );
+}
+```
+
+### Step 4.3: File RPC yang Harus Diupdate
+
+| File | RPC Call |
+|------|----------|
+| `app/api/pos/checkout/route.ts` | `process_checkout`, `increment_point` |
+| `app/api/pos/member-register/route.ts` | `reset_pelanggan_id_seq` |
+| `app/dashboard/inventory/stock-in/actions.ts` | `process_barang_masuk`, `cancel_barang_masuk`, `process_retur_pembelian` |
+| `app/dashboard/inventory/stock-opname/actions.ts` | `process_stok_opname_apply`, `batalkan_sesi_stok_opname` |
+| `app/dashboard/inventory/actions.ts` | `process_isi_stok_paket` |
+| `lib/laporan-keuangan.ts` | `get_inventory_value_at_date` |
+| `lib/activity-log.ts` | `tambah_log_aktivitas` |
+
+---
+
+## 7. PHASE 5: ADMIN CLIENT & SERVICE LAYER
+
+**Estimasi:** 1 hari
+**Goal:** Ganti `supabaseAdmin` dengan direct Prisma queries
+
+### Step 7.1: Hapus `lib/supabase/admin.ts`
+
+`supabaseAdmin` di Supabase berguna untuk bypass RLS. Di PostgreSQL biasa tanpa RLS, tidak perlu. Cukup pakai `prisma` biasa.
+
+### Step 7.2: Ganti Semua Import `supabaseAdmin`
+
+```typescript
+// SEBELUM:
+import { supabaseAdmin } from "@/lib/supabase/admin";
+const { error } = await supabaseAdmin.from("produk").delete().eq("id", id);
+
+// SESUDAH:
+import { prisma } from "@/lib/db";
+await prisma.produk.delete({ where: { id } });
+```
+
+### Step 7.3: File yang Harus Diupdate
+
+- `app/dashboard/inventory/actions.ts` (6 lokasi)
+- `app/dashboard/settings/users/actions.ts` (8 lokasi)
+- `app/api/pos/member-register/route.ts` (1 lokasi)
+
+---
+
+## 8. PHASE 6: REALTIME → POLLING
+
+**Estimasi:** 1 hari
+**Goal:** Ganti Supabase Realtime subscription dengan polling
+
+### Step 8.1: Update `hooks/use-low-stock-realtime.ts`
+
+```typescript
+// SEBELUM (Supabase Realtime):
+channel = supabaseClient
+  .channel("low-stock-global")
+  .on("postgres_changes", { event: "*", table: "produk" }, () => {
+    fetchItems();
+  })
+  .subscribe();
+
+// SESUDAH (Polling):
+useEffect(() => {
+  fetchItems(); // initial fetch
+  const interval = setInterval(fetchItems, 30000); // poll tiap 30 detik
+  return () => clearInterval(interval);
+}, []);
+```
+
+### Step 8.2: Buat API Endpoint untuk Low Stock
+
+```typescript
+// app/api/low-stock/route.ts
+
+import { prisma } from "@/lib/db";
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  const lowStockItems = await prisma.produk.findMany({
+    where: {
+      hitung_stok: true,
+      OR: [
+        { stok: { gt: 0, lte: prisma.raw("stok_minimum") } },
+        {
+          stok_minimum_gudang: { not: null },
+          stok_gudang: { lte: prisma.raw("stok_minimum_gudang") },
+        },
+      ],
+    },
+    include: {
+      kategori: { select: { nama: true } },
+      satuan: { select: { nama: true } },
+    },
+  });
+
+  return NextResponse.json(lowStockItems);
+}
+```
+
+---
+
+## 9. PHASE 7: CLEANUP & TESTING
+
+**Estimasi:** 2-3 hari
+**Goal:** Hapus dependencies Supabase, testing menyeluruh
+
+### Step 9.1: Hapus Dependencies
+
+```bash
+npm uninstall @supabase/ssr @supabase/supabase-js
+```
+
+### Step 9.2: Hapus File Lama
+
+```bash
+rm -f lib/supabase/server.ts
+rm -f lib/supabase/client.ts
+rm -f lib/supabase/admin.ts
+rm -f lib/supabase/fetch-all.ts
+rm -f proxy.ts
+```
+
+### Step 9.3: Update `.gitignore`
+
+```gitignore
+# Tambahkan:
+prisma/migrations/
+
+# Hapus:
+# .env (tetap di gitignore)
+```
+
+### Step 9.4: Update `next.config.ts`
+
+Hapus `serverActions.allowedOrigins` yang reference Supabase:
+
+```typescript
+// SEBELUM:
+serverActions: {
+  allowedOrigins: [getLocalIp(), "localhost:3000", "*.trycloudflare.com"],
+},
+
+// SESUDAH:
+serverActions: {
+  allowedOrigins: [getLocalIp(), "localhost:3000"],
+},
+```
+
+### Step 9.5: Testing Checklist
+
+| Area | Test Case | Status |
+|------|-----------|--------|
+| **Auth** | Login dengan username + password | ☐ |
+| **Auth** | Login gagal (password salah) | ☐ |
+| **Auth** | Login user nonaktif → ditolak | ☐ |
+| **Auth** | Logout → session hilang | ☐ |
+| **Auth** | Role KASIR → redirect ke /pos | ☐ |
+| **Auth** | Role ADMIN → redirect ke /dashboard | ☐ |
+| **Auth** | Role KARYAWAN → redirect ke /attendance/scan | ☐ |
+| **POS** | Search produk | ☐ |
+| **POS** | Tambah produk ke cart | ☐ |
+| **POS** | Ubah qty | ☐ |
+| **POS** | Checkout tunai | ☐ |
+| **POS** | Checkout dengan diskon | ☐ |
+| **POS** | Checkout dengan pajak | ☐ |
+| **POS** | Checkout dengan DP | ☐ |
+| **POS** | Cetak struk/faktur | ☐ |
+| **Inventory** | CRUD produk | ☐ |
+| **Inventory** | Import CSV produk | ☐ |
+| **Inventory** | Restock display dari gudang | ☐ |
+| **Inventory** | Barcode generation | ☐ |
+| **Inventory** | Price tag generation | ☐ |
+| **Stock In** | Barang masuk (single item) | ☐ |
+| **Stock In** | Barang masuk (multi item) | ☐ |
+| **Stock In** | Batalkan barang masuk | ☐ |
+| **Stock In** | Retur pembelian | ☐ |
+| **Stock Opname** | Buat sesi opname | ☐ |
+| **Stock Opname** | Isi stok fisik | ☐ |
+| **Stock Opname** | Apply opname | ☐ |
+| **Stock Opname** | Batalkan sesi | ☐ |
+| **Pelanggan** | CRUD pelanggan | ☐ |
+| **Supplier** | CRUD supplier | ☐ |
+| **Kategori** | CRUD kategori | ☐ |
+| **Satuan** | CRUD satuan | ☐ |
+| **Merk** | CRUD merk | ☐ |
+| **Transaksi** | Lihat riwayat transaksi | ☐ |
+| **Transaksi** | Detail transaksi | ☐ |
+| **Transaksi** | Void transaksi | ☐ |
+| **Laporan** | Laporan penjualan | ☐ |
+| **Laporan** | Export CSV | ☐ |
+| **Laporan** | Rekap penjualan | ☐ |
+| **Laporan** | Laba rugi | ☐ |
+| **Laporan** | Neraca | ☐ |
+| **Kasir** | Buka kasir | ☐ |
+| **Kasir** | Tutup kasir | ☐ |
+| **Kasir** | Laporan kas harian | ☐ |
+| **Keuangan** | Pengeluaran | ☐ |
+| **Keuangan** | Arus kas | ☐ |
+| **Absensi** | Generate QR | ☐ |
+| **Absensi** | Scan QR (HP) | ☐ |
+| **Absensi** | Check-in | ☐ |
+| **Absensi** | Check-out | ☐ |
+| **Absensi** | Riwayat absensi | ☐ |
+| **Absensi** | Laporan absensi pegawai | ☐ |
+| **Settings** | Update profil | ☐ |
+| **Settings** | Update pengaturan toko | ☐ |
+| **Settings** | Update pengaturan keuangan | ☐ |
+| **Settings** | CRUD users | ☐ |
+| **Low Stock** | Widget dashboard | ☐ |
+| **Low Stock** | Banner | ☐ |
+| **Low Stock** | Badge sidebar | ☐ |
+| **Member** | Poin member | ☐ |
+| **Member** | Register member baru | ☐ |
+| **Scanner** | SSE relay | ☐ |
+
+---
+
+## 10. PHASE 8: DEPLOY KE VPS
+
+**Estimasi:** 1 hari
+**Goal:** Deploy aplikasi yang sudah dimigrasi ke VPS
+
+### Step 10.1: Setup PostgreSQL di VPS
+
+(Lihat Phase 2 di atas)
+
+### Step 10.2: Push Schema ke Database
+
+```bash
+# Di local development
+npx prisma migrate dev --name init
+
+# Commit migration files
+git add prisma/
+git commit -m "feat: prisma schema migration"
+
+# Push ke remote
+git push origin main
+```
+
+### Step 10.3: Update Deploy Workflow
+
+**File:** `.github/workflows/deploy.yml`
+
+```yaml
+# Tambah step prisma migrate SEBELUM build
+- name: Run Prisma migrations
+  env:
+    DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  run: npx prisma migrate deploy
+
+# Update build step
+- name: Build (standalone output)
+  env:
+    NODE_ENV: production
+    DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    JWT_SECRET: ${{ secrets.JWT_SECRET }}
+  run: npm run build
+```
+
+### Step 10.4: Setup Shared `.env` di VPS
+
+```bash
+# Di VPS
+mkdir -p /var/www/pos-sobatti/shared
+cat > /var/www/pos-sobatti/shared/.env << 'EOF'
+DATABASE_URL="postgresql://pos_user:PASSWORD@localhost:5432/pos_sobatti?connection_limit=10&pool_timeout=20"
+JWT_SECRET="random-64-characters-here"
+STORE_LATITUDE=-7.xxx
+STORE_LONGITUDE=110.xxx
+MAX_ATTENDANCE_RADIUS=50
+QR_EXPIRE_SECONDS=30
+ATTENDANCE_START_TIME=09:00
+ATTENDANCE_TOLERANCE_MINUTES=10
+EOF
+
+chmod 600 /var/www/pos-sobatti/shared/.env
+```
+
+### Step 10.5: Migrate Functions ke VPS
+
+```bash
+# Jalankan functions di VPS
+psql -h localhost -U pos_user -d pos_sobatti -f prisma/migrations/functions.sql
+```
+
+### Step 10.6: Jalankan Migration di VPS
+
+```bash
+# Di VPS, setelah deploy
+cd /var/www/pos-sobatti/current
+npx prisma migrate deploy
+```
+
+### Step 10.7: Restart PM2
+
+```bash
+pm2 restart pos-sobatti
+```
+
+---
+
+## 11. CHECKLIST PER PHASE
+
+### Phase 1: Schema Migration ☐
+- [ ] Dump schema dari Supabase
+- [ ] Buat Prisma schema
+- [ ] Generate & push ke PostgreSQL
+- [ ] Migrate PL/pgSQL functions
+- [ ] Migrate triggers
+- [ ] Migrate data (jika perlu)
+- [ ] Verifikasi di Prisma Studio
+
+### Phase 2: Auth System ☐
+- [ ] Buat `lib/auth.ts`
+- [ ] Buat `lib/db.ts` (Prisma singleton)
+- [ ] Rewrite login route
+- [ ] Rewrite server component auth check
+- [ ] Update browser auth
+- [ ] Update logout (5 lokasi)
+- [ ] Update user management
+- [ ] Update role checks (36 lokasi)
+- [ ] Test login/logout
+- [ ] Test role-based access
+
+### Phase 3: Query Layer ☐
+- [ ] Update inventory actions
+- [ ] Update customer actions
+- [ ] Update supplier actions
+- [ ] Update transaction actions
+- [ ] Update settings actions
+- [ ] Update POS routes
+- [ ] Update laporan routes
+- [ ] Update attendance routes
+- [ ] Update dashboard lib
+- [ ] Update fetchAllRows helper
+- [ ] Update error handling
+
+### Phase 4: RPC Functions ☐
+- [ ] Buat `lib/rpc.ts`
+- [ ] Update process_checkout
+- [ ] Update increment_point
+- [ ] Update process_barang_masuk
+- [ ] Update cancel_barang_masuk
+- [ ] Update process_retur_pembelian
+- [ ] Update process_stock_opname
+- [ ] Update batalkan_sesi_stok_opname
+- [ ] Update process_isi_stok_paket
+- [ ] Update get_inventory_value_at_date
+- [ ] Update tambah_log_aktivitas
+
+### Phase 5: Admin Client ☐
+- [ ] Ganti supabaseAdmin → prisma (6 file)
+- [ ] Hapus lib/supabase/admin.ts
+
+### Phase 6: Realtime → Polling ☐
+- [ ] Update use-low-stock-realtime hook
+- [ ] Pastikan polling interval optimal
+
+### Phase 7: Cleanup & Testing ☐
+- [ ] Hapus @supabase/ssr & @supabase/supabase-js
+- [ ] Hapus file lama
+- [ ] Update next.config.ts
+- [ ] Testing menyeluruh (semua test case)
+
+### Phase 8: Deploy ☐
+- [ ] Setup PostgreSQL di VPS
+- [ ] Setup shared/.env
+- [ ] Update deploy workflow
+- [ ] Migrate functions ke VPS
+- [ ] Jalankan migration
+- [ ] Restart PM2
+- [ ] Health check
+- [ ] Rollback plan siap
+
+---
+
+## 12. TROUBLESHOOTING
+
+### Error: `P1001 - Can't reach database server`
+
+```bash
+# Cek PostgreSQL running
+sudo systemctl status postgresql
+
+# Cek koneksi
+psql -h localhost -U pos_user -d pos_sobatti -c "SELECT 1"
+
+# Cek pg_hba.conf (allow local connections)
+sudo nano /etc/postgresql/17/main/pg_hba.conf
+# Pastikan ada: local all all trust (atau md5)
+```
+
+### Error: `P2002 - Unique constraint failed`
+
+```typescript
+// Prisma error code P2002 = Supabase error code 23505
+// Handle dengan Prisma.PrismaClientKnownRequestError
+```
+
+### Error: `P2003 - Foreign key constraint failed`
+
+```typescript
+// Prisma error code P2003 = Supabase error code 23503
+// Handle dengan cek relasi sebelum delete
+```
+
+### Error: `P2024 - Timed out fetching connection`
+
+```typescript
+// Increase pool_timeout di DATABASE_URL
+// Atau kurangi connection_limit
+DATABASE_URL="postgresql://...?connection_limit=5&pool_timeout=30"
+```
+
+### Error: `Cannot find module '@prisma/client'`
+
+```bash
+npx prisma generate
+```
+
+### Error: `QualifiedName not found` (Prisma schema)
+
+```bash
+# Prisma schema error - cek relasi
+npx prisma format
+npx prisma validate
+```
+
+---
+
+## ROLLBACK PLAN
+
+Jika migrasi gagal, kembalikan ke Supabase:
+
+1. Revert semua code changes (`git checkout origin/main`)
+2. Pastikan Supabase Cloud masih aktif
+3. Update env variables kembali ke Supabase
+4. Deploy versi lama
+
+```bash
+# Quick rollback
+git checkout origin/main -- lib/supabase/
+git checkout origin/main -- app/
+npm install @supabase/ssr @supabase/supabase-js
+npm run build
+```
