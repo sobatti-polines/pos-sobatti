@@ -141,458 +141,66 @@ DATABASE_URL="postgresql://pos_user:PASSWORD@localhost:6432/pos_sobatti"
 **Estimasi:** 1-2 hari
 **Goal:** Pindahkan seluruh schema database dari Supabase ke PostgreSQL lokal via Prisma
 
-### Step 1.1: Dump Schema dari Supabase Cloud
+### Step 1.1: Dump Schema + Data dari Supabase Cloud
+
+**Paling simpel:** Gunakan `pg_dump` untuk ambil schema + data sekaligus.
 
 ```bash
-# Login ke Supabase CLI
-npx supabase login
+# Dump full (schema + data) dari Supabase ke file SQL
+PGPASSWORD="YOUR_SUPABASE_DB_PASSWORD" pg_dump \
+  --host=aws-0-ap-southeast-1.pooler.supabase.com \
+  --port=6543 \
+  --username=postgres.POS_ID \
+  --dbname=pos \
+  --no-owner \
+  --no-privileges \
+  --no-publications \
+  --no-subscriptions \
+  --file=supabase/full_dump.sql
 
-# Dump schema saja (tanpa data)
-npx supabase db dump --schema-only --db-url "postgresql://postgres:PASSWORD@db.xxxx.supabase.co:5432/postgres" > supabase-schema.sql
+# Verifikasi
+ls -lh supabase/full_dump.sql
+wc -l supabase/full_dump.sql
+head -50 supabase/full_dump.sql  # Harus ada CREATE TABLE + INSERT INTO
 ```
 
-### Step 1.2: Inspect Supabase Schema
-
-Buka `supabase-schema.sql` dan catat:
-- Semua `CREATE TABLE` statements
-- Semua `CREATE FUNCTION` (PL/pgSQL functions)
-- Semua `CREATE TRIGGER` statements
-- Semua `CREATE INDEX` statements
-- **HAPUS** semua `GRANT ... TO anon, authenticated, service_role`
-- **HAPUS** semua `CREATE POLICY` (RLS policies)
-- **HAPUS** semua `supabase_realtime` publication
-
-### Step 1.3: Buat Prisma Schema
-
-Buka `prisma/schema.prisma` dan tulis seluruh schema. Contoh untuk beberapa tabel utama:
-
-```prisma
-// prisma/schema.prisma
-
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-// === TABEL MASTER ===
-
-model kategori {
-  id   Int    @id @default(autoincrement())
-  nama String @unique
-
-  produk produk[]
-}
-
-model satuan {
-  id   Int    @id @default(autoincrement())
-  nama String @unique
-
-  produk produk[]
-}
-
-model merk {
-  id   Int    @id @default(autoincrement())
-  nama String @unique
-  kode String @unique @db.VarChar(4)
-
-  produk produk[]
-}
-
-model metode_bayar {
-  id   Int    @id @default(autoincrement())
-  nama String @unique
-
-  transaksi_keluar     transaksi_keluar[]
-  saldo_kas_harian     saldo_kas_harian[]
-}
-
-model lokasi_area {
-  id   Int    @id @default(autoincrement())
-  nama String
-
-  produk produk[]
-}
-
-// === TABEL PENGGUNA ===
-
-model pengguna {
-  id       Int     @id @default(autoincrement())
-  username String  @unique
-  password String
-  level    String  // ADMIN, KASIR, OWNER, KARYAWAN
-  aktif    Boolean @default(true)
-  nama     String
-
-  transaksi_keluar   transaksi_keluar[]
-  absensi            absensi[]
-  log_aktivitas      log_aktivitas[]
-  saldo_kas_harian   saldo_kas_harian[]
-}
-
-// === TABEL PRODUK ===
-
-model produk {
-  id                         Int      @id @default(autoincrement())
-  nama_produk                String
-  sku                        String   @unique
-  id_kategori                Int
-  id_satuan                  Int
-  id_merk                    Int?
-  id_lokasi                  Int?
-  hitung_stok                Boolean  @default(true)
-  harga_modal                Decimal? @db.Decimal(15, 2)
-  harga_jual_satuan          Decimal  @db.Decimal(15, 2)
-  harga_jual_grosir          Decimal  @db.Decimal(15, 2)
-  harga_jual_promo           Decimal? @db.Decimal(15, 2)
-  diskon                     Decimal? @db.Decimal(15, 2)
-  stok                       Decimal  @default(0) @db.Decimal(15, 2)
-  stok_gudang                Decimal  @default(0) @db.Decimal(15, 2)
-  stok_minimum               Int      @default(5)
-  stok_minimum_gudang        Decimal? @db.Decimal(15, 2)
-  barcode                    String?  @unique
-  harga_pokok_avco           Decimal? @db.Decimal(15, 2)
-  nilai_persediaan           Decimal? @db.Decimal(15, 2)
-  default_purchase_unit      String?
-  conversion_ratio           Decimal? @default(1) @db.Decimal(15, 2)
-  jual_satuan                String?
-  harga_jual_besar_satuan    Decimal? @db.Decimal(15, 2)
-  harga_jual_besar_grosir    Decimal? @db.Decimal(15, 2)
-  harga_jual_besar_promo     Decimal? @db.Decimal(15, 2)
-  id_produk_master           Int?
-
-  kategori                   kategori  @relation(fields: [id_kategori], references: [id])
-  satuan                     satuan    @relation(fields: [id_satuan], references: [id])
-  merk                       merk?     @relation(fields: [id_merk], references: [id])
-  lokasi_area                lokasi_area? @relation(fields: [id_lokasi], references: [id])
-  detail_transaksi_keluar    detail_transaksi_keluar[]
-  barang_masuk               barang_masuk[]
-  stok_opname                stok_opname[]
-  riwayat_avco               riwayat_avco[]
-  event_promo_produk         event_promo_produk[]
-}
-
-// === TABEL PELANGGAN ===
-
-model pelanggan {
-  id             Int     @id @default(autoincrement())
-  nama_pelanggan String
-  alamat         String?
-  no_hp          String?
-  email          String?
-  keterangan     String?
-  point          Int     @default(0)
-
-  transaksi_keluar transaksi_keluar[]
-}
-
-// === TABEL SUPPLIER ===
-
-model supplier {
-  id             Int     @id @default(autoincrement())
-  nama_supplier  String
-  alamat         String?
-  telepon        String?
-  email          String?
-  keterangan     String?
-
-  barang_masuk barang_masuk[]
-}
-
-// === TABEL TRANSAKSI ===
-
-model transaksi_keluar {
-  id              Int      @id @default(autoincrement())
-  no_transaksi    BigInt   @unique
-  tgl_transaksi   DateTime @default(now())
-  id_kasir        Int
-  id_pelanggan    Int?
-  id_metode_bayar Int?
-  subtotal        Decimal  @db.Decimal(15, 2)
-  diskon_persen   Decimal? @db.Decimal(5, 2)
-  diskon_nominal  Decimal? @db.Decimal(15, 2)
-  pajak_persen    Decimal? @db.Decimal(5, 2)
-  pajak_nominal   Decimal? @db.Decimal(15, 2)
-  total           Decimal  @db.Decimal(15, 2)
-  bayar           Decimal  @db.Decimal(15, 2)
-  kembali         Decimal? @db.Decimal(15, 2)
-  dp              Decimal? @db.Decimal(15, 2)
-  sisa            Decimal? @db.Decimal(15, 2)
-  total_hpp       Decimal? @db.Decimal(15, 2)
-  laba_kotor      Decimal? @db.Decimal(15, 2)
-
-  pengguna            pengguna              @relation(fields: [id_kasir], references: [id])
-  pelanggan           pelanggan?            @relation(fields: [id_pelanggan], references: [id])
-  metode_bayar        metode_bayar?         @relation(fields: [id_metode_bayar], references: [id])
-  detail_transaksi_keluar detail_transaksi_keluar[]
-}
-
-model detail_transaksi_keluar {
-  id                 Int     @id @default(autoincrement())
-  id_transaksi       Int
-  id_produk          Int
-  type_harga_jual    String? // SATUAN, GROSIR, PROMO
-  harga_modal        Decimal @db.Decimal(15, 2)
-  harga_jual         Decimal @db.Decimal(15, 2)
-  diskon_item        Decimal @default(0) @db.Decimal(15, 2)
-  qty                Decimal @db.Decimal(15, 2)
-  jumlah             Decimal @db.Decimal(15, 2)
-  kas_masuk          Decimal @db.Decimal(15, 2)
-  profit             Decimal @db.Decimal(15, 2)
-  harga_pokok_satuan Decimal? @db.Decimal(15, 2)
-  total_harga_pokok  Decimal? @db.Decimal(15, 2)
-  satuan_jual        String?
-  qty_satuan         Decimal? @db.Decimal(15, 2)
-  jual_ratio         Decimal? @db.Decimal(15, 2)
-
-  transaksi_keluar transaksi_keluar @relation(fields: [id_transaksi], references: [id])
-  produk           produk           @relation(fields: [id_produk], references: [id])
-}
-
-// === TABEL BARANG MASUK ===
-
-model barang_masuk {
-  id                        Int      @id @default(autoincrement())
-  tgl_masuk                 DateTime @default(now())
-  id_supplier               Int?
-  id_produk                 Int
-  harga_beli                Decimal  @db.Decimal(15, 2)
-  jumlah                    Decimal  @db.Decimal(15, 2)
-  total                     Decimal  @db.Decimal(15, 2)
-  keterangan                String?
-  supplied_unit             String?
-  supplied_qty              Decimal? @db.Decimal(15, 2)
-  applied_conversion_ratio  Decimal? @db.Decimal(15, 2)
-  base_qty_added            Decimal? @db.Decimal(15, 2)
-  total_cost                Decimal? @db.Decimal(15, 2)
-  base_cost_per_piece       Decimal? @db.Decimal(15, 2)
-  status                    String?  @default("ACTIVE")
-  no_surat                  String?
-
-  supplier supplier? @relation(fields: [id_supplier], references: [id])
-  produk   produk    @relation(fields: [id_produk], references: [id])
-}
-
-// === TABEL STOK OPNAME ===
-
-model stok_opname {
-  id            Int      @id @default(autoincrement())
-  tgl_opname    DateTime @default(now())
-  id_produk     Int
-  stok_sistem   Decimal  @db.Decimal(15, 2)
-  stok_fisik    Decimal  @db.Decimal(15, 2)
-  selisih       Decimal? @db.Decimal(15, 2)
-  keterangan    String?
-  id_sesi       String?
-
-  produk produk @relation(fields: [id_produk], references: [id])
-}
-
-// === TABEL ABSENSI ===
-
-model absensi {
-  id            BigInt   @id @default(autoincrement())
-  id_pengguna   Int
-  tanggal       DateTime @db.Date
-  jam_masuk     DateTime?
-  jam_pulang    DateTime?
-  status        String?  // HADIR, TELAT
-  telat_menit   Int?
-  latitude      Decimal? @db.Decimal(10, 8)
-  longitude     Decimal? @db.Decimal(11, 8)
-  foto_masuk    String?
-  foto_pulang   String?
-  device_info   String?
-
-  pengguna pengguna @relation(fields: [id_pengguna], references: [id])
-}
-
-// === TABEL QR SESSION ===
-
-model qr_session {
-  id         BigInt   @id @default(autoincrement())
-  token      String   @unique
-  expired_at DateTime
-  is_active  Boolean  @default(true)
-  created_by Int
-  created_at DateTime @default(now())
-
-  pengguna pengguna @relation(fields: [created_by], references: [id])
-}
-
-// === TABEL PENGATURAN ===
-
-model pengaturan {
-  id                   Int     @id @default(1)
-  nama_toko            String?
-  alamat               String?
-  telepon              String?
-  email                String?
-  nama_kasir_aktif     String?
-  metode_diskon        String?
-  bank1_nama           String?
-  bank1_rekening       String?
-  bank1_atas_nama      String?
-  bank2_nama           String?
-  bank2_rekening       String?
-  bank2_atas_nama      String?
-  footer_struk_1       String?
-  footer_struk_2       String?
-  footer_struk_3       String?
-  footer_invoice_1     String?
-  footer_invoice_2     String?
-  footer_invoice_3     String?
-  pajak_persen         Decimal? @db.Decimal(5, 2)
-  jenis_nota           String?
-  metode_cetak         String?
-  logo_nota            Boolean? @default(false)
-  hormat_kami_nama     String?
-  poin_min_pembelian   Int?     @default(100000)
-}
-
-// === TABEL RIWAYAT AVCO ===
-
-model riwayat_avco {
-  id                           String   @id @default(uuid())
-  id_produk                    Int
-  tanggal                      DateTime @default(now())
-  jenis_mutasi                 String
-  id_referensi                 Int?
-  qty_masuk                    Decimal? @db.Decimal(15, 2)
-  qty_keluar                   Decimal? @db.Decimal(15, 2)
-  harga_satuan_transaksi       Decimal? @db.Decimal(15, 2)
-  stok_sebelum                 Decimal? @db.Decimal(15, 2)
-  avco_sebelum                 Decimal? @db.Decimal(15, 2)
-  stok_sesudah                 Decimal? @db.Decimal(15, 2)
-  avco_sesudah                 Decimal? @db.Decimal(15, 2)
-  nilai_persediaan_sesudah     Decimal? @db.Decimal(15, 2)
-
-  produk produk @relation(fields: [id_produk], references: [id])
-}
-
-// === TABEL SALDO KAS HARIAN ===
-
-model saldo_kas_harian {
-  id            String   @id @default(uuid())
-  tanggal       DateTime @db.Date @unique
-  saldo_awal    Decimal  @db.Decimal(15, 2)
-  total_masuk   Decimal  @default(0) @db.Decimal(15, 2)
-  total_keluar  Decimal  @default(0) @db.Decimal(15, 2)
-  saldo_akhir   Decimal  @db.Decimal(15, 2) @default(0)
-  uang_aktual   Decimal? @db.Decimal(15, 2)
-  selisih       Decimal? @db.Decimal(15, 2)
-  dikonfirmasi  Boolean  @default(false)
-  id_pengguna   Int?
-
-  metode_bayar metode_bayar? @relation(fields: [id_metode_bayar], references: [id])
-  pengguna     pengguna?     @relation(fields: [id_pengguna], references: [id])
-}
-
-// === TABEL PENGATURAN KEUANGAN ===
-
-model pengaturan_keuangan {
-  id            String   @id @default(uuid())
-  modal_awal    Decimal  @db.Decimal(15, 2)
-  tanggal_mulai DateTime @db.Date
-  nama_pemilik  String?
-  npwp          String?
-}
-
-// === TABEL PENGELUARAN ===
-
-model pengeluaran {
-  id             Int      @id @default(autoincrement())
-  tanggal        DateTime @default(now())
-  jumlah         Decimal  @db.Decimal(15, 2)
-  keterangan     String
-  metode_bayar   String
-  status         String   @default("AKTIF")
-  id_pengguna    Int
-  id_kategori    Int?
-  created_at     DateTime @default(now())
-}
-
-// === TABEL EVENT PROMO ===
-
-model event_promo {
-  id              Int      @id @default(autoincrement())
-  nama            String
-  tipe_diskon     String
-  nilai_diskon    Decimal  @db.Decimal(15, 2)
-  mulai           DateTime
-  berakhir        DateTime
-  created_at      DateTime @default(now())
-
-  event_promo_produk event_promo_produk[]
-}
-
-model event_promo_produk {
-  id             Int @id @default(autoincrement())
-  id_event_promo Int
-  id_produk      Int
-
-  event_promo event_promo @relation(fields: [id_event_promo], references: [id])
-  produk      produk      @relation(fields: [id_produk], references: [id])
-
-  @@unique([id_event_promo, id_produk])
-}
-
-// === TABEL LOG AKTIVITAS ===
-
-model log_aktivitas {
-  id          Int      @id @default(autoincrement())
-  id_pengguna Int
-  aksi        String
-  entitas     String
-  id_entitas  Int?
-  deskripsi   String
-  data_lama   Json?
-  data_baru   Json?
-  ip_address  String?
-  created_at  DateTime @default(now())
-
-  pengguna pengguna @relation(fields: [id_pengguna], references: [id])
-}
-
-// === TABEL KAS ADMIN ===
-
-model kas_admin_topup {
-  id             Int      @id @default(autoincrement())
-  tanggal        DateTime @default(now())
-  jumlah         Decimal  @db.Decimal(15, 2)
-  keterangan     String?
-  metode_bayar   String
-  id_pengguna    Int
-}
-
-// === TABEL RETUR PEMBELIAN ===
-
-model retur_pembelian {
-  id             Int      @id @default(autoincrement())
-  id_barang_masuk Int
-  id_pengguna    Int
-  tanggal        DateTime @default(now())
-  keterangan     String?
-
-  detail_retur_pembelian detail_retur_pembelian[]
-}
-
-model detail_retur_pembelian {
-  id             Int     @id @default(autoincrement())
-  id_retur       Int
-  id_produk      Int
-  qty_retur      Decimal @db.Decimal(15, 2)
-  keterangan     String?
-
-  retur_pembelian retur_pembelian @relation(fields: [id_retur], references: [id])
-  produk          produk          @relation(fields: [id_produk], references: [id])
-}
+> **Atau gunakan file yang sudah ada:** `supabase/data_dump.sql` (812KB) sudah berisi INSERT statements untuk semua tabel public.
+
+### Step 1.2: Restore ke Local PostgreSQL
+
+```bash
+# Restore full dump (schema + data) ke local PostgreSQL
+psql -h localhost -U pos_user -d pos_sobatti -f supabase/full_dump.sql
+
+# Atau dari file yang sudah ada
+psql -h localhost -U pos_user -d pos_sobatti -f supabase/data_dump.sql
+
+# Verifikasi data ter-restore
+psql -h localhost -U pos_user -d pos_sobatti -c "
+SELECT 'kategori' as tbl, count(*) FROM kategori
+UNION ALL SELECT 'satuan', count(*) FROM satuan
+UNION ALL SELECT 'produk', count(*) FROM produk
+UNION ALL SELECT 'transaksi_keluar', count(*) FROM transaksi_keluar
+UNION ALL SELECT 'pengguna', count(*) FROM pengguna;
+"
 ```
 
-> **PENTING:** Schema di atas adalah contoh. Sesuaikan dengan schema asli Supabase kamu setelah dump. Jalankan `npx prisma format` untuk format schema.
+### Step 1.3: Generate Prisma Schema (Otomatis)
+
+```bash
+# Install Prisma
+npm install prisma --save-dev
+
+# Pull schema dari local PostgreSQL → otomatis generate schema.prisma
+npx prisma db pull
+
+# Verifikasi
+npx prisma format
+npx prisma generate
+npx prisma studio  # Cek semua tabel ter-load dengan benar
+```
+
+> **Prisma akan otomatis detect semua tabel** dari database lokal dan generate `schema.prisma` lengkap dengan relations. Tidak perlu tulis manual.
 
 ### Step 1.4: Generate Prisma Client & Push ke Database
 
@@ -673,17 +281,28 @@ CREATE TRIGGER trg_guard_produk_paket
   EXECUTE FUNCTION guard_produk_paket();
 ```
 
-### Step 1.8: Migrate Data (jika perlu)
+### Step 1.8: Verifikasi Data
 
 ```bash
-# Dump data dari Supabase
-npx supabase db dump --data-only --db-url "postgresql://postgres:xxx@db.xxx.supabase.co:5432/postgres" > data.sql
+# Cek jumlah data per tabel
+psql -h localhost -U pos_user -d pos_sobatti -c "
+SELECT 'kategori' as tbl, count(*) FROM kategori
+UNION ALL SELECT 'satuan', count(*) FROM satuan
+UNION ALL SELECT 'merk', count(*) FROM merk
+UNION ALL SELECT 'produk', count(*) FROM produk
+UNION ALL SELECT 'pengguna', count(*) FROM pengguna
+UNION ALL SELECT 'pelanggan', count(*) FROM pelanggan
+UNION ALL SELECT 'supplier', count(*) FROM supplier
+UNION ALL SELECT 'transaksi_keluar', count(*) FROM transaksi_keluar
+UNION ALL SELECT 'detail_transaksi_keluar', count(*) FROM detail_transaksi_keluar
+UNION ALL SELECT 'barang_masuk', count(*) FROM barang_masuk
+UNION ALL SELECT 'absensi', count(*) FROM absensi
+ORDER BY tbl;
+"
 
-# Bersihkan data.sql dari Supabase-specific syntax
-# (hapus COPY statements, ganti dengan INSERT)
-
-# Jalankan ke PostgreSQL lokal
-psql -h localhost -U pos_user -d pos_sobatti -f data.sql
+# Cek sample data
+psql -h localhost -U pos_user -d pos_sobatti -c "SELECT id, nama_produk, stok FROM produk LIMIT 5;"
+psql -h localhost -U pos_user -d pos_sobatti -c "SELECT id, username, level FROM pengguna;"
 ```
 
 ---
