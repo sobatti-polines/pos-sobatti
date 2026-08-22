@@ -29,8 +29,8 @@ export default async function StockOpnamePage(props: {
     lokasi_area: Array.isArray(p.lokasi_area) ? (p.lokasi_area[0] ?? null) : p.lokasi_area,
   }));
 
-  let initialSesi = null;
-  let initialItems = [];
+  let initialSesi: any = null;
+  let initialItems: any[] = [];
 
   if (id_sesi) {
     const { data: sesiInfo } = await supabase
@@ -43,14 +43,14 @@ export default async function StockOpnamePage(props: {
       initialSesi = sesiInfo;
       const { data: opnameItems } = await supabase
         .from("stok_opname")
-        .select("id_produk, stok_sistem, stok_fisik, klasifikasi, keterangan")
+        .select("id, id_produk, stok_sistem, stok_sistem_gudang, stok_fisik, stok_fisik_gudang, klasifikasi, keterangan")
         .eq("id_sesi", id_sesi);
 
       if (opnameItems && opnameItems.length > 0) {
         initialItems = opnameItems;
       } else {
         initialItems = [
-          { id_produk: 0, stok_sistem: 0, stok_fisik: 0, klasifikasi: "", keterangan: "" },
+          { id_produk: 0, stok_sistem: 0, stok_sistem_gudang: 0, stok_fisik: 0, stok_fisik_gudang: 0, klasifikasi: "", keterangan: "" },
         ];
       }
     }

@@ -472,6 +472,7 @@ function Step2({
       items: validItems.map((i) => ({
         id_produk: i.id_produk,
         stok_fisik: i.stok_fisik,
+        stok_fisik_gudang: i.stok_fisik_gudang,
         klasifikasi: i.klasifikasi || null,
         keterangan: i.keterangan,
       })),
