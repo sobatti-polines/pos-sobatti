@@ -94,7 +94,7 @@ export default function TransactionsClient({
       } else {
         setDetailModal(prev => ({ ...prev, loading: false }));
       }
-    } catch (_e) {
+    } catch {
       setDetailModal(prev => ({ ...prev, loading: false }));
     }
   };

@@ -53,15 +53,9 @@ export async function getDashboardData(): Promise<DashboardData> {
   const wibOffset = 7 * 60 * 60 * 1000;
   const nowWIB = new Date(nowUtc + wibOffset);
   const todayStr = nowWIB.toISOString().slice(0, 10);
-  const todayStart = new Date(`${todayStr}T00:00:00+07:00`);
-  const todayEnd = new Date(`${todayStr}T23:59:59+07:00`);
   const yesterday = new Date(nowWIB);
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().slice(0, 10);
-  const yesterdayStart = new Date(`${yesterdayStr}T00:00:00+07:00`);
-  const yesterdayEnd = new Date(`${yesterdayStr}T23:59:59+07:00`);
-
-  const fmt = (d: Date) => d.toISOString();
 
   const [
     todayRevenueRes,

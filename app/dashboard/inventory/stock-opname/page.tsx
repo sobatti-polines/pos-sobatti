@@ -29,8 +29,11 @@ export default async function StockOpnamePage(props: {
     lokasi_area: Array.isArray(p.lokasi_area) ? (p.lokasi_area[0] ?? null) : p.lokasi_area,
   }));
 
-  let initialSesi: any = null;
-  let initialItems: any[] = [];
+  type SesiType = { id: string, no_sesi: string, tgl_sesi: string, status: string, keterangan: string | null };
+  type ItemType = { id_produk: number, stok_sistem: number, stok_sistem_gudang: number, stok_fisik: number, stok_fisik_gudang: number, klasifikasi: string, keterangan: string };
+  
+  let initialSesi: SesiType | null = null;
+  let initialItems: ItemType[] = [];
 
   if (id_sesi) {
     const { data: sesiInfo } = await supabase
@@ -47,7 +50,15 @@ export default async function StockOpnamePage(props: {
         .eq("id_sesi", id_sesi);
 
       if (opnameItems && opnameItems.length > 0) {
-        initialItems = opnameItems;
+        initialItems = opnameItems.map(item => ({
+          id_produk: item.id_produk,
+          stok_sistem: item.stok_sistem ?? 0,
+          stok_sistem_gudang: item.stok_sistem_gudang ?? 0,
+          stok_fisik: item.stok_fisik ?? 0,
+          stok_fisik_gudang: item.stok_fisik_gudang ?? 0,
+          klasifikasi: item.klasifikasi || "",
+          keterangan: item.keterangan || ""
+        }));
       } else {
         initialItems = [
           { id_produk: 0, stok_sistem: 0, stok_sistem_gudang: 0, stok_fisik: 0, stok_fisik_gudang: 0, klasifikasi: "", keterangan: "" },
