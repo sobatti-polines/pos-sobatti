@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useDeferredValue, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ClipboardList, ChevronDown, ChevronRight, Loader2, Search, X } from "lucide-react";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
@@ -146,19 +147,27 @@ function SesiAccordion({
           )}
         </button>
         {sesi.status === "DRAFT" && onCancel && (
-          <button
-            type="button"
-            onClick={handleCancel}
-            disabled={cancelling}
-            className="shrink-0 flex items-center gap-1 h-7 px-3 rounded-full text-[11px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors disabled:opacity-50"
-          >
-            {cancelling ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <X className="w-3 h-3" />
-            )}
-            Hapus
-          </button>
+          <div className="shrink-0 flex items-center gap-2">
+            <Link
+              href={`/dashboard/inventory/stock-opname?id_sesi=${sesi.id}`}
+              className="flex items-center gap-1 h-7 px-3 rounded-full text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+            >
+              Lanjutkan
+            </Link>
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="flex items-center gap-1 h-7 px-3 rounded-full text-[11px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors disabled:opacity-50"
+            >
+              {cancelling ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <X className="w-3 h-3" />
+              )}
+              Hapus
+            </button>
+          </div>
         )}
       </div>
 

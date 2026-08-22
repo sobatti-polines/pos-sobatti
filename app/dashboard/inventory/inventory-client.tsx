@@ -235,6 +235,7 @@ export default function InventoryClient({
   const [merkFilter, setMerkFilter] = useState("all");
   const [lokasiFilter, setLokasiFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -314,8 +315,16 @@ export default function InventoryClient({
       });
     }
 
+    if (typeFilter !== "all") {
+      result = result.filter((p) => {
+        if (typeFilter === "master") return !p.id_produk_master;
+        if (typeFilter === "paket") return Boolean(p.id_produk_master);
+        return true;
+      });
+    }
+
     return result;
-  }, [initialProducts, deferredSearchQuery, categoryFilter, merkFilter, lokasiFilter, stockFilter, merks]);
+  }, [initialProducts, deferredSearchQuery, categoryFilter, merkFilter, lokasiFilter, stockFilter, typeFilter, merks]);
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 25 });
 
@@ -764,6 +773,7 @@ export default function InventoryClient({
     { type: "select", label: "Kategori", value: categoryFilter, onChange: setCategoryFilter, options: categories.map((c) => ({ value: String(c.id), label: c.nama })) },
     { type: "select", label: "Merk", value: merkFilter, onChange: setMerkFilter, options: [{ value: "none", label: "Tanpa Merk" }, ...merks.map((m) => ({ value: String(m.id), label: m.nama }))] },
     { type: "select", label: "Lokasi", value: lokasiFilter, onChange: setLokasiFilter, options: [{ value: "none", label: "Tanpa Lokasi" }, ...lokasiAreas.map((l) => ({ value: String(l.id), label: l.nama }))] },
+    { type: "select", label: "Jenis Barang", value: typeFilter, onChange: setTypeFilter, options: [{ value: "master", label: "Barang Master" }, { value: "paket", label: "Barang Paket" }] },
     {
       type: "select", label: "Stok", value: stockFilter, onChange: setStockFilter,
       options: [

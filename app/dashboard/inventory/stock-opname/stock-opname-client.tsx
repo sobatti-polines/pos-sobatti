@@ -378,7 +378,9 @@ interface Step2Item {
   id?: number;
   id_produk: number;
   stok_sistem: number;
+  stok_sistem_gudang: number;
   stok_fisik: number;
+  stok_fisik_gudang: number;
   klasifikasi: string;
   keterangan: string;
 }
@@ -409,7 +411,7 @@ function Step2({
   const addItem = () => {
     setItems((prev) => [
       ...prev,
-      { id_produk: 0, stok_sistem: 0, stok_fisik: 0, klasifikasi: "", keterangan: "" },
+      { id_produk: 0, stok_sistem: 0, stok_sistem_gudang: 0, stok_fisik: 0, stok_fisik_gudang: 0, klasifikasi: "", keterangan: "" },
     ]);
   };
 
@@ -428,7 +430,7 @@ function Step2({
       setItems((prev) =>
         prev.map((item, i) =>
           i === idx
-            ? { ...item, id_produk: product.id, stok_sistem: (product.stok ?? 0) + (product.stok_gudang ?? 0) }
+            ? { ...item, id_produk: product.id, stok_sistem: product.stok ?? 0, stok_sistem_gudang: product.stok_gudang ?? 0 }
             : item
         )
       );
@@ -447,7 +449,7 @@ function Step2({
       setItems((prev) =>
         prev.map((item) => {
           const p = products.find((pp) => pp.id === item.id_produk);
-          return p ? { ...item, stok_sistem: (p.stok ?? 0) + (p.stok_gudang ?? 0) } : item;
+          return p ? { ...item, stok_sistem: p.stok ?? 0, stok_sistem_gudang: p.stok_gudang ?? 0 } : item;
         })
       );
       setSuccess(true);
@@ -498,13 +500,13 @@ function Step2({
   const handleExportCSV = () => {
     // Header SAMA dengan template import stok opname agar bisa round-trip
     // (export draft → isi/edit → import ulang).
-    const headers = ["SKU / Barcode", "Stok Fisik", "Keterangan"];
+    const headers = ["SKU / Barcode", "Fisik Display", "Fisik Gudang", "Keterangan"];
     const data = items
       .filter((i) => i.id_produk > 0)
       .map((item) => {
         const p = products.find((pp) => pp.id === item.id_produk);
         const code = p?.sku || p?.barcode || (p ? `#${p.id}` : "");
-        return [code, item.stok_fisik, item.keterangan || ""];
+        return [code, item.stok_fisik, item.stok_fisik_gudang, item.keterangan || ""];
       });
     exportToCSV(`Stok_Opname_${sesi.no_sesi}`, headers, data);
   };
@@ -521,7 +523,8 @@ function Step2({
       )
         .trim()
         .toLowerCase();
-      const stokFisikNum = parseFloat(r["Stok Fisik"] || r["stok_fisik"] || "0");
+      const stokFisikNum = parseFloat(r["Fisik Display"] || r["stok_fisik"] || "0");
+      const stokFisikGudangNum = parseFloat(r["Fisik Gudang"] || r["stok_fisik_gudang"] || "0");
       const ket = (r["Keterangan"] || r["keterangan"] || "").trim();
       if (!code) continue;
 
@@ -538,8 +541,10 @@ function Step2({
           ...prev,
           {
             id_produk: matched.id,
-            stok_sistem: (matched.stok ?? 0) + (matched.stok_gudang ?? 0),
+            stok_sistem: matched.stok ?? 0,
+            stok_sistem_gudang: matched.stok_gudang ?? 0,
             stok_fisik: isNaN(stokFisikNum) ? 0 : stokFisikNum,
+            stok_fisik_gudang: isNaN(stokFisikGudangNum) ? 0 : stokFisikGudangNum,
             klasifikasi: "",
             keterangan: ket,
           },
@@ -553,7 +558,7 @@ function Step2({
   };
 
   const totalSelisih = useMemo(
-    () => items.reduce((sum, i) => sum + (i.stok_fisik - i.stok_sistem), 0),
+    () => items.reduce((sum, i) => sum + ((i.stok_fisik || 0) - (i.stok_sistem || 0)) + ((i.stok_fisik_gudang || 0) - (i.stok_sistem_gudang || 0)), 0),
     [items]
   );
 
@@ -657,9 +662,9 @@ function Step2({
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 w-10 text-center px-2">#</th>
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left px-2">Produk</th>
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left px-2 w-[120px]">Lokasi</th>
-              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-center w-[100px] px-2">Stok Sistem</th>
-              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-center w-[100px] px-2">Stok Fisik</th>
-              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-center w-[90px] px-2">Selisih</th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-center px-2">Sistem (Disp / Gdg)</th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-center px-2">Fisik (Disp / Gdg)</th>
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-center px-2">Selisih (Disp / Gdg)</th>
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-center w-[130px] px-2">Klasifikasi</th>
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[140px] px-2">Keterangan</th>
               <th className="w-10 px-2" />
@@ -667,7 +672,8 @@ function Step2({
           </thead>
           <tbody>
             {items.map((item, idx) => {
-              const selisih = item.stok_fisik - item.stok_sistem;
+              const selisih = (item.stok_fisik || 0) - (item.stok_sistem || 0);
+              const selisihGudang = (item.stok_fisik_gudang || 0) - (item.stok_sistem_gudang || 0);
               return (
                 <tr
                   key={idx}
@@ -687,39 +693,66 @@ function Step2({
                     {products.find((p) => p.id === item.id_produk)?.lokasi_area?.nama || "-"}
                   </td>
                   <td className="px-2 py-2 text-center align-top pt-4">
-                    <span className="tabular-nums font-medium text-foreground">
-                      {item.stok_sistem}
-                    </span>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="tabular-nums font-medium text-foreground">{item.stok_sistem || 0}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="tabular-nums font-medium text-foreground">{item.stok_sistem_gudang || 0}</span>
+                    </div>
                   </td>
                   <td className="px-2 py-2">
-                    <input
-                      type="number"
-                      min={0}
-                      step="any"
-                      value={item.stok_fisik || ""}
-                      onChange={(e) =>
-                        updateItem(idx, "stok_fisik", parseFloat(e.target.value) || 0)
-                      }
-                      placeholder="0"
-                      className={inputBase + " tabular-nums font-medium text-center"}
-                    />
+                    <div className="flex items-center justify-center gap-1">
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={item.stok_fisik || ""}
+                        onChange={(e) => updateItem(idx, "stok_fisik", parseFloat(e.target.value) || 0)}
+                        className={inputBase + " tabular-nums font-medium text-center w-16 px-1"}
+                        title="Fisik Display"
+                      />
+                      <span className="text-muted-foreground">/</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={item.stok_fisik_gudang || ""}
+                        onChange={(e) => updateItem(idx, "stok_fisik_gudang", parseFloat(e.target.value) || 0)}
+                        className={inputBase + " tabular-nums font-medium text-center w-16 px-1"}
+                        title="Fisik Gudang"
+                      />
+                    </div>
                   </td>
                   <td className="px-2 py-2 text-center align-top pt-4">
-                    <span
-                      className={`tabular-nums font-semibold px-2 py-0.5 rounded-full text-[12px] ${
-                        selisih > 0
-                          ? "bg-emerald-50 text-emerald-600"
-                          : selisih < 0
-                          ? "bg-destructive/10 text-destructive"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {selisih > 0 ? `+${selisih}` : selisih}
-                    </span>
+                    <div className="flex items-center justify-center gap-2">
+                      <span
+                        className={`tabular-nums font-semibold px-2 py-0.5 rounded-full text-[12px] ${
+                          selisih > 0
+                            ? "bg-emerald-50 text-emerald-600"
+                            : selisih < 0
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                        title="Selisih Display"
+                      >
+                        {selisih > 0 ? `+${selisih}` : selisih}
+                      </span>
+                      <span
+                        className={`tabular-nums font-semibold px-2 py-0.5 rounded-full text-[12px] ${
+                          selisihGudang > 0
+                            ? "bg-emerald-50 text-emerald-600"
+                            : selisihGudang < 0
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                        title="Selisih Gudang"
+                      >
+                        {selisihGudang > 0 ? `+${selisihGudang}` : selisihGudang}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-2 py-2">
                     <select
-                      value={item.klasifikasi}
+                      value={item.klasifikasi || ""}
                       onChange={(e) => updateItem(idx, "klasifikasi", e.target.value)}
                       className={inputBase + " h-9 text-center"}
                     >
@@ -732,7 +765,7 @@ function Step2({
                   </td>
                   <td className="px-2 py-2">
                     <input
-                      value={item.keterangan}
+                      value={item.keterangan || ""}
                       onChange={(e) => updateItem(idx, "keterangan", e.target.value)}
                       placeholder="Catatan"
                       className={inputBase}
@@ -871,7 +904,9 @@ function Step3({
   const enriched = useMemo(() => {
     return validItems.map((item) => {
       const p = products.find((pp) => pp.id === item.id_produk);
-      const selisih = item.stok_fisik - item.stok_sistem;
+      const selisih = ((item.stok_fisik || 0) - (item.stok_sistem || 0)) + ((item.stok_fisik_gudang || 0) - (item.stok_sistem_gudang || 0));
+      const selisihDisplay = (item.stok_fisik || 0) - (item.stok_sistem || 0);
+      const selisihGudang = (item.stok_fisik_gudang || 0) - (item.stok_sistem_gudang || 0);
       const hargaSnap = 0; // Will be fetched from DB on apply
       const nilaiRp = selisih * hargaSnap;
       return {
@@ -879,6 +914,8 @@ function Step3({
         nama_produk: p?.nama_produk || "Produk dihapus",
         lokasi: p?.lokasi_area?.nama || "-",
         selisih,
+        selisihDisplay,
+        selisihGudang,
         nilai_rp: nilaiRp,
       };
     });
@@ -1011,9 +1048,9 @@ function Step3({
                   <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">#</th>
                   <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-left px-3">Produk</th>
                   <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-left px-3">Lokasi</th>
-                  <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Sistem</th>
-                  <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Fisik</th>
-                  <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Selisih</th>
+                  <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Sistem (Disp/Gdg)</th>
+                  <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Fisik (Disp/Gdg)</th>
+                  <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Selisih (Disp/Gdg)</th>
                   <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Klasifikasi</th>
                   <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-9 text-center px-3">Nilai (Rp)</th>
                 </tr>
@@ -1024,20 +1061,33 @@ function Step3({
                     <td className="text-center text-sm text-muted-foreground tabular-nums px-3 py-2.5">{idx + 1}</td>
                     <td className="text-sm text-foreground px-3 py-2.5">{item.nama_produk}</td>
                     <td className="text-sm text-muted-foreground px-3 py-2.5">{item.lokasi}</td>
-                    <td className="text-sm text-center tabular-nums px-3 py-2.5">{item.stok_sistem}</td>
-                    <td className="text-sm text-center tabular-nums px-3 py-2.5 font-medium">{item.stok_fisik}</td>
+                    <td className="text-sm text-center tabular-nums px-3 py-2.5">{item.stok_sistem || 0} / {item.stok_sistem_gudang || 0}</td>
+                    <td className="text-sm text-center tabular-nums px-3 py-2.5 font-medium">{item.stok_fisik || 0} / {item.stok_fisik_gudang || 0}</td>
                     <td className="text-center px-3 py-2.5">
-                      <span
-                        className={`tabular-nums font-semibold px-2 py-0.5 rounded-full text-[12px] ${
-                          item.selisih > 0
-                            ? "bg-emerald-50 text-emerald-600"
-                            : item.selisih < 0
-                            ? "bg-destructive/10 text-destructive"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {item.selisih > 0 ? `+${item.selisih}` : item.selisih}
-                      </span>
+                      <div className="flex items-center justify-center gap-1">
+                        <span
+                          className={`tabular-nums font-semibold px-2 py-0.5 rounded-full text-[12px] ${
+                            item.selisihDisplay > 0
+                              ? "bg-emerald-50 text-emerald-600"
+                              : item.selisihDisplay < 0
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {item.selisihDisplay > 0 ? `+${item.selisihDisplay}` : item.selisihDisplay}
+                        </span>
+                        <span
+                          className={`tabular-nums font-semibold px-2 py-0.5 rounded-full text-[12px] ${
+                            item.selisihGudang > 0
+                              ? "bg-emerald-50 text-emerald-600"
+                              : item.selisihGudang < 0
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {item.selisihGudang > 0 ? `+${item.selisihGudang}` : item.selisihGudang}
+                        </span>
+                      </div>
                     </td>
                     <td className="text-sm text-center px-3 py-2.5">{item.klasifikasi || "-"}</td>
                     <td className="text-sm text-center tabular-nums px-3 py-2.5">{formatIDR(item.nilai_rp)}</td>
@@ -1153,12 +1203,20 @@ function CompletedState({ onReset }: { onReset: () => void }) {
 
 export default function StockOpnameClient({
   products,
+  initialSesi,
+  initialItems,
 }: {
   products: Product[];
+  initialSesi?: SesiInfo | null;
+  initialItems?: Step2Item[];
 }) {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [sesi, setSesi] = useState<SesiInfo | null>(null);
-  const [items, setItems] = useState<Step2Item[]>([]);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(initialSesi ? 2 : 1);
+  const [sesi, setSesi] = useState<SesiInfo | null>(initialSesi || null);
+  const [items, setItems] = useState<Step2Item[]>(
+    initialItems && initialItems.length > 0 
+      ? initialItems 
+      : []
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -1181,7 +1239,7 @@ export default function StockOpnameClient({
       keterangan: data.keterangan || null,
     });
     setItems([
-      { id_produk: 0, stok_sistem: 0, stok_fisik: 0, klasifikasi: "", keterangan: "" },
+      { id_produk: 0, stok_sistem: 0, stok_sistem_gudang: 0, stok_fisik: 0, stok_fisik_gudang: 0, klasifikasi: "", keterangan: "" },
     ]);
     setStep(2);
     setLoading(false);

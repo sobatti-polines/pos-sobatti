@@ -122,6 +122,7 @@ export async function saveOpnameDraft(input: {
   items: Array<{
     id_produk: number;
     stok_fisik: number;
+    stok_fisik_gudang: number;
     klasifikasi?: string | null;
     keterangan?: string;
   }>;
@@ -161,9 +162,11 @@ export async function saveOpnameDraft(input: {
     .filter((item) => item.id_produk > 0)
     .map((item) => {
       const produk = produkMap.get(item.id_produk);
-      const stokSistem = (produk?.stok ?? 0) + (produk?.stok_gudang ?? 0);
+      const stokSistem = produk?.stok ?? 0;
+      const stokSistemGudang = produk?.stok_gudang ?? 0;
       const hargaSnap = produk?.harga_pokok_avco ?? 0;
-      const selisih = item.stok_fisik - stokSistem;
+      const selisih = (item.stok_fisik ?? 0) - stokSistem;
+      const selisihGudang = (item.stok_fisik_gudang ?? 0) - stokSistemGudang;
 
       return {
         id_sesi: input.id_sesi,
@@ -172,6 +175,9 @@ export async function saveOpnameDraft(input: {
         stok_sistem: stokSistem,
         stok_fisik: item.stok_fisik,
         selisih,
+        stok_sistem_gudang: stokSistemGudang,
+        stok_fisik_gudang: item.stok_fisik_gudang,
+        selisih_gudang: selisihGudang,
         klasifikasi: item.klasifikasi || null,
         harga_pokok_snap: hargaSnap,
         keterangan: item.keterangan || null,
@@ -233,39 +239,40 @@ export async function refreshSnapshot(id_sesi: string) {
     .select("id, stok, stok_gudang")
     .in("id", productIds);
 
-  const produkMap = new Map((produkRows ?? []).map((p) => [p.id, (p.stok ?? 0) + (p.stok_gudang ?? 0)]));
+  const produkMap = new Map((produkRows ?? []).map((p) => [p.id, { stok: p.stok ?? 0, stok_gudang: p.stok_gudang ?? 0 }]));
 
   // Update each row
   for (const item of items) {
-    const newStok = produkMap.get(item.id_produk) ?? 0;
+    const prod = produkMap.get(item.id_produk) ?? { stok: 0, stok_gudang: 0 };
     await supabase
       .from("stok_opname")
-      .update({ stok_sistem: newStok, selisih: undefined })
+      .update({ stok_sistem: prod.stok, stok_sistem_gudang: prod.stok_gudang, selisih: undefined, selisih_gudang: undefined })
       .eq("id", item.id);
   }
 
   // Recalculate selisih
   const { data: updatedItems } = await supabase
     .from("stok_opname")
-    .select("id, stok_sistem, stok_fisik, harga_pokok_snap")
+    .select("id, stok_sistem, stok_fisik, stok_sistem_gudang, stok_fisik_gudang, harga_pokok_snap")
     .eq("id_sesi", id_sesi);
 
   if (updatedItems) {
     for (const item of updatedItems) {
       const selisih = (item.stok_fisik ?? 0) - (item.stok_sistem ?? 0);
+      const selisihGudang = (item.stok_fisik_gudang ?? 0) - (item.stok_sistem_gudang ?? 0);
       await supabase
         .from("stok_opname")
-        .update({ selisih })
+        .update({ selisih, selisih_gudang: selisihGudang })
         .eq("id", item.id);
     }
 
     const totalSelisih = updatedItems.reduce(
-      (sum, i) => sum + ((i.stok_fisik ?? 0) - (i.stok_sistem ?? 0)),
+      (sum, i) => sum + ((i.stok_fisik ?? 0) - (i.stok_sistem ?? 0)) + ((i.stok_fisik_gudang ?? 0) - (i.stok_sistem_gudang ?? 0)),
       0
     );
     const totalNilai = updatedItems.reduce(
       (sum, i) =>
-        sum + ((i.stok_fisik ?? 0) - (i.stok_sistem ?? 0)) * (i.harga_pokok_snap ?? 0),
+        sum + (((i.stok_fisik ?? 0) - (i.stok_sistem ?? 0)) + ((i.stok_fisik_gudang ?? 0) - (i.stok_sistem_gudang ?? 0))) * (i.harga_pokok_snap ?? 0),
       0
     );
 
