@@ -645,7 +645,7 @@ export default function TransactionsClient({
 
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                 <p className="text-xs text-destructive leading-relaxed">
-                  <strong>Peringatan:</strong> Membatalkan transaksi ini akan mengubah statusnya menjadi "Dibatalkan". Stok produk <strong>AKAN</strong> dikembalikan secara otomatis, dan HPP akan disesuaikan.
+                  <strong>Peringatan:</strong> Membatalkan transaksi ini akan mengubah statusnya menjadi &quot;Dibatalkan&quot;. Stok produk <strong>AKAN</strong> dikembalikan secara otomatis, dan HPP akan disesuaikan.
                 </p>
               </div>
             </div>
