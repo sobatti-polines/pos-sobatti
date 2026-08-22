@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Search,
   ChevronUp,
@@ -302,6 +303,34 @@ export default function DataTable<T, K extends string | number = string | number
     return ""
   }
 
+  // ==== ROW VIRTUALIZATION ====
+  const parentRef = React.useRef<HTMLDivElement>(null)
+  const rowVirtualizer = useVirtualizer({
+    count: data.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 50, // Perkiraan tinggi baris
+    overscan: 5,
+  })
+
+  const virtualItems = rowVirtualizer.getVirtualItems()
+  const paddingTop = virtualItems.length > 0 ? virtualItems[0]?.start || 0 : 0
+  const paddingBottom = virtualItems.length > 0
+    ? rowVirtualizer.getTotalSize() - (virtualItems[virtualItems.length - 1]?.end || 0)
+    : 0
+
+  // ==== SEARCH OPTIMIZATION ====
+  const [localSearch, setLocalSearch] = React.useState(search ?? "")
+  React.useEffect(() => {
+    setLocalSearch(search ?? "")
+  }, [search])
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalSearch(e.target.value)
+    React.startTransition(() => {
+      onSearchChange?.(e.target.value)
+    })
+  }
+
   return (
     <div
       className={cn(
@@ -325,8 +354,8 @@ export default function DataTable<T, K extends string | number = string | number
                         aria-label="Pencarian"
                         placeholder={searchPlaceholder}
                         className="pl-9 rounded-md w-full"
-                        value={search}
-                        onChange={(e) => onSearchChange?.(e.target.value)}
+                        value={localSearch}
+                        onChange={handleSearchChange}
                         disabled={isInEditMode}
                       />
                     </div>
@@ -488,7 +517,7 @@ export default function DataTable<T, K extends string | number = string | number
       )}
 
       {/* Table Area */}
-      <div className="flex-1 overflow-auto min-h-0 relative">
+      <div className="flex-1 overflow-auto min-h-0 relative" ref={parentRef}>
         <Table wrapperClassName="overflow-visible min-w-max">
           <TableHeader
             className={cn(getHeaderVisibilityClass(), "sticky top-0 z-30 bg-background shadow-sm")}
@@ -545,6 +574,11 @@ export default function DataTable<T, K extends string | number = string | number
             </TableRow>
           </TableHeader>
           <TableBody>
+            {/* Padding Top for Virtualization */}
+            {paddingTop > 0 && (
+              <tr style={{ height: `${paddingTop}px` }} />
+            )}
+
             {/* New item edit row */}
             {editingId === "new" && renderEditRow && (
               <TableRow className="bg-muted/30">
@@ -608,7 +642,8 @@ export default function DataTable<T, K extends string | number = string | number
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((item, index) => {
+              virtualItems.map((virtualRow) => {
+                const item = data[virtualRow.index]
                 const id = rowKey(item)
                 const isEditingThis =
                   isInEditMode && editingId === id
@@ -616,7 +651,11 @@ export default function DataTable<T, K extends string | number = string | number
                 if (isEditingThis) {
                   return (
                     <React.Fragment key={id}>
-                      <TableRow className="bg-muted/30">
+                      <TableRow 
+                        className="bg-muted/30"
+                        ref={rowVirtualizer.measureElement}
+                        data-index={virtualRow.index}
+                      >
                         {showRowNumber && (
                           <TableCell
                             className={cn(
@@ -625,7 +664,7 @@ export default function DataTable<T, K extends string | number = string | number
                               freezeRowNumber && cn("sticky z-10 bg-muted", selectable ? "left-[40px]" : "left-0")
                             )}
                           >
-                            {(page - 1) * perPage + index + 1}
+                            {(page - 1) * perPage + virtualRow.index + 1}
                           </TableCell>
                         )}
                         {renderEditRow?.(item)}
@@ -638,6 +677,8 @@ export default function DataTable<T, K extends string | number = string | number
                 return (
                   <TableRow
                     key={id}
+                    ref={rowVirtualizer.measureElement}
+                    data-index={virtualRow.index}
                     className={cn(
                       getRowBaseClass(),
                       onRowClick && "cursor-pointer",
@@ -678,7 +719,7 @@ export default function DataTable<T, K extends string | number = string | number
                             No
                           </span>
                         )}
-                        {(page - 1) * perPage + index + 1}
+                        {(page - 1) * perPage + virtualRow.index + 1}
                       </TableCell>
                     )}
                     {columns.map((col) => {
@@ -713,6 +754,11 @@ export default function DataTable<T, K extends string | number = string | number
                   </TableRow>
                 )
               })
+            )}
+
+            {/* Padding Bottom for Virtualization */}
+            {paddingBottom > 0 && (
+              <tr style={{ height: `${paddingBottom}px` }} />
             )}
           </TableBody>
         </Table>
