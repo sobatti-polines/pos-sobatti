@@ -29,7 +29,14 @@ const nextConfig: NextConfig = {
     webpackMemoryOptimizations: true,
     serverSourceMaps: false,
     serverActions: {
-      allowedOrigins: [getLocalIp(), 'localhost:3000', "*.trycloudflare.com"],
+      allowedOrigins: [
+        getLocalIp(),
+        "localhost:3000",
+        "*.trycloudflare.com",
+        "plksys.web.id",
+        "*.plksys.web.id"
+      ],
+      bodySizeLimit: "50mb",
     },
     optimizePackageImports: [
       "lucide-react",

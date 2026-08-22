@@ -127,7 +127,7 @@ export default function ReportsClient({ transactions, details, products }: Repor
     });
 
     return Array.from(productMap.values())
-      .sort((a, b) => b.revenue - a.revenue)
+      .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
   }, [filteredTransactions, details]);
 
@@ -283,7 +283,7 @@ export default function ReportsClient({ transactions, details, products }: Repor
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-xl font-medium">Produk Terlaris</CardTitle>
-              <CardDescription>Berdasarkan total pendapatan</CardDescription>
+              <CardDescription>Berdasarkan jumlah barang terjual</CardDescription>
             </div>
             <BarChart3 className="w-5 h-5 text-muted-foreground" />
           </CardHeader>
