@@ -76,10 +76,12 @@ export async function GET(req: NextRequest) {
         .from("transaksi_keluar")
         .select(`
           id, tgl_transaksi, total, total_hpp, laba_kotor, diskon_nominal, pajak_nominal,
-          id_kasir, kasir:pengguna!id_kasir(nama),
+          id_kasir, kasir:pengguna!id_kasir(nama)
+,
           id_pelanggan, pelanggan(id, nama_pelanggan),
           id_metode_bayar, metode_bayar(nama)
         `)
+      .eq("status", "berhasil")
         .gte("tgl_transaksi", startISO)
         .lte("tgl_transaksi", endISO)
         .range(from, to)
@@ -92,6 +94,7 @@ export async function GET(req: NextRequest) {
         .select("id_transaksi, qty, transaksi_keluar!inner(tgl_transaksi)")
         .gte("transaksi_keluar.tgl_transaksi", startISO)
         .lte("transaksi_keluar.tgl_transaksi", endISO)
+        .eq("transaksi_keluar.status", "berhasil")
         .range(from, to)
     );
 

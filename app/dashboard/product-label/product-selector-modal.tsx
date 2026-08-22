@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/select";
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 export interface PrintProduct {
   id: number;
@@ -155,6 +156,20 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
     setLokasiFilter("all");
   };
 
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filteredProducts.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 65,
+    overscan: 5,
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  const paddingTop = virtualItems.length > 0 ? virtualItems[0]?.start || 0 : 0;
+  const paddingBottom = virtualItems.length > 0
+    ? rowVirtualizer.getTotalSize() - (virtualItems[virtualItems.length - 1]?.end || 0)
+    : 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] lg:max-w-6xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
@@ -230,7 +245,7 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
         </div>
 
         {/* Content Section (Table) */}
-        <div className="flex-1 overflow-y-auto relative bg-background">
+        <div className="flex-1 overflow-y-auto relative bg-background" ref={parentRef}>
           {loading && products.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10 backdrop-blur-sm">
               <div className="flex flex-col items-center gap-2">
@@ -262,6 +277,10 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
+              {paddingTop > 0 && (
+                <tr style={{ height: `${paddingTop}px` }} />
+              )}
+
               {filteredProducts.length === 0 && !loading && (
                 <tr>
                   <td colSpan={4} className="px-4 py-16">
@@ -279,11 +298,15 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
                   </td>
                 </tr>
               )}
-              {filteredProducts.map((product) => {
+
+              {virtualItems.map((virtualRow) => {
+                const product = filteredProducts[virtualRow.index];
                 const isSelected = selectedIds.has(product.id);
                 return (
                   <tr 
                     key={product.id} 
+                    ref={rowVirtualizer.measureElement}
+                    data-index={virtualRow.index}
                     className={cn(
                       "hover:bg-muted/40 cursor-pointer transition-colors group",
                       isSelected && "bg-primary/5 hover:bg-primary/10"
@@ -330,6 +353,10 @@ export function ProductSelectorModal({ open, onOpenChange, onInsert }: ProductSe
                   </tr>
                 );
               })}
+
+              {paddingBottom > 0 && (
+                <tr style={{ height: `${paddingBottom}px` }} />
+              )}
             </tbody>
           </table>
         </div>

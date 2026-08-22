@@ -69,6 +69,7 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
     db
       .from("transaksi_keluar")
       .select("total, bayar, kembali")
+      .eq("status", "berhasil")
       .eq("id_metode_bayar", tunaiId)
       .gte("tgl_transaksi", start)
       .lte("tgl_transaksi", end)

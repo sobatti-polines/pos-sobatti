@@ -49,7 +49,8 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
     .select(`
       *,
       pelanggan:id_pelanggan ( nama_pelanggan ),
-      kasir:pengguna!transaksi_keluar_id_kasir_fkey ( username )
+      kasir:pengguna!transaksi_keluar_id_kasir_fkey ( username ),
+      metode_bayar:id_metode_bayar ( nama )
     `)
     .eq("id", id)
     .single();
@@ -149,6 +150,10 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
           <div className="flex justify-between pt-1">
             <span>BAYAR</span>
             <span>{formatIDR(transaksi.bayar)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>METODE</span>
+            <span>{transaksi.metode_bayar?.nama?.toUpperCase() || "-"}</span>
           </div>
           {transaksi.kembali > 0 && (
             <div className="flex justify-between">

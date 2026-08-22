@@ -16,6 +16,7 @@ export default async function TransactionsPage() {
           tgl_transaksi,
           total,
           bayar,
+          status,
           kembali,
           pelanggan(nama_pelanggan),
           pengguna!transaksi_keluar_id_kasir_fkey(username, nama),

@@ -98,6 +98,7 @@ export async function GET(req: NextRequest) {
     let countQuery = supabase
       .from("transaksi_keluar")
       .select("*", { count: "exact", head: true })
+      .eq("status", "berhasil")
       .gte("tgl_transaksi", startISO)
       .lte("tgl_transaksi", endISO);
 
@@ -109,10 +110,12 @@ export async function GET(req: NextRequest) {
         pajak_persen, pajak_nominal,
         total, bayar, kembali, dp, sisa,
         total_hpp, laba_kotor,
-        kasir:pengguna!id_kasir(id, nama),
+        kasir:pengguna!id_kasir(id, nama)
+,
         pelanggan(id, nama_pelanggan, no_hp),
         metode_bayar(id, nama)
       `)
+      .eq("status", "berhasil")
       .gte("tgl_transaksi", startISO)
       .lte("tgl_transaksi", endISO);
 
@@ -146,6 +149,7 @@ export async function GET(req: NextRequest) {
     let aggQuery = supabase
       .from("transaksi_keluar")
       .select("total, total_hpp, laba_kotor, diskon_nominal, pajak_nominal")
+      .eq("status", "berhasil")
       .gte("tgl_transaksi", startISO)
       .lte("tgl_transaksi", endISO);
 

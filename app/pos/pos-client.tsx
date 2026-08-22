@@ -4,6 +4,7 @@ import { Clock } from "./clock";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Search,
   Minus,
@@ -594,6 +595,16 @@ export function PosClient() {
     }
   };
 
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchVirtualizer = useVirtualizer({
+    count: filteredProducts.length,
+    getScrollElement: () => searchContainerRef.current,
+    estimateSize: () => 80,
+    overscan: 5,
+  });
+
+
+
   return (
     <div className="flex-1 flex flex-col h-full bg-background">
 
@@ -729,7 +740,7 @@ export function PosClient() {
 
           {(searchOpen || searchQuery.trim()) && (
             <div className="absolute top-full left-0 right-0 mt-3 bg-background border border-border rounded-2xl shadow-xl overflow-hidden z-50 max-h-[60vh] flex flex-col">
-              <div className="overflow-y-auto p-2">
+              <div className="overflow-y-auto p-2" ref={searchContainerRef}>
                 {products.length === 0 ? (
                   <div className="p-8 text-center text-sm text-muted-foreground">Memuat produk...</div>
                 ) : searchLoading && !serverResultsActive ? (
@@ -739,61 +750,76 @@ export function PosClient() {
                     Produk <span className="font-medium text-foreground">&quot;{searchQuery}&quot;</span> tidak ditemukan
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-1">
-                    {filteredProducts.map((product, index) => {
+                  <div className="relative w-full" style={{ height: `${searchVirtualizer.getTotalSize()}px` }}>
+                    {searchVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const product = filteredProducts[virtualRow.index];
+                      const index = virtualRow.index;
                       const cat = product.kategori?.nama ?? "";
                       const merk = product.merk?.nama ?? "";
                       return (
-                        <button
+                        <div
                           key={product.id}
-                          type="button"
-                          className="flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors text-left group"
-                          onClick={() => {
-                            openAddItemDialog(product);
+                          ref={searchVirtualizer.measureElement}
+                          data-index={virtualRow.index}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            transform: `translateY(${virtualRow.start}px)`,
+                            paddingBottom: '4px'
                           }}
                         >
-                          {/* Nomor urut murni visual (bukan dari database), memudahkan kasir merujuk produk */}
-                          <div className="w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-semibold tabular-nums shrink-0 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                            {index + 1}
-                          </div>
-                          <div className="flex flex-col gap-1 items-start min-w-0 flex-1">
-                            <span className="text-base font-medium text-foreground group-hover:text-primary transition-colors">
-                              <Highlight text={product.nama_produk} query={searchQuery} />
-                            </span>
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                              {product.sku && (
-                                <span className="tabular-nums font-medium">SKU: {product.sku}</span>
-                              )}
-                              {product.barcode && (
-                                <span className="tabular-nums">BC: {product.barcode}</span>
-                              )}
-                              {merk && <span>{merk}</span>}
-                              {cat && (
-                                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full w-fit ${categoryColors[cat] ?? "bg-muted text-muted-foreground"}`}>
-                                  {cat}
-                                </span>
-                              )}
-                              {product.nama_event_promo && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200">
-                                  {product.nama_event_promo}
-                                </span>
-                              )}
+                          <button
+                            type="button"
+                            className="flex w-full items-center justify-between gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors text-left group"
+                            onClick={() => {
+                              openAddItemDialog(product);
+                            }}
+                          >
+                            {/* Nomor urut murni visual (bukan dari database), memudahkan kasir merujuk produk */}
+                            <div className="w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-semibold tabular-nums shrink-0 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                              {index + 1}
                             </div>
-                          </div>
-                          <div className="flex flex-col items-end justify-center gap-1 pr-2 shrink-0">
-                            <span className="text-xs tabular-nums text-muted-foreground">
-                              Gudang: <span className="font-medium text-foreground">{product.stok_gudang ?? 0}</span>
-                            </span>
-                            {product.nama_event_promo && (
-                              <span className="text-xs text-muted-foreground line-through tabular-nums -mb-1">
-                                {formatIDR(product.harga_asli_satuan ?? product.harga_jual_satuan)}
+                            <div className="flex flex-col gap-1 items-start min-w-0 flex-1">
+                              <span className="text-base font-medium text-foreground group-hover:text-primary transition-colors">
+                                <Highlight text={product.nama_produk} query={searchQuery} />
                               </span>
-                            )}
-                            <span className="text-base tabular-nums text-foreground font-medium">
-                              {formatIDR(product.harga_jual_satuan)}
-                            </span>
-                          </div>
-                        </button>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                                {product.sku && (
+                                  <span className="tabular-nums font-medium">SKU: {product.sku}</span>
+                                )}
+                                {product.barcode && (
+                                  <span className="tabular-nums">BC: {product.barcode}</span>
+                                )}
+                                {merk && <span>{merk}</span>}
+                                {cat && (
+                                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full w-fit ${categoryColors[cat] ?? "bg-muted text-muted-foreground"}`}>
+                                    {cat}
+                                  </span>
+                                )}
+                                {product.nama_event_promo && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200">
+                                    {product.nama_event_promo}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end justify-center gap-1 pr-2 shrink-0">
+                              <span className="text-xs tabular-nums text-muted-foreground">
+                                Gudang: <span className="font-medium text-foreground">{product.stok_gudang ?? 0}</span>
+                              </span>
+                              {product.nama_event_promo && (
+                                <span className="text-xs text-muted-foreground line-through tabular-nums -mb-1">
+                                  {formatIDR(product.harga_asli_satuan ?? product.harga_jual_satuan)}
+                                </span>
+                              )}
+                              <span className="text-base tabular-nums text-foreground font-medium">
+                                {formatIDR(product.harga_jual_satuan)}
+                              </span>
+                            </div>
+                          </button>
+                        </div>
                       );
                     })}
                   </div>

@@ -69,25 +69,30 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from("transaksi_keluar")
       .select("total")
+      .eq("status", "berhasil")
       .gte("tgl_transaksi", `${todayStr}T00:00:00`)
       .lte("tgl_transaksi", `${todayStr}T23:59:59`),
     supabase
       .from("transaksi_keluar")
       .select("total")
+      .eq("status", "berhasil")
       .gte("tgl_transaksi", `${yesterdayStr}T00:00:00`)
       .lte("tgl_transaksi", `${yesterdayStr}T23:59:59`),
     supabase
       .from("transaksi_keluar")
       .select("id", { count: "exact", head: true })
+      .eq("status", "berhasil")
       .gte("tgl_transaksi", `${todayStr}T00:00:00`)
       .lte("tgl_transaksi", `${todayStr}T23:59:59`),
     supabase
       .from("transaksi_keluar")
       .select(`
         id, no_transaksi, tgl_transaksi, total, bayar,
-        pelanggan(nama_pelanggan),
+        pelanggan(nama_pelanggan)
+,
         pengguna!transaksi_keluar_id_kasir_fkey(username)
       `)
+      .eq("status", "berhasil")
       .order("tgl_transaksi", { ascending: false })
       .limit(5),
     fetchAllRows(supabase, (db, from, to) =>
@@ -100,6 +105,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from("transaksi_keluar")
       .select("tgl_transaksi, total")
+      .eq("status", "berhasil")
       .gte("tgl_transaksi", `${new Date(nowWIB.getTime() - 13 * 86400000).toISOString().slice(0, 10)}T00:00:00`)
       .lte("tgl_transaksi", `${todayStr}T23:59:59`)
       .order("tgl_transaksi", { ascending: true })

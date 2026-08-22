@@ -78,36 +78,63 @@ export async function voidTransaction(id: number) {
     });
   }
 
-  // 3. Delete details first due to foreign key constraints
-  const { error: detailError } = await supabase
-    .from("detail_transaksi_keluar")
-    .delete()
-    .eq("id_transaksi", id);
-
-  if (detailError) {
-    console.error("Failed to void transaction details:", detailError);
-    return { error: "Gagal menghapus transaksi" };
-  }
-
+  // 3. Update status to 'dibatalkan' instead of deleting
   const { error: txError } = await supabase
     .from("transaksi_keluar")
-    .delete()
+    .update({ status: 'dibatalkan' })
     .eq("id", id);
 
   if (txError) {
     console.error("Failed to void transaction:", txError);
-    return { error: "Gagal menghapus transaksi" };
+    return { error: "Gagal membatalkan transaksi" };
   }
 
   await logActivity(supabase, {
-    aksi: "DELETE",
+    aksi: "UPDATE",
     entitas: "transaksi_keluar",
     id_entitas: id,
-    deskripsi: buildDeskripsi({ aksi: "DELETE", entitas: "transaksi_keluar", id_entitas: id }),
+    deskripsi: buildDeskripsi({ aksi: "UPDATE", entitas: "transaksi_keluar", id_entitas: id }) + " (Void / Dibatalkan)",
   });
 
-  revalidatePath("/dashboard/transactions");
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/pos", "layout");
+  return { success: true };
+}
+
+export async function updatePaymentMethod(id: number, id_metode_bayar: number) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Unauthorized" };
+
+  const { data: pengguna } = await supabase
+    .from("pengguna")
+    .select("level")
+    .eq("username", user.email?.split("@")[0])
+    .single();
+  
+  if (!pengguna || (pengguna.level !== "ADMIN" && pengguna.level !== "OWNER"))
+    return { error: "Forbidden" };
+
+  const { error } = await supabase
+    .from("transaksi_keluar")
+    .update({ id_metode_bayar })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Failed to update payment method:", error);
+    return { error: "Gagal mengubah metode pembayaran" };
+  }
+
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "transaksi_keluar",
+    id_entitas: id,
+    deskripsi: buildDeskripsi({ aksi: "UPDATE", entitas: "transaksi_keluar", id_entitas: id }) + " (Edit Metode Pembayaran)",
+  });
+
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/pos", "layout");
   return { success: true };
 }
 

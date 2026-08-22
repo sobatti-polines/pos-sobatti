@@ -15,7 +15,7 @@ export default async function ReportsPage() {
   // laporan salah jika transaksi/detail/produk melebihi 1000 baris.
   const [transactions, details, products] = await Promise.all([
     fetchAllRows(supabase, (db, from, to) =>
-      db.from("transaksi_keluar").select("*").order("tgl_transaksi", { ascending: false }).range(from, to)
+      db.from("transaksi_keluar").select("*").eq("status", "berhasil").order("tgl_transaksi", { ascending: false }).range(from, to)
     ).catch((e) => {
       console.error("Error fetching transactions:", e);
       return [];

@@ -2,13 +2,13 @@
 
 import { useState, useMemo, useDeferredValue } from "react";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Search, Receipt, Trash2, AlertTriangle, Loader2, X, Eye, Printer } from "lucide-react";
+import { Search, Receipt, Trash2, AlertTriangle, Loader2, X, Eye, Printer, Pencil } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { voidTransaction, getTransactionDetails } from "./actions";
+import { voidTransaction, getTransactionDetails, updatePaymentMethod } from "./actions";
 import { exportToCSV, exportToPDF, exportToExcel } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 import { createClient } from "@/lib/supabase/client";
@@ -39,6 +39,7 @@ export interface Transaction {
   tgl_transaksi: string;
   total: number;
   bayar: number;
+  status: string;
   kembali: number;
   pelanggan: { nama_pelanggan: string } | null;
   pengguna: { username: string, nama: string } | null;
@@ -126,6 +127,31 @@ export default function TransactionsClient({
     }
   };
 
+  const [paymentModal, setPaymentModal] = useState<{ open: boolean; transaction: Transaction | null; loading: boolean, newPaymentId: number }>({
+    open: false,
+    transaction: null,
+    loading: false,
+    newPaymentId: 0
+  });
+
+  const handleOpenPayment = (e: React.MouseEvent, t: Transaction) => {
+    e.stopPropagation();
+    setPaymentModal({ open: true, transaction: t, loading: false, newPaymentId: t.metode_bayar?.id || paymentMethods[0]?.id || 0 });
+  };
+
+  const handleConfirmPaymentEdit = async () => {
+    if (!paymentModal.transaction || !paymentModal.newPaymentId) return;
+    setPaymentModal(prev => ({ ...prev, loading: true }));
+
+    const res = await updatePaymentMethod(paymentModal.transaction.id, paymentModal.newPaymentId);
+    if (res.error) {
+      alert("Gagal mengubah pembayaran: " + res.error);
+      setPaymentModal(prev => ({ ...prev, loading: false }));
+    } else {
+      setPaymentModal({ open: false, transaction: null, loading: false, newPaymentId: 0 });
+    }
+  };
+
   const filteredData = useMemo(() => {
     let result = [...initialTransactions];
 
@@ -160,11 +186,18 @@ export default function TransactionsClient({
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 25 });
 
-  const totalSales = useMemo(() => {
-    return filteredData.reduce((sum, t) => sum + Number(t.total), 0);
+  const validTransactions = useMemo(() => {
+    return filteredData.filter(t => t.status !== "dibatalkan");
   }, [filteredData]);
 
+  const totalSales = useMemo(() => {
+    return validTransactions.reduce((sum, t) => sum + Number(t.total), 0);
+  }, [validTransactions]);
+
   const getStatusBadge = (t: Transaction) => {
+    if (t.status === "dibatalkan") {
+      return <Badge variant="destructive" className="font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Batal</Badge>;
+    }
     if (t.bayar >= t.total) {
       return <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20 font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">Selesai</Badge>;
     }
@@ -218,7 +251,7 @@ export default function TransactionsClient({
         formatDate(t.tgl_transaksi),
         t.pengguna?.nama || t.pengguna?.username || "-",
         t.pelanggan?.nama_pelanggan || "Umum",
-        t.bayar >= t.total ? "Selesai" : (t.bayar > 0 ? "Sebagian" : "Tertunda")
+        t.status === "dibatalkan" ? "Batal" : (t.bayar >= t.total ? "Selesai" : (t.bayar > 0 ? "Sebagian" : "Tertunda"))
       ];
       
       if (items.length === 0) {
@@ -253,7 +286,7 @@ export default function TransactionsClient({
         formatDate(t.tgl_transaksi),
         t.pengguna?.nama || t.pengguna?.username || "-",
         t.pelanggan?.nama_pelanggan || "Umum",
-        t.bayar >= t.total ? "Selesai" : (t.bayar > 0 ? "Sebagian" : "Tertunda")
+        t.status === "dibatalkan" ? "Batal" : (t.bayar >= t.total ? "Selesai" : (t.bayar > 0 ? "Sebagian" : "Tertunda"))
       ];
       
       if (items.length === 0) {
@@ -341,7 +374,12 @@ export default function TransactionsClient({
           <Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); handleOpenDetail(t); }}>
             <Eye className="h-4 w-4" />
           </Button>
-          {isOwnerOrAdmin && (
+          {isOwnerOrAdmin && t.status !== "dibatalkan" && (
+            <Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={(e) => handleOpenPayment(e, t)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          {isOwnerOrAdmin && t.status !== "dibatalkan" && (
             <Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => handleOpenVoid(e, t)}>
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -392,12 +430,12 @@ export default function TransactionsClient({
             </div>
             <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Jumlah Transaksi</p>
-              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{filteredData.length}</p>
+              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{validTransactions.length}</p>
             </div>
             <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Rata-rata Transaksi</p>
               <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">
-                {filteredData.length > 0 ? formatIDR(totalSales / filteredData.length) : formatIDR(0)}
+                {validTransactions.length > 0 ? formatIDR(totalSales / validTransactions.length) : formatIDR(0)}
               </p>
             </div>
           </div>
@@ -502,6 +540,58 @@ export default function TransactionsClient({
         </div>
       )}
 
+      {/* Payment Edit Modal */}
+      {paymentModal.open && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-background border border-border shadow-[0_8px_24px_rgba(0,55,112,0.08),0_2px_6px_rgba(0,55,112,0.04)] rounded-[12px] w-full max-w-sm flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="shrink-0 flex items-center justify-between px-6 py-5 border-b border-border">
+              <h2 className="text-[20px] font-medium tracking-tight text-foreground flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-primary" />
+                Edit Pembayaran
+              </h2>
+              <button
+                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                onClick={() => setPaymentModal({ open: false, transaction: null, loading: false, newPaymentId: 0 })}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <p className="text-sm text-muted-foreground mb-4">
+                Pilih metode pembayaran baru untuk transaksi <span className="font-semibold text-foreground">#{paymentModal.transaction?.no_transaksi}</span>.
+              </p>
+              
+              <div className="space-y-2">
+                {paymentMethods.map(pm => (
+                  <label key={pm.id} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="payment_method" 
+                      value={pm.id} 
+                      checked={paymentModal.newPaymentId === pm.id}
+                      onChange={() => setPaymentModal(prev => ({ ...prev, newPaymentId: pm.id }))}
+                      className="w-4 h-4 text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm font-medium">{pm.nama}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="shrink-0 px-6 py-5 border-t border-border bg-transparent flex flex-col-reverse sm:flex-row justify-end gap-3">
+              <Button variant="outline" className="rounded-full px-6 bg-background w-full sm:w-auto" onClick={() => setPaymentModal({ open: false, transaction: null, loading: false, newPaymentId: 0 })} disabled={paymentModal.loading}>
+                Batal
+              </Button>
+              <Button className="rounded-full px-6 shadow-sm w-full sm:w-auto" onClick={handleConfirmPaymentEdit} disabled={paymentModal.loading}>
+                {paymentModal.loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Simpan
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Void Modal */}
       {voidModal.open && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-overlay/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -555,7 +645,7 @@ export default function TransactionsClient({
 
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                 <p className="text-xs text-destructive leading-relaxed">
-                  <strong>Peringatan:</strong> Menghapus transaksi ini bersifat permanen. Stok produk <strong>TIDAK</strong> akan dikembalikan secara otomatis.
+                  <strong>Peringatan:</strong> Membatalkan transaksi ini akan mengubah statusnya menjadi "Dibatalkan". Stok produk <strong>AKAN</strong> dikembalikan secara otomatis, dan HPP akan disesuaikan.
                 </p>
               </div>
             </div>
@@ -566,7 +656,7 @@ export default function TransactionsClient({
               </Button>
               <Button variant="destructive" className="rounded-full px-6 shadow-sm w-full sm:w-auto" onClick={handleConfirmVoid} disabled={voidModal.loading}>
                 {voidModal.loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Konfirmasi Hapus
+                Konfirmasi Batal
               </Button>
             </div>
           </div>

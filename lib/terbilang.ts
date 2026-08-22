@@ -26,6 +26,9 @@ export function terbilang(angka: number): string {
     hasil = terbilang(Math.floor(angka / 1000000000000)) + " Triliun " + terbilang(angka % 1000000000000);
   }
 
+  if (typeof hasil !== "string") {
+    hasil = "";
+  }
   return hasil.trim().replace(/\s+/g, ' ');
 }
 

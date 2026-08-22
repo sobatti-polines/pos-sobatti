@@ -16,6 +16,7 @@ export async function generateLabaRugi(
     db
       .from("transaksi_keluar")
       .select("subtotal, diskon_nominal, pajak_nominal, total, total_hpp")
+      .eq("status", "berhasil")
       .gte("tgl_transaksi", start)
       .lte("tgl_transaksi", end)
       .range(from, to)
@@ -208,6 +209,7 @@ export async function getKasKasir(supabase: SupabaseClient, dateStr: string) {
     db
       .from("transaksi_keluar")
       .select("bayar, kembali")
+      .eq("status", "berhasil")
       .eq("id_metode_bayar", tunaiId)
       .lte("tgl_transaksi", end)
       .range(from, to)
@@ -270,6 +272,7 @@ export async function getKasBankNonTunai(supabase: SupabaseClient, dateStr: stri
     db
       .from("transaksi_keluar")
       .select("total")
+      .eq("status", "berhasil")
       .neq("id_metode_bayar", tunaiId)
       .lte("tgl_transaksi", end)
       .range(from, to)
@@ -355,6 +358,7 @@ export async function generateNeraca(supabase: SupabaseClient, date: string) {
     db
       .from("transaksi_keluar")
       .select("total, pajak_nominal, total_hpp")
+      .eq("status", "berhasil")
       .lte("tgl_transaksi", end)
       .range(from, to)
   );
@@ -485,6 +489,7 @@ export async function generateArusKas(
       db
         .from("transaksi_keluar")
         .select("bayar, kembali")
+      .eq("status", "berhasil")
         .eq("id_metode_bayar", tunaiId)
         .gte("tgl_transaksi", start)
         .lte("tgl_transaksi", end)

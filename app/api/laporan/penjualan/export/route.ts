@@ -84,10 +84,12 @@ export async function GET(req: NextRequest) {
         pajak_persen, pajak_nominal,
         total, bayar, kembali,
         total_hpp, laba_kotor,
-        kasir:pengguna!id_kasir(nama),
+        kasir:pengguna!id_kasir(nama)
+,
         pelanggan(nama_pelanggan),
         metode_bayar(nama)
       `)
+      .eq("status", "berhasil")
       .gte("tgl_transaksi", startISO)
       .lte("tgl_transaksi", endISO)
       .order("tgl_transaksi", { ascending: false });
