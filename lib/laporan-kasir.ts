@@ -62,23 +62,32 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
   }
 
   // 2. Total Masuk = penjualan tunai neto (yang dibayar customer: bayar − kembali)
-  const { data: tunaiMethod } = await supabase.from("metode_bayar").select("id").eq("nama", "Tunai").single();
-  const tunaiId = tunaiMethod?.id;
-
   const sales = await fetchAllRows(supabase, (db, from, to) =>
     db
       .from("transaksi_keluar")
-      .select("total, bayar, kembali")
+      .select("total, bayar, kembali, metode_bayar(nama)")
       .eq("status", "berhasil")
-      .eq("id_metode_bayar", tunaiId)
       .gte("tgl_transaksi", start)
       .lte("tgl_transaksi", end)
       .range(from, to)
   );
 
-  const salesInflow = (sales || []).reduce((acc, s) => {
-    return acc + (Number(s.bayar) - Number(s.kembali));
-  }, 0);
+  let salesInflow = 0;
+  const nonCashSales: Record<string, number> = {};
+  let grandTotal = 0;
+
+  (sales || []).forEach(s => {
+    const amount = Number(s.bayar) - Number(s.kembali);
+    grandTotal += amount;
+    
+    // @ts-ignore
+    const method = s.metode_bayar?.nama || "Unknown";
+    if (method === "Tunai") {
+      salesInflow += amount;
+    } else {
+      nonCashSales[method] = (nonCashSales[method] || 0) + amount;
+    }
+  });
 
   // 3. Total Keluar = 0 — laci hanya berisi float + penjualan tunai.
   //    Pembelian barang tidak dipantau kas; pengeluaran operasional dari Kas Admin.
@@ -100,6 +109,8 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
     sesi: { sudah_dibuka: sudahDibuka, sudah_ditutup: sudahDitutup },
     detail: {
       sales_tunai: salesInflow,
+      non_cash_sales: nonCashSales,
+      grand_total_sales: grandTotal,
       penerimaan_retur: 0,           // refund retur masuk ke Kas Admin, bukan laci
       piutang_tunai: 0,
       hutang_tunai: 0,

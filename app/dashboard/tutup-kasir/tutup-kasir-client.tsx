@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import {
   Calculator,
   AlertCircle,
@@ -248,6 +248,18 @@ export default function TutupKasirClient({
                       <span className="text-right tabular-nums">
                         {formatIDR(totalMasuk)}
                       </span>
+                      {Object.entries(summary.detail?.non_cash_sales || {}).map(([method, amount]) => (
+                        <Fragment key={method}>
+                          <span>Penjualan {method}</span>
+                          <span className="text-right tabular-nums">
+                            {formatIDR(amount as number)}
+                          </span>
+                        </Fragment>
+                      ))}
+                      <span className="font-semibold text-foreground pt-2 border-t border-border mt-1">Total Keseluruhan</span>
+                      <span className="text-right font-semibold tabular-nums text-foreground pt-2 border-t border-border mt-1">
+                        {formatIDR(Number(summary.detail?.grand_total_sales || totalMasuk))}
+                      </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground/70 mt-3 leading-relaxed">
                       Pembelian barang & pengeluaran operasional tidak tercatat
@@ -469,8 +481,35 @@ export default function TutupKasirClient({
               marginBottom: "2px",
             }}
           >
-            <span>PENJUALAN (+)</span>
+            <span>PENJUALAN TUNAI</span>
             <span>{formatIDR(totalMasuk)}</span>
+          </div>
+          {Object.entries(summary?.detail?.non_cash_sales || {}).map(([method, amount]) => (
+            <div
+              key={method}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "2px",
+              }}
+            >
+              <span style={{textTransform: "uppercase"}}>PENJUALAN {method}</span>
+              <span>{formatIDR(amount as number)}</span>
+            </div>
+          ))}
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontWeight: "bold",
+              marginTop: "4px",
+              paddingTop: "4px",
+              borderTop: "1px dashed #000",
+            }}
+          >
+            <span>TOTAL PENJUALAN</span>
+            <span>{formatIDR(Number(summary?.detail?.grand_total_sales || totalMasuk))}</span>
           </div>
 
           <div
@@ -483,7 +522,7 @@ export default function TutupKasirClient({
               borderTop: "1px solid #000",
             }}
           >
-            <span>TOTAL SISTEM</span>
+            <span>TOTAL LACI SISTEM</span>
             <span>{formatIDR(expectedSaldoAkhir)}</span>
           </div>
         </div>
