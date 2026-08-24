@@ -1,669 +1,347 @@
-# POS Sobatti — Panduan Agent AI
+# POS Sobatti - Panduan Agent AI
 
-Selamat datang di proyek **POS Sobatti**. Dokumen ini berisi aturan esensial, konteks arsitektur, dan panduan untuk AI agent yang bekerja di codebase ini. **Baca seluruh dokumen sebelum membuat perubahan apapun.**
-
----
-
-## ⚠️ ATURAN KRITIS
-
-1. **Next.js 16**: Project ini menggunakan Next.js 16 (App Router) + React 19 + TypeScript 5. API, konvensi, dan struktur file bisa berbeda dari versi sebelumnya. Baca panduan di `node_modules/next/dist/docs/` sebelum menulis kode. Perhatikan deprecation notices.
-2. **DILARANG menggunakan browser untuk testing**. Gunakan automated testing atau serahkan visual/manual testing ke user.
-3. **Bahasa**: Semua UI copy, error messages, dan form labels **WAJIB Bahasa Indonesia**.
-4. **Hati-hati dengan SERVICE_ROLE**: Jangan pernah mengekspos `SERVICE_ROLE` key. Hanya digunakan di `lib/supabase/admin.ts`.
-5. **Jangan commit tanpa diminta**. Stage hanya file yang dimaksud.
+Dokumen ini adalah pegangan kerja untuk agent yang masuk ke codebase **POS Sobatti / PLK POS**. Baca sebelum mengubah file. Utamakan source code aktual dan `supabase/schema_dump.sql` sebagai kebenaran teknis terbaru; dokumen lama seperti TODO/notes dipakai sebagai konteks historis.
 
 ---
 
-## 🏗️ ARSITEKTUR & TECH STACK
+## Aturan Kritis
 
-| Layer | Teknologi |
-|-------|-----------|
-| **Framework** | Next.js 16 (App Router) + React 19 |
-| **Bahasa** | TypeScript 5 (strict mode) |
-| **Styling** | Tailwind CSS v4 + shadcn/ui (Radix UI Nova) + class-variance-authority |
-| **Database** | Supabase (PostgreSQL) + Row Level Security (RLS) |
-| **Auth** | Supabase Auth (email/password via SSR cookies) |
-| **State Management** | Zustand v5 (POS state) + React hooks (server state) |
-| **Forms & Validation** | React Hook Form + Zod v4 |
-| **Table/Data Grid** | @tanstack/react-table v8 (via `DataTable` component) |
-| **Scanner** | @zxing/browser + @zxing/library (barcode/QR) |
-| **PDF** | jspdf + jspdf-autotable |
-| **CSV** | papaparse |
-| **Barcode Label** | jsbarcode |
-| **QR Code Generate** | qrcode |
-| **Icons** | lucide-react |
-| **Date** | date-fns v4 |
-| **PWA** | @ducanh2912/next-pwa |
-| **Linting** | ESLint 9 (flat config) + eslint-config-next |
+1. **Next.js 16 + React 19**: gunakan pola App Router terbaru. Jika ragu soal API Next.js, cek `node_modules/next/dist/docs/` sebelum menulis kode.
+2. **Dilarang memakai browser untuk testing**. Gunakan lint/build/test otomatis atau serahkan visual/manual testing ke user.
+3. **Semua UI copy, error message, label form, dan teks baru wajib Bahasa Indonesia**.
+4. **Jangan pernah expose `SERVICE_ROLE`**. Key ini hanya boleh dipakai server-side lewat `lib/supabase/admin.ts`.
+5. **Jangan commit/stage tanpa diminta**. Jika diminta stage, stage hanya file yang relevan.
+6. **Mutasi stok, kas, transaksi, AVCO, dan data finansial harus divalidasi server-side**. Jangan percaya data dari client.
+7. **Jangan bypass domain RPC tanpa alasan kuat**. Checkout, barang masuk, retur, isi stok paket, dan stok opname sengaja dipusatkan di PostgreSQL RPC agar atomik.
 
 ---
 
-## 📁 STRUKTUR FILE LENGKAP
+## Stack dan Pola Arsitektur
 
-```
-app/                          # Next.js App Router pages & API routes
-├── page.tsx                  # Halaman login
-├── layout.tsx                # Root layout (metadata, fonts, globals)
-├── not-found.tsx             # Halaman 404
-├── manifest.ts               # PWA manifest
-├── globals.css               # Tailwind CSS v4 + design tokens
-│
-├── api/                      # API route handlers (Next.js Route Handlers)
-│   ├── auth/login/route.ts
-│   ├── pos/
-│   │   ├── checkout/route.ts
-│   │   ├── customer-search/route.ts
-│   │   └── products/route.ts
-│   ├── dashboard/
-│   │   ├── transactions/
-│   │   │   ├── route.ts
-│   │   │   └── [id]/
-│   │   │       └── route.ts
-│   │   └── stats/route.ts
-│   ├── attendance/
-│   │   ├── today/route.ts
-│   │   ├── check-in/route.ts
-│   │   ├── check-out/route.ts
-│   │   ├── qr-scan/route.ts
-│   │   └── generate-qr/route.ts
-│   ├── inventory/
-│   │   ├── products/route.ts
-│   │   ├── categories/route.ts
-│   │   ├── units/route.ts
-│   │   ├── suppliers/route.ts
-│   │   ├── stock-in/route.ts
-│   │   ├── stock-opname/route.ts
-│   │   └── barcode/route.ts
-│   ├── customers/route.ts
-│   ├── low-stock/route.ts
-│   ├── scanner/relay/route.ts
-│   ├── settings/route.ts
-│   ├── users/route.ts
-│   └── laporan/
-│       ├── penjualan/
-│       │   ├── route.ts
-│       │   └── [id]/route.ts
-│       ├── laba-rugi/route.ts
-│       └── neraca/route.ts
-│
-├── pos/                      # Modul POS (Point of Sale)
-│   ├── page.tsx              # Halaman utama POS (kasir)
-│   ├── loading.tsx
-│   └── invoice/
-│       └── [id]/
-│           └── page.tsx      # Halaman invoice/struk (thermal 58mm & faktur)
-│
-├── dashboard/                # Modul Dashboard & Manajemen
-│   ├── page.tsx              # Ringkasan dashboard (revenue, chart, stok menipis)
-│   ├── layout.tsx            # Dashboard layout (sidebar + mobile nav)
-│   ├── loading.tsx
-│   ├── transactions/
-│   │   ├── page.tsx          # Riwayat transaksi
-│   │   └── [id]/
-│   │       └── page.tsx      # Detail transaksi
-│   ├── customers/
-│   │   └── page.tsx          # Manajemen pelanggan
-│   ├── suppliers/
-│   │   └── page.tsx          # Manajemen supplier
-│   ├── inventory/
-│   │   ├── page.tsx          # Daftar produk (inventaris)
-│   │   ├── stock-in/
-│   │   │   ├── page.tsx      # Form barang masuk
-│   │   │   └── history/
-│   │   │       └── page.tsx  # Riwayat barang masuk
-│   │   └── stock-opname/
-│   │       ├── page.tsx      # Form stok opname
-│   │       └── history/
-│   │           └── page.tsx  # Riwayat stok opname
-│   ├── reports/
-│   │   └── page.tsx          # Laporan penjualan
-│   ├── laporan/
-│   │   ├── laba-rugi/
-│   │   │   └── page.tsx      # Laporan Laba Rugi
-│   │   └── neraca/
-│   │       └── page.tsx      # Laporan Neraca
-│   ├── tutup-kasir/
-│   │   └── page.tsx          # Tutup Kasir harian
-│   ├── laporan-kasir/
-│   │   └── page.tsx          # Riwayat kas harian
-│   ├── attendance/
-│   │   ├── history/
-│   │   │   └── page.tsx      # Riwayat absensi pribadi
-│   │   ├── generate-qr/
-│   │   │   └── page.tsx      # Generate QR code absensi (auto-refresh 30s)
-│   │   └── report/
-│   │       └── page.tsx      # Laporan absensi pegawai (admin/owner)
-│   ├── log-aktivitas/
-│   │   └── page.tsx          # Log aktivitas admin/owner
-│   ├── label-generator/
-│   │   └── page.tsx          # Generator price tag (A4)
-│   ├── product-label/
-│   │   └── page.tsx          # Cetak label produk thermal
-│   ├── support/
-│   │   └── page.tsx          # Halaman bantuan/FAQ
-│   └── settings/
-│       ├── page.tsx          # Pengaturan toko
-│       ├── users/
-│       │   └── page.tsx      # Manajemen pengguna
-│       ├── reference-data/
-│       │   └── page.tsx      # Data referensi (kategori, satuan, metode bayar)
-│       └── keuangan/
-│           └── page.tsx      # Pengaturan keuangan (modal awal, dll)
-│
-├── attendance/                # Modul Absensi
-│   └── scan/
-│       └── page.tsx          # Scan QR absensi (kamera HP)
-│
-└── scanner/                   # Modul Scanner Barcode
-    └── [sessionId]/
-        └── page.tsx          # Halaman scanner barcode via SSE relay
+| Area | Teknologi / Pola |
+| --- | --- |
+| Framework | Next.js 16 App Router, React 19, TypeScript strict |
+| Styling | Tailwind CSS v4, shadcn/ui local primitives, lucide-react |
+| Auth | Supabase Auth via SSR cookies (`@supabase/ssr`) |
+| Database | Supabase PostgreSQL + RLS + SECURITY DEFINER RPC |
+| State POS | Zustand v5 di `stores/pos-store.ts` |
+| Form | React Hook Form + Zod |
+| Table | `components/data-table.tsx` + `hooks/use-table.ts` |
+| Scanner | `@zxing/browser`, `@zxing/library`, SSE relay |
+| Export/Print | jspdf, jspdf-autotable, papaparse, jsbarcode, qrcode |
+| PWA | `@ducanh2912/next-pwa` |
 
-components/
-├── ui/                        # shadcn/ui primitives (JANGAN diubah tanpa perlu)
-│   ├── badge.tsx
-│   ├── button.tsx             # Pill-shaped (rounded-full) default
-│   ├── card.tsx
-│   ├── dialog.tsx
-│   ├── input.tsx
-│   ├── label.tsx
-│   ├── select.tsx
-│   ├── sheet.tsx
-│   ├── table.tsx
-│   └── tabs.tsx
-│
-├── data-table.tsx             # DataTable reusable (search, sort, filter, pagination, edit row, mobile cards, export)
-├── login-form.tsx             # Form login
-├── logout-button.tsx          # Tombol logout
-├── dashboard-sidebar.tsx      # Sidebar navigasi dashboard (desktop)
-├── dashboard-mobile-nav.tsx   # Navigasi mobile (slide-over menu)
-├── dashboard-low-stock.tsx    # Widget stok menipis
-├── low-stock-banner.tsx       # Banner stok menipis
-├── attendance-widget.tsx      # Widget absensi di dashboard
-└── product-detail-sheet.tsx   # Sheet detail produk
+Pola umum:
 
-lib/
-├── utils.ts                   # cn() utility (clsx + tailwind-merge)
-├── terbilang.ts               # terbilang() + terbilangRupiah() — angka ke kata Indonesia
-├── export-utils.ts            # exportToCSV() + exportToPDF()
-├── scanner-relay.ts           # In-memory SSE relay untuk barcode scanner (5 menit timeout)
-├── attendance.ts              # getTodayAttendance() + getMonthlyAttendanceStats()
-├── dashboard.ts               # getDashboardData() — ringkasan dashboard
-├── low-stock.ts               # getLowStockItems() — produk dengan stok display/gudang <= minimum
-├── avco.ts                    # calculateNewAVCO() + recordAVCOMutation() — Average Cost
-├── laporan-kasir.ts           # getDailyCashSummary() + confirmTutupKasir()
-├── laporan-keuangan.ts        # generateLabaRugi() + generateNeraca()
-│
-└── supabase/
-    ├── client.ts              # createClient() — browser client (NEXT_PUBLIC keys)
-    ├── server.ts              # createClient() — server component client (cookie-based SSR)
-    └── admin.ts               # supabaseAdmin + createAdminClient() — service_role (SERVICE_ROLE env)
-
-stores/
-└── pos-store.ts               # Zustand store untuk POS (lihat detail di bawah)
-
-hooks/
-├── use-table.ts               # useTable() — sorting, pagination, client-side
-└── use-low-stock-realtime.ts  # useLowStockRealtime() — polling + realtime subscription
-
-types/
-└── barcode-detector.d.ts      # Ambient type untuk BarcodeDetector Web API
-
-supabase/
-└── migrations/                # 25 file migrasi SQL (lihat detail di bawah)
-
-public/
-├── icon-192x192.png
-├── icon-512x512.png
-├── file.svg, globe.svg, next.svg, vercel.svg, window.svg
-```
+- Server Components untuk page shell dan data awal.
+- Client Components hanya untuk interaksi, form, dialog, scanner, table state, dan realtime hooks.
+- Dashboard CRUD sebagian besar memakai Server Actions di `app/dashboard/**/actions.ts`.
+- Route Handlers di `app/api/**` dipakai untuk POS, auth, attendance, laporan penjualan, scanner, low stock, event promo, dan utilitas kecil.
+- Setelah mutasi Server Action, panggil `revalidatePath()` untuk halaman terkait.
+- Aktivitas admin penting dicatat via `lib/activity-log.ts`.
 
 ---
 
-## 🗄️ DATABASE SCHEMA LENGKAP
+## Peta File Cepat
 
-### Tables (20 tabel + fungsi RPC)
+### Entrypoint dan Auth
 
-| Tabel | Key Columns | Keterangan |
-|-------|------------|------------|
-| **kategori** | `id SERIAL PK`, `nama VARCHAR UNIQUE` | Kategori produk |
-| **satuan** | `id SERIAL PK`, `nama VARCHAR UNIQUE` | Satuan produk |
-| **merk** | `id SERIAL PK`, `nama VARCHAR UNIQUE`, `kode VARCHAR(4) UNIQUE` | Merek/brand produk |
-| **metode_bayar** | `id SERIAL PK`, `nama VARCHAR UNIQUE` | Metode pembayaran — dinamis: Tunai, QRIS, Bank 1 & Bank 2 (nama bank di-sync dari `pengaturan` saat pengaturan toko disimpan; metode generik `Transfer` tidak lagi ditawarkan) |
-| **pengguna** | `id SERIAL PK`, `username VARCHAR UNIQUE`, `password VARCHAR`, `level VARCHAR` (ADMIN/KASIR/OWNER/KARYAWAN), `aktif BOOL`, `nama TEXT` | Pengguna sistem |
-| **supplier** | `id SERIAL PK`, `nama_supplier VARCHAR`, `alamat TEXT`, `telepon VARCHAR`, `email VARCHAR`, `keterangan TEXT` | Pemasok barang |
-| **pelanggan** | `id SERIAL PK`, `nama_pelanggan VARCHAR`, `alamat TEXT`, `no_hp VARCHAR`, `email VARCHAR`, `keterangan TEXT` | Pelanggan |
-| **produk** | `id SERIAL PK`, `nama_produk VARCHAR`, `sku VARCHAR UNIQUE`, `id_merk INT FK(merk)`, `id_kategori INT FK(kategori)`, `id_satuan INT FK(satuan)`, `hitung_stok BOOL`, `harga_modal NUMERIC`, `harga_jual_satuan NUMERIC`, `harga_jual_grosir NUMERIC`, `harga_jual_promo NUMERIC`, `diskon NUMERIC`, `stok NUMERIC`, `stok_gudang NUMERIC`, `stok_minimum INT DEFAULT 5`, `stok_minimum_gudang NUMERIC`, `barcode TEXT UNIQUE`, `harga_pokok_avco NUMERIC`, `nilai_persediaan NUMERIC`, `default_purchase_unit VARCHAR`, `conversion_ratio NUMERIC DEFAULT 1`, `jual_satuan TEXT`, `harga_jual_besar_satuan NUMERIC`, `harga_jual_besar_grosir NUMERIC`, `harga_jual_besar_promo NUMERIC` | Produk (dual stok: display+gudang). `id_satuan` = base unit untuk stok/HPP/struk. `stok_minimum` = ambang peringatan display; `stok_minimum_gudang` = ambang peringatan gudang (NULL = nonaktif, satuan sama dengan inventory). `jual_satuan` = satuan jual besar (opsional). Rasio jual besar = `conversion_ratio` (sama dengan rasio beli) |
-| **transaksi_keluar** | `id SERIAL PK`, `no_transaksi BIGINT UNIQUE`, `tgl_transaksi TIMESTAMP`, `id_kasir INT FK(pengguna)`, `id_pelanggan INT FK(pelanggan)`, `id_metode_bayar INT FK(metode_bayar)`, `subtotal`, `diskon_persen`, `diskon_nominal`, `pajak_persen`, `pajak_nominal`, `total`, `bayar`, `kembali`, `dp`, `sisa`, `total_hpp`, `laba_kotor` | Transaksi penjualan |
-| **detail_transaksi_keluar** | `id SERIAL PK`, `id_transaksi INT FK`, `id_produk INT FK`, `type_harga_jual VARCHAR` (SATUAN/GROSIR/PROMO), `harga_modal`, `harga_jual`, `diskon_item`, `qty`, `jumlah`, `kas_masuk`, `profit`, `harga_pokok_satuan`, `total_harga_pokok`, `satuan_jual TEXT`, `qty_satuan NUMERIC`, `jual_ratio NUMERIC` | Item detail transaksi |
-| **barang_masuk** | `id SERIAL PK`, `tgl_masuk DATE`, `id_supplier INT FK`, `id_produk INT FK`, `harga_beli NUMERIC`, `jumlah NUMERIC`, `total NUMERIC`, `keterangan TEXT`, `supplied_unit VARCHAR`, `supplied_qty NUMERIC`, `applied_conversion_ratio NUMERIC`, `base_qty_added NUMERIC`, `total_cost NUMERIC`, `base_cost_per_piece NUMERIC` | Barang masuk (pembelian stok) |
-| **stok_opname** | `id SERIAL PK`, `tgl_opname DATE`, `id_produk INT FK`, `stok_sistem NUMERIC`, `stok_fisik NUMERIC`, `selisih NUMERIC`, `keterangan TEXT` | Stok opname |
-| **absensi** | `id BIGSERIAL PK`, `id_pengguna INT FK`, `tanggal DATE`, `jam_masuk TIMESTAMP`, `jam_pulang TIMESTAMP`, `status VARCHAR` (HADIR/TELAT), `telat_menit INT`, `latitude NUMERIC`, `longitude NUMERIC`, `foto_masuk TEXT`, `foto_pulang TEXT`, `device_info TEXT` | Absensi karyawan |
-| **qr_session** | `id BIGSERIAL PK`, `token TEXT UNIQUE`, `expired_at TIMESTAMPTZ`, `is_active BOOL`, `created_by INT FK(pengguna)`, `created_at TIMESTAMP` | Sesi QR absensi (30 detik) |
-| **pengaturan** | `id SERIAL PK`, `nama_toko VARCHAR`, `alamat TEXT`, `telepon VARCHAR`, `email VARCHAR`, `nama_kasir_aktif VARCHAR`, `metode_diskon VARCHAR`, `bank1_nama`, `bank1_rekening`, `bank1_atas_nama`, `bank2_...`, `footer_struk_1/2/3 TEXT`, `footer_invoice_1/2/3 TEXT`, `pajak_persen NUMERIC`, `jenis_nota TEXT`, `metode_cetak TEXT`, `logo_nota BOOL`, `hormat_kami_nama TEXT` | Pengaturan toko |
-| **riwayat_avco** | `id UUID PK`, `id_produk INT FK`, `tanggal TIMESTAMPTZ`, `jenis_mutasi TEXT` (pembelian/penjualan/koreksi), `id_referensi INT`, `qty_masuk`, `qty_keluar`, `harga_satuan_transaksi NUMERIC`, `stok_sebelum`, `avco_sebelum`, `stok_sesudah`, `avco_sesudah`, `nilai_persediaan_sesudah` | Riwayat AVCO (Average Cost) |
-| **saldo_kas_harian** | `id UUID PK`, `tanggal DATE UNIQUE`, `saldo_awal`, `total_masuk`, `total_keluar`, `saldo_akhir GENERATED`, `uang_aktual`, `selisih`, `dikonfirmasi BOOL`, `id_pengguna INT FK` | Saldo kas harian (tutup kasir) |
-| **pengaturan_keuangan** | `id UUID PK`, `modal_awal NUMERIC`, `tanggal_mulai DATE`, `nama_pemilik TEXT`, `npwp TEXT` | Pengaturan keuangan |
-| **hutang_dagang** | `id UUID PK`, `id_barang_masuk INT FK`, `id_supplier INT FK`, `tanggal_hutang DATE`, `tanggal_jatuh_tempo DATE`, `jumlah_awal`, `jumlah_terbayar`, `sisa_hutang GENERATED`, `status TEXT` (belum_lunas/lunas) | Hutang dagang (ada tapi fitur dihapus) |
-| **pembayaran_hutang** | `id UUID PK`, `id_hutang UUID FK`, `tanggal_bayar DATE`, `jumlah_bayar`, `metode_bayar TEXT`, `id_pengguna INT FK` | Pembayaran hutang |
-| **piutang_dagang** | `id UUID PK`, `id_transaksi_keluar INT FK`, `id_pelanggan INT FK`, `tanggal_piutang DATE`, `tanggal_jatuh_tempo DATE`, `jumlah_awal`, `jumlah_terbayar`, `sisa_piutang GENERATED`, `status TEXT` (belum_lunas/lunas/lewat_jatuh_tempo/macet) | Piutang dagang |
-| **pembayaran_piutang** | `id UUID PK`, `id_piutang UUID FK`, `tanggal_bayar DATE`, `jumlah_bayar`, `metode_bayar TEXT`, `id_pengguna INT FK` | Pembayaran piutang |
+| Kebutuhan | Lokasi |
+| --- | --- |
+| Root layout, metadata, preload | `app/layout.tsx` |
+| Login page | `app/page.tsx` |
+| Form login client | `components/login-form.tsx` |
+| Login API Supabase | `app/api/auth/login/route.ts` |
+| Supabase server client | `lib/supabase/server.ts` |
+| Supabase browser client | `lib/supabase/client.ts` |
+| Supabase service role admin | `lib/supabase/admin.ts` |
+| Role guard dashboard | `proxy.ts` |
+| Dashboard shell/sidebar | `app/dashboard/layout.tsx`, `components/dashboard-sidebar.tsx`, `components/dashboard-mobile-nav.tsx` |
 
-### RPC Functions (PostgreSQL)
+### POS
 
-| Function | Parameter | Keterangan |
-|----------|-----------|------------|
-| **process_checkout** | `p_items JSONB, p_id_kasir INT, p_id_pelanggan INT?, p_id_metode_bayar INT?, p_diskon_persen NUMERIC, p_bayar NUMERIC, p_pajak_persen NUMERIC, p_is_dp BOOL` | Proses checkout: generate no_transaksi (YYYYMM + 4 digit seq), hitung subtotal/diskon/pajak/total, insert header + detail, **validasi stok** (tolak jika qty > total stok, pesan "Stok tidak mencukupi"), kurangi stok display dulu lalu fallback ke gudang, catat AVCO history (stok total). **Gunakan `pg_advisory_xact_lock(987654321)`**. Piutang sudah dihapus (sisa hanya tercatat di kolom `sisa`). |
-| **process_barang_masuk** | `p_items JSONB` | Proses barang masuk: dual-format (UoM + legacy). Insert barang_masuk, update stok_gudang, hitung ulang harga_pokok_avco & nilai_persediaan. Gunakan `pg_advisory_xact_lock(987654322)`. |
-| **process_stock_opname** | `p_items JSONB` | Proses bulk stok opname: insert stok_opname, update stok display ke stok_fisik, catat AVCO jenis `koreksi`. Gunakan `pg_advisory_xact_lock(987654323)`. |
-| **increment_point** | `row_id INT, points INT` | Tambah poin member pelanggan secara atomik. |
-| **reset_pelanggan_id_seq** | — | Reset sequence pelanggan (workaround konflik 23505 saat insert member). |
-| **tambah_log_aktivitas** | `p_id_pengguna, p_aksi, p_entitas, p_id_entitas, p_deskripsi, p_data_lama, p_data_baru, p_ip_address` | Insert log ke `log_aktivitas` (SECURITY DEFINER, bypass RLS). |
-| **get_inventory_value_at_date** | `p_date DATE` | Ambil nilai persediaan (nilai_persediaan_sesudah) per produk dari riwayat_avco terakhir sebelum/saat tanggal. |
+| Kebutuhan | Lokasi |
+| --- | --- |
+| Guard halaman POS khusus KASIR | `app/pos/page.tsx` |
+| UI utama POS | `app/pos/pos-client.tsx` |
+| State cart/numpad/customer/payment/checkout | `stores/pos-store.ts` |
+| Produk POS | `app/api/pos/products/route.ts` |
+| Lookup barcode/id/nama | `app/api/pos/barcode/route.ts` |
+| Checkout | `app/api/pos/checkout/route.ts` + RPC `process_checkout` |
+| Member search/register | `app/api/pos/member-search/route.ts`, `app/api/pos/member-register/route.ts` |
+| Invoice/faktur/struk | `app/pos/invoice/[id]/page.tsx`, `app/pos/invoice/[id]/receipt/page.tsx` |
+| Scanner HP untuk POS | `app/scanner/[sessionId]/page.tsx`, `app/api/scanner/[sessionId]/route.ts`, `app/api/scanner/[sessionId]/events/route.ts`, `lib/scanner-relay.ts` |
 
-### Format Nomor Transaksi
-- Format: `YYYYMM` + `NNNN` (4 digit sequential per bulan)
-- Contoh: `2026070001`, `2026070002`
-- Prefix di-generate dalam timezone `Asia/Jakarta` (WIB)
-- Race condition dicegah dengan `pg_advisory_xact_lock(987654321)`
-- Sequential per bulan, bukan global (reset setiap bulan)
+### Dashboard dan Master Data
 
----
+| Kebutuhan | Lokasi |
+| --- | --- |
+| Ringkasan dashboard | `app/dashboard/page.tsx`, `lib/dashboard.ts` |
+| DataTable reusable | `components/data-table.tsx`, `hooks/use-table.ts` |
+| Produk/inventaris | `app/dashboard/inventory/page.tsx`, `app/dashboard/inventory/inventory-client.tsx`, `app/dashboard/inventory/actions.ts` |
+| Barang masuk | `app/dashboard/inventory/stock-in/**`, `app/dashboard/inventory/stock-in/actions.ts` |
+| Tentukan harga barang masuk | `app/dashboard/inventory/stock-in/tentukan-harga/**` |
+| Retur pembelian | `app/dashboard/inventory/stock-in/retur/**` |
+| Stok opname sesi | `app/dashboard/inventory/stock-opname/**`, `app/dashboard/inventory/stock-opname/actions.ts` |
+| Pelanggan | `app/dashboard/customers/**` |
+| Supplier | `app/dashboard/suppliers/**` |
+| Reference data | `app/dashboard/settings/reference-data/**` |
+| Users | `app/dashboard/settings/users/**` |
+| Pengaturan toko | `app/dashboard/settings/store-actions.ts`, `app/dashboard/settings/store-form.tsx` |
+| Event promo | `app/dashboard/event-promo/**`, `app/api/event-promo/**` |
 
-## 💼 BUSINESS LOGIC & DOMAIN RULES
+### Keuangan dan Laporan
 
-### Domain & Konteks
-- **Tujuan**: POS untuk toko retail bahan bangunan & material (toko bangunan). Menggantikan sistem Excel VBA lama.
-- **Target**: Sobatti Store — toko material bangunan.
+| Kebutuhan | Lokasi |
+| --- | --- |
+| Buka kasir | `app/dashboard/buka-kasir/**` |
+| Tutup kasir | `app/dashboard/tutup-kasir/**`, `lib/laporan-kasir.ts` |
+| Riwayat kas harian | `app/dashboard/laporan-kasir/**` |
+| Kas admin | `app/dashboard/keuangan/kas-admin/**` |
+| Pengeluaran operasional | `app/dashboard/keuangan/pengeluaran/**` |
+| Arus kas | `app/dashboard/keuangan/arus-kas/**`, `lib/laporan-keuangan.ts` |
+| Laporan penjualan | `app/dashboard/reports/**`, `app/api/laporan/penjualan/**` |
+| Laba rugi | `app/dashboard/laporan/laba-rugi/**`, `lib/laporan-keuangan.ts` |
+| Neraca | `app/dashboard/laporan/neraca/**`, `lib/laporan-keuangan.ts` |
+| Laporan kas | `app/dashboard/laporan/kas/**` |
+| Laporan stok opname | `app/dashboard/laporan/stok-opname/**` |
 
-### Pricing & Diskon
-- **3 Tier Harga**: `Satuan` (retail), `Grosir` (wholesale), `Promo` (promotional)
-- **Tipe Harga di DB**: `SATUAN`, `GROSIR`, `PROMO` (disimpan UPPERCASE di `detail_transaksi_keluar.type_harga_jual`)
-- **Diskon Item**: Per-produk, dikurangkan dari harga jual sebelum dikali qty. Untuk transaksi **satuan besar**, diskon ikut dikalikan `conversion_ratio` (mis. diskon Rp500/pcs → potongan Rp6.000/lusin) — scaling dilakukan di `pos-store.ts`.
-- **Diskon Global**: Persentase dari subtotal
-- **Pajak**: Persentase dari (subtotal - diskon), diambil dari `pengaturan.pajak_persen`
-- **Multi-unit selling**: Produk bisa dijual dalam 2 satuan (base + satu satuan besar). Harga besar per satuan (`harga_jual_besar_satuan/grosir/promo`) **dihitung otomatis = harga jual kecil × `conversion_ratio`** (mis. 1 roll = 50 m, 1 m = 6.500 → 1 roll = 325.000) — **tidak diinput manual**. Trigger `trg_sync_harga_jual_besar` (migration `20260816_harga_jual_besar_otomatis.sql`) menjaga harga besar selalu sinkron di semua jalur tulis; server action juga menghitung ulang saat save/import. `conversion_ratio` menentukan berapa qty base dalam 1 satuan besar.
+### Absensi, Label, dan Utilitas
 
-### Stok (Dual Warehouse System)
-- **`stok`**: Stok display (tersedia di rak toko)
-- **`stok_gudang`**: Stok gudang/warehouse
-- **Total Stok** = `stok` + `stok_gudang`
-- **Penjualan**: Kurangi `stok` (display) dulu, jika tidak cukup sisa diambil dari `stok_gudang` (logika di RPC `process_checkout`, validasi stok di pass 1 sebelum transaksi disimpan).
-- **Barang Masuk**: Tambah ke `stok_gudang` (bukan display)
-- **Produk** dengan `hitung_stok = false` tidak akan dikurangi stoknya saat checkout
-- **Restock display**: Manual via `restockDisplay` di halaman Inventaris (gudang → display)
-
-### AVCO (Average Cost / Harga Pokok)
-- Method: **Weighted Average Cost (AVCO)** — harga pokok rata-rata tertimbang
-- Dihitung otomatis saat:
-  - **Barang Masuk** (pembelian): `harga_pokok_avco` baru = (total nilai lama + total nilai masuk) / (total qty lama + qty masuk)
-  - **Penjualan**: Catat AVCO saat ini sebagai HPP, update nilai_persediaan
-- Tabel `riwayat_avco` mencatat setiap mutasi dengan stok sebelum/sesudah dan avco sebelum/sesudah
-- **HPP per transaksi** = `harga_pokok_avco` × qty terjual
-- **Profit** = (harga_jual - diskon_item - harga_pokok_avco) × qty
-- **Kebijakan `harga_modal`** (T1-19, keputusan owner): `harga_modal` di-sinkronkan dari `harga_pokok_avco` **hanya saat nilai saat ini IS NULL atau = 0** (di RPC `process_barang_masuk`, `cancel_barang_masuk`, `process_retur_pembelian`). Manual override di form/import produk **tetap dipertahankan dan tidak ditimpa** RPC. `harga_modal` berfungsi sebagai fallback HPP di checkout: `COALESCE(NULLIF(harga_pokok_avco, 0), harga_modal)`.
-- Fungsi di `lib/avco.ts`: `calculateNewAVCO()` untuk kalkulasi, `recordAVCOMutation()` untuk pencatatan + update produk
-- **Migration ke-9** (20260606000001) menambahkan kolom HPP ke transaksi; **migration ke-10** (20260606000002) menambahkan AVCO + update process_checkout
-
-### Hutang & Piutang
-- **Catatan**: Fitur Hutang & Piutang telah **dihapus** — tabel `hutang_dagang`, `piutang_dagang`, `pembayaran_hutang`, `pembayaran_piutang` di-drop oleh migration `20260721_drop_hutang_piutang.sql`.
-- Kolom `dp` dan `sisa` di `transaksi_keluar` tetap ada untuk melacak kelengkapan transaksi DP, tetapi tidak ada entri piutang yang terkait.
-- Laporan (Neraca) menetapkan Piutang = 0 dan Hutang = 0.
-
-### Transaksi (Checkout Flow)
-1. Kasir memilih produk (search → dialog pilih satuan; barcode scan → langsung ke cart)
-2. Pilih satuan jual (base unit atau satuan besar — misal: METER/ROLL) — opsional jika produk punya `jual_satuan`
-3. Pilih tipe harga (Satuan/Grosir/Promo) — berlaku untuk semua satuan
-4. Atur qty (via numpad +/-, atau klik item + numpad) — qty dalam satuan jual
-5. Pilih pelanggan (opsional, wajib jika kredit/DP)
-6. Pilih metode bayar
-7. Input jumlah bayar (via numpad)
-8. Submit → POST `/api/pos/checkout` → panggil RPC `process_checkout` dengan `satuan_jual`, `qty_satuan`
-9. Redirect ke `/pos/invoice/[id]`
-10. Invoice bisa dicetak thermal 58mm atau faktur A4
-
-### Laporan Keuangan (Laba Rugi & Neraca)
-
-**Laba Rugi** (`lib/laporan-keuangan.ts:generateLabaRugi`):
-- `penjualan_kotor` = SUM(subtotal)
-- `diskon` = SUM(diskon_nominal)
-- `pendapatan_bersih` = SUM(total) - SUM(pajak_nominal)
-- `hpp` = SUM(total_hpp)
-- `laba_kotor` = pendapatan_bersih - hpp
-- `beban_operasional` = 0 (placeholder untuk masa depan)
-- `laba_bersih` = laba_kotor - beban_operasional
-
-**Neraca** (`lib/laporan-keuangan.ts:generateNeraca`):
-- **Aset**: Kas = saldo_akhir dari `saldo_kas_harian` (atau modal_awal fallback), Persediaan = dari RPC `get_inventory_value_at_date`, Piutang = 0 (dinonaktifkan)
-- **Kewajiban**: Hutang = 0 (dinonaktifkan)
-- **Ekuitas**: Modal awal + Laba ditahan (kumulatif dari semua transaksi)
-
-### Tutup Kasir
-- `lib/laporan-kasir.ts:getDailyCashSummary()`: Hitung saldo awal (dari saldo kemarin atau modal_awal), total masuk (penjualan tunai), total keluar (pembelian tunai), saldo akhir sistem
-- `confirmTutupKasir()`: Simpan ke `saldo_kas_harian`, hitung selisih antara uang aktual dan saldo sistem
-
-### Absensi (Attendance)
-- **QR Code**: Generate QR token (`qr_session`) dengan expiry 30 detik. Token unik via `crypto.randomUUID()`.
-- **Scan QR**: Via kamera HP menggunakan `@zxing/browser`. Validasi token masih aktif dan belum expired.
-- **Geofencing**: Validasi GPS — latitude/longitude dari `.env` (`STORE_LATITUDE`, `STORE_LONGITUDE`), radius max `MAX_ATTENDANCE_RADIUS` (50m). Hitung jarak menggunakan formula **Haversine**.
-- **Check-in**: Catat `jam_masuk`, status "HADIR" atau "TELAT" (bandingkan dengan waktu absen dibuka = QR absensi pertama hari itu + 10 menit; fallback ke `ATTENDANCE_START_TIME` jika belum ada QR hari itu).
-- **Check-out**: Catat `jam_pulang` (tidak ada validasi GPS untuk check-out).
-- **Widget Dashboard**: `AttendanceWidget` menampilkan status hari ini (BELUM ABSEN / HADIR / TERLAMBAT), jam masuk/pulang, tombol scan.
-
-### Barcode Scanner (SSE Relay)
-- **Skenario**: HP digunakan sebagai scanner barcode via kamera, hasil scan dikirim ke sesi browser POS.
-- **Mekanisme**: In-memory SSE (Server-Sent Events) relay di `lib/scanner-relay.ts`
-- **Session**: Setiap sesi punya `sessionId` unik. Session expired setelah 5 menit idle.
-- **Flow**: 
-  1. Buka `/scanner/[sessionId]` di HP (tampilkan kamera via `@zxing/browser`)
-  2. Scan barcode → POST `/api/scanner/relay` dengan `{ sessionId, barcode }`
-  3. Server emit ke semua listener di session tersebut
-  4. POS page terima event via SSE dan tambahkan produk ke cart
-- Barcode bisa juga diketik manual (fallback)
-
-### Barcode Generation
-- Barcode produk dibuat dengan `jsbarcode` (format CODE128)
-- API `/api/inventory/barcode` untuk generate barcode SVG per produk
-- Produk bisa memiliki SKU (nomor unik) selain barcode
-
-### UoM Conversion (Unit of Measure)
-- **Base Unit**: Satuan dasar inventory (disimpan di `produk.id_satuan` → FK ke tabel `satuan`)
-- **Purchase Unit**: Satuan pembelian dari supplier (contoh: `lusin`, `roll`, `set`)
-- **Conversion Ratio**: Jumlah base_unit dalam 1 purchase_unit (contoh: 12 untuk lusin → 1 lusin = 12 pcs)
-- Disimpan di kolom `produk.id_satuan`, `produk.default_purchase_unit`, `produk.conversion_ratio`
-- Di form Barang Masuk: input quantity dalam purchase unit → otomatis dikonversi ke base unit
-- HPP tetap dalam base unit (per pcs), total cost = qty_supplied × total_cost (bukan per piece)
-- Migration `20260720_add_uom_conversion.sql` + `20260710_process_barang_masuk.sql` (dual-format)
-
-### SKU & Merk
-- Sistem SKU untuk identifikasi produk unik selain barcode
-- Tabel `merk` dengan kode 4 karakter
-- Produk bisa diassign ke merk tertentu
-- Unique constraint: `(nama_produk, sku)` — nama produk bisa duplicate asal SKU beda
-
-### Real-time Low Stock
-- Hook `useLowStockRealtime()` mengambil data via API `/api/low-stock` kemudian subscribe ke perubahan tabel `produk` via `supabase.channel()`
-- Produk dengan `hitung_stok = true` masuk daftar low stock jika: **display** `0 < stok <= stok_minimum` **atau gudang** `stok_gudang <= stok_minimum_gudang` (ambang gudang opsional — `NULL` = nonaktif, termasuk gudang 0 = menipis). Kedua ambang dinyatakan dalam satuan inventory (`id_satuan`). Ditampilkan di dashboard widget, banner, badge sidebar, filter & badge tabel Inventaris, dan stat laporan
-- Tampilkan di dashboard widget & sidebar badge
-
-### Roles & Access Control
-| Role | Akses |
-|------|-------|
-| **OWNER** | Full akses: dashboard, semua laporan, manajemen absensi (generate QR, laporan pegawai), pengaturan, users |
-| **ADMIN** | Dashboard, transaksi, inventory, pelanggan, supplier, laporan, absensi pribadi, pengaturan |
-| **KASIR** | Dashboard ringkasan, POS (penjualan), absensi pribadi (scan QR, riwayat). **Tidak** bisa akses inventory/supplier/pelanggan/laporan |
-| **KARYAWAN** | Absensi pribadi saja (scan QR, riwayat). Menu navigasi minimalis |
-
-### Env Variables
-| Variable | Keterangan |
-|----------|-----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (public) |
-| `SERVICE_ROLE` | Supabase service_role key (rahasia, hanya di server) |
-| `STORE_LATITUDE` | Latitude toko (untuk geofencing absensi) |
-| `STORE_LONGITUDE` | Longitude toko |
-| `MAX_ATTENDANCE_RADIUS` | Radius geofencing (meter) |
-| `QR_EXPIRE_SECONDS` | Masa berlaku QR session |
-| `ATTENDANCE_START_TIME` | Jam mulai kerja (fallback waktu absen dibuka jika belum ada QR hari itu) |
-| `ATTENDANCE_TOLERANCE_MINUTES` | ~~Tidak lagi digunakan untuk check-in~~ — batas telat tetap 10 menit setelah absen dibuka |
+| Kebutuhan | Lokasi |
+| --- | --- |
+| Absensi pribadi | `app/dashboard/attendance/scan`, `app/dashboard/attendance/history` |
+| Generate QR absensi | `app/dashboard/attendance/generate-qr/page.tsx`, `app/api/attendance/generate-qr/route.ts` |
+| Check-in/out | `app/api/attendance/checkin/route.ts`, `app/api/attendance/checkout/route.ts` |
+| Laporan absensi admin | `app/dashboard/attendance/report/**`, `app/api/admin/attendance/route.ts` |
+| Helper absensi | `lib/attendance.ts` |
+| Price tag A4 | `app/dashboard/label-generator/page.tsx`, `components/price-tag.tsx` |
+| Label thermal produk | `app/dashboard/product-label/**`, `components/product-sticker-label.tsx` |
+| Export CSV/PDF | `lib/export-utils.ts`, `components/export-dropdown.tsx` |
 
 ---
 
-## 🎨 DESAIN & UI (Stripi-inspired)
+## Database Aktual
 
-### Vibe
-Professional, trustworthy, financial-grade confidence. Bukan generic SaaS, bukan cold enterprise. Mewah tapi tetap hangat.
+Sumber utama schema: `supabase/schema_dump.sql`. Migration ada di `supabase/migrations/`, tetapi dump lebih cepat untuk melihat kondisi akhir.
 
-### Typography
-- **Display text**: `font-weight: 300` + negative tracking (`tracking-tight` / `tracking-tighter`)
-- **Money/Numbers**: `font-feature-settings: "tnum"` (tabular numbers) + `tabular-nums` class
-- **Labels** (small caps): `text-[10px] font-medium/semibold uppercase tracking-wider`
-- **Font family**: Sohne-family (dari shadcn default)
+### Tabel Inti
 
-### Colors
-| Token | Value | Penggunaan |
-|-------|-------|-----------|
-| `primary` | `#533afd` (electric indigo) | Tombol CTA, link, aksen aktif |
-| `primary-foreground` | white | Teks di tombol primary |
-| `foreground` | ~`#0d253d` (deep navy) | Teks utama |
-| `muted-foreground` | ~`#6b7280` | Teks sekunder/label |
-| `background` | white / `#ffffff` | Background utama |
-| `canvas-cream` | `#f5e9d4` | Background hangat (jarang) |
-| `destructive` | ~`#ea2261` (ruby) | Tombol/aksi destruktif |
-| `warning` | amber | Badge stok menipis |
+| Area | Tabel penting |
+| --- | --- |
+| Master | `produk`, `kategori`, `satuan`, `merk`, `supplier`, `pelanggan`, `metode_bayar`, `pengaturan`, `pengguna` |
+| Transaksi | `transaksi_keluar`, `detail_transaksi_keluar` |
+| Stok/AVCO | `barang_masuk`, `retur_pembelian`, `detail_retur_pembelian`, `stok_opname`, `sesi_stok_opname`, `stok_opname_sesi_detail`, `riwayat_avco` |
+| Produk paket | kolom di `produk`: `id_produk_master`, `qty_per_unit`, `isi_satuan`, `jenis_isi_paket` |
+| Promo | `event_promo`, `event_promo_produk` |
+| Kas/keuangan | `saldo_kas_harian`, `kas_admin_topup`, `pengeluaran`, `kategori_beban`, `pengaturan_keuangan` |
+| Absensi | `absensi`, `qr_session` |
+| Audit/lokasi | `log_aktivitas`, `lokasi_area` |
 
-### Komponen
-- **Buttons**: **Pill-shaped** (`rounded-full`). Default: `h-10 px-6 rounded-full bg-primary`
-- **Cards**: `rounded-xl`, soft shadow, ring halus
-- **Input/Select**: `rounded-[6px]`, border primary saat focus
-- **Tables**: Modern, bordered, hover states, mobile-responsive cards
-- **Dialog/Sheet**: Radix UI primitives dengan backdrop blur
+Hutang/piutang sudah dihapus oleh migration `20260721_drop_hutang_piutang.sql`. Kolom `dp` dan `sisa` di `transaksi_keluar` masih ada untuk status pembayaran, tetapi tidak membuat piutang dagang.
 
-### Layout
-- **Dashboard**: Sidebar (desktop) + Mobile nav (slide-over). Konten utama fleksibel.
-- **POS**: Full-screen layout, split: panel produk (kiri) + cart/numpad (kanan)
-- **Invoice**: Dua mode — thermal (58mm, hitam putih, minimal) dan faktur (lengkap dengan kop toko)
+### RPC / Function Penting
 
----
+| Function | Peran |
+| --- | --- |
+| `process_checkout` | Checkout atomik: nomor transaksi, header/detail, validasi bayar/stok, potong display lalu gudang, HPP/AVCO, status transaksi |
+| `process_barang_masuk` | Barang masuk atomik: UoM conversion, tambah `stok_gudang`, AVCO, nilai persediaan |
+| `cancel_barang_masuk` | Void barang masuk, reverse stok/AVCO |
+| `process_retur_pembelian` | Retur supplier, kurangi gudang, update AVCO/nilai persediaan |
+| `process_isi_stok_paket` | Membentuk stok produk paket dari produk master |
+| `process_stock_opname` | Stok opname legacy/bulk |
+| `process_stok_opname_apply` | Apply sesi stok opname modern |
+| `batalkan_sesi_stok_opname` | Batalkan draft/sesi opname |
+| `get_inventory_value_at_date` | Nilai persediaan per tanggal untuk laporan |
+| `get_harga_efektif_produk` | Harga efektif produk dengan event promo |
+| `increment_point`, `reset_pelanggan_id_seq` | Member point |
+| `tambah_log_aktivitas` | Audit log SECURITY DEFINER |
 
-## 🧠 ZUSTAND STORE (pos-store.ts)
-
-State utama untuk halaman POS:
-
-```typescript
-interface PosState {
-  // Data master (di-fetch di awal)
-  products: Product[]           // Produk dengan harga & stok
-  customers: Customer[]         // Pelanggan
-  paymentMethods: PaymentMethod[] // Metode bayar
-
-  // Cart & POS flow
-  cart: CartItem[]              // Item di keranjang ({ id_produk, nama_produk, kategori, harga_jual, qty, qty_satuan, satuan_jual, diskon_item, tipe_harga })
-  numpadValue: string           // Input numpad (string karena bisa mengandung ".")
-  searchQuery: string           // Pencarian produk
-  selectedCustomer: Customer | null
-  selectedPayment: number       // ID metode bayar (default: 1 = Tunai)
-  activeCartItemId: number | null  // Item yang sedang dipilih/diedit qty/harga
-  checkoutLoading: boolean
-  checkoutError: string | null
-
-  // Actions
-  setProducts(), setCustomers(), setPaymentMethods()
-  addToCart(product, opts)       // Tambah (opts.satuan_jual untuk pilih satuan besar)
-  updateQty(id, delta)          // Ubah qty (+1/-1, otomatis rekalkulasi base qty)
-  removeItem(id)                // Hapus dari cart
-  clearCart()                   // Reset cart
-  numpadPress(val)              // "0"-"9", "delete", "."
-  setNumpadValue(val)
-  setSelectedCustomer(c)
-  setSelectedPayment(id)
-  setActiveCartItemId(id)       // Toggle selected item
-  applyNumpadAsQty()            // Terapkan numpadValue sebagai qty_satuan item aktif
-  setPriceType(type)            // Ganti tipe harga item aktif (Satuan/Grosir/Promo)
-  setSellUnit(unit)             // Ganti satuan jual item aktif (base/satuan besar)
-  checkout()                    // POST /api/pos/checkout → redirect ke invoice
-}
-```
+Untuk fungsi RPC, cek definisi akhir di `supabase/schema_dump.sql`, bukan hanya migration awal, karena banyak fungsi sudah di-`CREATE OR REPLACE` berkali-kali.
 
 ---
 
-## 🌐 API ROUTES LENGKAP
+## Business Rules yang Harus Dijaga
 
-> **Catatan penting**: Sebagian besar CRUD dashboard (transaksi, produk, kategori, satuan, supplier, pelanggan, pengaturan, users, laporan laba-rugi/neraca, stok opname, barang masuk) diimplementasikan sebagai **Server Actions** (di folder `app/` masing-masing halaman, file `actions.ts`), bukan Route Handlers. Route Handlers berikut hanya untuk POS, absensi, laporan penjualan, scanner, dan util.
+### Role dan Akses
 
-### Route Handlers (`app/api/`)
+| Role | Akses utama |
+| --- | --- |
+| `OWNER` | Full dashboard, laporan, users, absensi admin, keuangan |
+| `ADMIN` | Dashboard, transaksi, inventory, pelanggan, supplier, laporan operasional, pengaturan terbatas |
+| `KASIR` | POS, buka/tutup kasir, riwayat transaksi, absensi pribadi |
+| `KARYAWAN` | Absensi pribadi dan ringkasan absensi |
+
+Guard utama:
+
+- `proxy.ts` membatasi dashboard route untuk `KASIR` dan `KARYAWAN`.
+- `app/pos/page.tsx` memastikan hanya `KASIR` yang melihat POS.
+- Server Actions tetap wajib cek role sendiri; layout/proxy bukan security boundary yang cukup.
+
+### Checkout dan Harga
+
+- Tier harga: `SATUAN`, `GROSIR`, `PROMO` di database; UI memakai `Satuan`, `Grosir`, `Promo`.
+- POS mengirim `qty` dalam base unit dan `qty_satuan` dalam satuan jual yang tampil.
+- Harga satuan besar selalu dihitung dari harga kecil x `conversion_ratio`; jangan jadikan input manual.
+- Diskon item untuk satuan besar ikut dikali `conversion_ratio`.
+- Harga custom didukung dan dikirim sebagai `harga_jual_custom`.
+- Event promo aktif diambil dari `/api/event-promo/efektif` dan memengaruhi harga POS.
+- Checkout harus lewat `/api/pos/checkout` dan RPC `process_checkout`.
+
+### Stok dan Produk Paket
+
+- `stok` = display/rak toko.
+- `stok_gudang` = gudang.
+- Barang masuk selalu menambah `stok_gudang`.
+- Penjualan mengurangi display dulu, lalu gudang.
+- Produk dengan `hitung_stok = false` tidak dipotong stok saat checkout.
+- Restock display dilakukan manual via `restockDisplay` di inventory action.
+- Produk paket memakai `id_produk_master` dan `qty_per_unit`; stok paket dibentuk lewat RPC `process_isi_stok_paket`, bukan dengan barang masuk biasa.
+
+### AVCO / HPP
+
+- HPP memakai AVCO weighted average.
+- Barang masuk, penjualan, retur, void barang masuk, dan stok opname harus menjaga `riwayat_avco`.
+- `harga_modal` adalah fallback/manual baseline. RPC hanya sinkron dari `harga_pokok_avco` jika nilai saat ini NULL atau 0; jangan timpa manual override.
+- Checkout fallback HPP: `COALESCE(NULLIF(harga_pokok_avco, 0), harga_modal)`.
+
+### Kas dan Keuangan
+
+- Model kas dipisah:
+  - **Kas kasir/laci**: uang awal + penjualan tunai neto; dikelola lewat buka/tutup kasir.
+  - **Kas admin**: topup owner + refund retur - pengeluaran tunai.
+  - **Kas bank/non-tunai**: penjualan non-tunai kumulatif.
+- `lib/laporan-kasir.ts` adalah sumber logika buka/tutup kasir.
+- `lib/laporan-keuangan.ts` adalah sumber laba-rugi, neraca, arus kas, kas kasir/admin/bank.
+- Pengeluaran operasional berada di tabel `pengeluaran` dengan status `AKTIF`/void.
+- Laba rugi sekarang memasukkan HPP, beban operasional, selisih kas, dan koreksi stok.
+
+### Absensi
+
+- QR session expired sesuai env `QR_EXPIRE_SECONDS`.
+- Check-in memvalidasi QR aktif, geofence Haversine jika koordinat toko tersedia, dan menandai token terpakai.
+- Owner tidak melakukan absensi.
+- Status telat dihitung dari QR pertama hari itu + toleransi, fallback ke `ATTENDANCE_START_TIME`.
+- Gunakan tanggal bisnis WIB saat membaca/menulis status harian.
+
+### Low Stock
+
+- Source helper: `lib/low-stock.ts`, realtime hook: `hooks/use-low-stock-realtime.ts`, API: `app/api/low-stock/route.ts`.
+- Display low: `stok > 0 && stok <= stok_minimum`.
+- Gudang low: `stok_minimum_gudang != null && stok_gudang <= stok_minimum_gudang`.
+- Stok display 0 dianggap habis, bukan menipis.
+
+---
+
+## Route Handler Penting
 
 | Route | Method | Fungsi |
-|-------|--------|--------|
-| `/api/auth/login` | POST | Login dengan Supabase Auth (email = `username@sobats.com`) |
-| `/api/pos/products` | GET | Ambil produk (search nama/barcode, paginated, caching 60s) |
-| `/api/pos/barcode` | GET | Cari produk by barcode/id/nama (fallback berurutan) |
-| `/api/pos/customers` | GET | Ambil semua pelanggan (+ point) |
-| `/api/pos/payment-methods` | GET | Ambil metode bayar |
-| `/api/pos/member-search` | GET | Cari member by no_hp (ilike, limit 1) |
-| `/api/pos/member-register` | POST | Daftar member baru (point 0, retry 23505 + reset_pelanggan_id_seq) |
-| `/api/pos/checkout` | POST | Proses checkout (RPC process_checkout + poin member via increment_point) |
-| `/api/attendance/today` | GET | Status absensi hari ini (WIB) |
-| `/api/attendance/checkin` | POST | Check-in: validasi QR + geofencing Haversine + telat |
-| `/api/attendance/checkout` | POST | Check-out (validasi QR, tanpa GPS) |
-| `/api/attendance/generate-qr` | POST | Generate QR token (OWNER only, QR_EXPIRE_SECONDS) |
-| `/api/attendance/history` | GET | Riwayat absensi pribadi (limit 31) |
-| `/api/admin/attendance` | GET | Laporan absensi semua pegawai (ADMIN/OWNER) |
-| `/api/laporan/penjualan` | GET | Laporan penjualan (paginated, filterable, include_items) |
-| `/api/laporan/penjualan/rekap` | GET | Rekap penjualan (group_by: hari/kasir/metode_bayar/pelanggan) |
-| `/api/laporan/penjualan/[id]` | GET | Detail transaksi untuk laporan |
-| `/api/laporan/penjualan/export` | GET | Export CSV laporan penjualan (server-side) |
-| `/api/low-stock` | GET | Daftar produk stok menipis (caching 30s) |
-| `/api/scanner/[sessionId]` | GET | SSE stream barcode (relay, heartbeat 20s) |
-| `/api/scanner/[sessionId]/events` | GET | Cek sesi scanner masih hidup |
-| `/api/scanner/[sessionId]` | POST | Inject barcode ke sesi (dari HP scanner) |
-| `/api/network-ip` | GET | IP LAN server (untuk QR scanner HP) |
-
-### Server Actions utama
-
-| File | Fungsi |
-|------|--------|
-| `app/dashboard/transactions/actions.ts` | `voidTransaction` (ADMIN/OWNER), `getTransactionDetails` |
-| `app/dashboard/inventory/actions.ts` | CRUD produk, `restockDisplay` (gudang→display), `getProductMutationHistory`, `importProducts` |
-| `app/dashboard/inventory/stock-in/actions.ts` | `addStockIn` (RPC process_barang_masuk, dual-format UoM/legacy) |
-| `app/dashboard/inventory/stock-opname/actions.ts` | `saveStockOpname`, `saveBulkStockOpname` (RPC process_stock_opname) |
-| `app/dashboard/customers/actions.ts` | CRUD pelanggan + import (proteksi "UMUM") |
-| `app/dashboard/suppliers/actions.ts` | CRUD supplier + import |
-| `app/dashboard/settings/actions.ts` | `updateProfile` (username unik + sync auth) |
-| `app/dashboard/settings/store-actions.ts` | `updateStoreSettings` (upsert pengaturan id=1) |
-| `app/dashboard/settings/keuangan/actions.ts` | Upsert pengaturan_keuangan |
-| `app/dashboard/settings/users/actions.ts` | CRUD pengguna (OWNER only, sync auth) |
-| `app/dashboard/settings/reference-data/actions.ts` | CRUD kategori/satuan/merk + import |
-| `app/dashboard/laporan/laba-rugi/actions.ts` | `fetchLabaRugi` |
-| `app/dashboard/laporan/neraca/actions.ts` | `fetchNeraca` |
-| `app/dashboard/tutup-kasir/actions.ts` | Fetch ringkasan kas harian (ADMIN/OWNER) |
+| --- | --- | --- |
+| `/api/auth/login` | POST | Login username/email Supabase |
+| `/api/pos/products` | GET | Ambil semua produk POS, `dynamic = force-dynamic`, `no-store` |
+| `/api/pos/barcode` | GET | Lookup produk by barcode, numeric id, lalu nama |
+| `/api/pos/customers` | GET | Pelanggan POS |
+| `/api/pos/payment-methods` | GET | Metode bayar aktif |
+| `/api/pos/member-search` | GET | Cari member by nomor HP |
+| `/api/pos/member-register` | POST | Register member + retry sequence |
+| `/api/pos/checkout` | POST | Checkout via RPC `process_checkout` |
+| `/api/attendance/today` | GET | Status absensi hari ini |
+| `/api/attendance/checkin` | POST | Check-in QR + GPS |
+| `/api/attendance/checkout` | POST | Check-out |
+| `/api/attendance/generate-qr` | POST | Generate QR absensi owner |
+| `/api/admin/attendance` | GET | Laporan absensi admin/owner |
+| `/api/laporan/penjualan` | GET | Laporan penjualan filterable |
+| `/api/laporan/penjualan/rekap` | GET | Rekap penjualan |
+| `/api/laporan/penjualan/export` | GET | Export laporan penjualan |
+| `/api/low-stock` | GET | Produk stok menipis |
+| `/api/scanner/[sessionId]` | POST | Kirim barcode dari HP ke relay |
+| `/api/scanner/[sessionId]/events` | GET | SSE stream ke POS |
+| `/api/event-promo/**` | GET/POST/PUT/DELETE | CRUD dan harga efektif event promo |
+| `/api/network-ip` | GET | IP LAN server untuk QR scanner |
 
 ---
 
-## 🔧 UTILITY FUNCTIONS
+## Server Actions Penting
 
-| Fungsi | File | Parameter | Return |
-|--------|------|-----------|--------|
-| `cn(...inputs)` | `lib/utils.ts` | ClassValue[] | string (merged classes) |
-| `terbilang(angka)` | `lib/terbilang.ts` | number | string (contoh: "Seratus Dua Puluh Tiga") |
-| `terbilangRupiah(angka)` | `lib/terbilang.ts` | number | string (contoh: "Seratus Dua Puluh Tiga Rupiah") |
-| `formatIDR()` | — | TBD | TBD (helper tambahan untuk format mata uang) |
-| `exportToCSV(filename, headers, data)` | `lib/export-utils.ts` | string, string[], any[][] | void (download) |
-| `exportToPDF(filename, title, headers, data)` | `lib/export-utils.ts` | string, string, string[], any[][] | void (download) |
-| `calculateNewAVCO(currentQty, currentAvco, incomingQty, incomingPrice)` | `lib/avco.ts` | number, number, number, number | { newAvco, newTotalValue, newQty } |
-| `recordAVCOMutation(supabase, params)` | `lib/avco.ts` | SupabaseClient, AVCOParams | Promise<void> |
-| `getTodayAttendance()` | `lib/attendance.ts` | none | { attendance?, user } |
-| `getMonthlyAttendanceStats()` | `lib/attendance.ts` | none | { total, hadir, telat } |
-| `getDashboardData()` | `lib/dashboard.ts` | none | DashboardData |
-| `getLowStockItems()` | `lib/low-stock.ts` | none | LowStockItem[] (display + gudang menipis, flag `displayLow`/`gudangLow`) |
-| `logActivity(supabase, params)` | `lib/activity-log.ts` | SupabaseClient, LogActivityParams | Promise<void> |
-| `getDailyCashSummary(supabase, date)` | `lib/laporan-kasir.ts` | SupabaseClient, string | CashSummary |
-| `confirmTutupKasir(supabase, params)` | `lib/laporan-kasir.ts` | SupabaseClient, TutupKasirParams | SaldoKasHarian |
-| `generateLabaRugi(supabase, startDate, endDate)` | `lib/laporan-keuangan.ts` | SupabaseClient, string, string | LabaRugiReport |
-| `generateNeraca(supabase, date)` | `lib/laporan-keuangan.ts` | SupabaseClient, string | NeracaReport |
-
----
-
-## 🧩 MIGRATION HISTORY (25 files)
-
-| No | File | Tujuan |
-|----|------|--------|
-| 1 | `20260529114225_fix_checkout_race_condition.sql` | Fix race condition checkout + advisory lock |
-| 2 | `20260601000001_add_accounting_fields.sql` | Tambah kolom HPP ke transaksi, AVCO ke produk |
-| 3 | `20260601000002_create_hutang_piutang.sql` | Buat tabel hutang & piutang dagang |
-| 4 | `20260601000003_create_avco_tracking.sql` | Buat tabel riwayat_avco |
-| 5 | `20260601000004_create_kas_dan_laporan.sql` | Buat saldo_kas_harian & pengaturan_keuangan |
-| 6 | `20260606000001_update_process_checkout.sql` | Update process_checkout dengan AVCO/HPP |
-| 7 | `20260606000002_process_checkout_piutang.sql` | Update process_checkout: otomatis buat piutang |
-| 8 | `20260606000003_add_neraca_rpc.sql` | Buat RPC get_inventory_value_at_date |
-| 9 | `20260706_add_stok_gudang.sql` | Tambah kolom stok_gudang, update process_checkout |
-| 10 | `20260707_add_rls_riwayat_avco.sql` | RLS untuk riwayat_avco |
-| 11 | `20260708_add_produk_realtime.sql` | Tambah tabel produk ke publikasi realtime (diperbaiki dari typo "publik") |
-| 12 | `20260710_process_barang_masuk.sql` | Buat RPC process_barang_masuk (dual format) |
-| 13 | `20260710_widen_numeric_columns.sql` | Perluas tipe numeric columns |
-| 14 | `20260716_add_rls_hutang_piutang.sql` | RLS untuk tabel hutang/piutang |
-| 15 | `20260717_add_sku_dan_merk.sql` | Buat tabel merk, tambah kolom sku & id_merk |
-| 16 | `20260717_drop_produk_nama_produk_unique.sql` | Ganti unique constraint ke (nama, sku) |
-| 17 | `20260718104411_update_process_barang_masuk.sql` | Update process_barang_masuk (UoM + legacy) |
-| 18 | `20260720_add_uom_conversion.sql` | Tambah kolom UoM ke produk & audit barang_masuk |
-| 19 | `20260721_drop_hutang_piutang.sql` | **Drop tabel hutang/piutang** + update process_checkout (tanpa piutang) |
-| 20 | `20260725_add_member_point.sql` | Tambah kolom point ke pelanggan + RPC increment_point & reset_pelanggan_id_seq |
-| 21 | `20260726_add_poin_min_pembelian.sql` | Tambah poin_min_pembelian ke pengaturan (default 100000) |
-| 22 | `20260728_add_bulk_stock_opname.sql` | Buat RPC process_stock_opname (bulk + AVCO koreksi) |
-| 23 | `20260729_add_log_aktivitas.sql` | Buat tabel log_aktivitas + RPC tambah_log_aktivitas |
-| 24 | `20260729_fix_produk_realtime.sql` | **Koreksi realtime**: drop tabel "publik", add tabel produk |
-| 25 | `20260803_fix_checkout_stock_validation.sql` | **Fix process_checkout**: validasi stok, fallback gudang, konsistensi AVCO total stok |
-| 26 | `20260805_merge_base_unit_into_satuan.sql` | **Merge base_unit → id_satuan**: dedup satuan, backfill, drop kolom base_unit |
-| 27 | `20260807_add_sell_units.sql` | **Multi-unit selling**: kolom jual_satuan/ratio/harga_besar_* di produk, qty_satuan/satuan_jual di detail, update process_checkout |
-| 28 | `20260808_drop_produk_jual_ratio.sql` | **Hapus jual_ratio**: redundant dengan conversion_ratio; backfill, drop kolom, update process_checkout |
+| File | Fungsi utama |
+| --- | --- |
+| `app/dashboard/inventory/actions.ts` | CRUD/import produk, delete aman/paksa, move display/gudang, isi stok paket, mutation history, generate SKU/barcode |
+| `app/dashboard/inventory/stock-in/actions.ts` | Add/void/update barang masuk, retur pembelian |
+| `app/dashboard/inventory/stock-opname/actions.ts` | Sesi stok opname, save draft, apply, cancel |
+| `app/dashboard/inventory/stock-in/tentukan-harga/actions.ts` | Owner menentukan harga barang masuk yang belum priced |
+| `app/dashboard/transactions/actions.ts` | Void transaksi, edit metode bayar, detail transaksi |
+| `app/dashboard/keuangan/kas-admin/actions.ts` | Topup/edit/delete kas admin |
+| `app/dashboard/keuangan/pengeluaran/actions.ts` | Create/update/void/list pengeluaran |
+| `app/dashboard/keuangan/arus-kas/actions.ts` | Fetch arus kas |
+| `app/dashboard/laporan/kas/actions.ts` | Laporan kas |
+| `app/dashboard/laporan/laba-rugi/actions.ts` | Fetch laba-rugi |
+| `app/dashboard/laporan/neraca/actions.ts` | Fetch neraca |
+| `app/dashboard/laporan/stok-opname/actions.ts` | Fetch laporan stok opname |
+| `app/dashboard/tutup-kasir/actions.ts` | Fetch summary, buka sesi, tutup kasir, edit sesi owner |
+| `app/dashboard/customers/actions.ts` | CRUD/import pelanggan |
+| `app/dashboard/suppliers/actions.ts` | CRUD/import supplier |
+| `app/dashboard/settings/users/actions.ts` | CRUD/import user + Supabase Auth sync |
+| `app/dashboard/settings/reference-data/actions.ts` | CRUD/import kategori/satuan/merk |
+| `app/dashboard/settings/store-actions.ts` | Update pengaturan toko + sync metode bayar bank |
+| `app/dashboard/event-promo/actions.ts` | Save/delete event promo + produk terkait |
 
 ---
 
-## 📋 CATATAN PENTING
+## UI dan Design Rules
 
-### Konvensi Kode
-- **Gunakan ekspor named** untuk komponen (bukan default export)
-- **Server Components** sebisa mungkin, "use client" hanya jika perlu interaktivitas
-- **Error handling**: Selalu tangani error di try/catch, tampilkan pesan di UI
-- **Loading states**: Gunakan `loading.tsx` untuk page loading, spinner untuk action loading
-- **"use client"** ada di: komponen interaktif (forms, dialogs, navigation, hooks), komponen dengan state/effect
-- **Server Components** ada di: layout, page shell, data fetching di server
-
-### Security
-- ALL Supabase tables have **RLS enabled** for authenticated users
-- Checkout & barang_masuk via **SECURITY DEFINER** RPC functions (bypass RLS)
-- **SERVICE_ROLE** hanya digunakan di `lib/supabase/admin.ts` untuk operasi yang perlu bypass RLS
-- Validasi sisi server **harus dilakukan** untuk semua operasi write (jangan trust client)
-
-### PWA
-- next-pwa dikonfigurasi dengan `dest: "public"`, disable di development
-- Web manifest di `app/manifest.ts`
-- Service worker caching untuk attendance module masih pending (TODO2 item #8)
-
-### DataTable Component
-- Komponen `DataTable` di `components/data-table.tsx` sangat fleksibel:
-  - Search, sort (asc/desc), filter (select, date-range, custom)
-  - Pagination (dengan items per page selector)
-  - Action buttons (primary/outline/destructive)
-  - Delete modal konfirmasi
-  - Edit row (inline + expanded)
-  - Row click handler
-  - Mobile card mode (responsive breakpoint configurable)
-  - Loading state, empty state, error banner
-  - Kolom bisa punya custom render, sort key berbeda, mobile label, hide di mobile
-- Gunakan `useTable()` hook untuk sorting + pagination state management
-
-### Design Guidelines Implementation
-- **Dashboard sidebar**: `DashboardSidebar.tsx` — hidden di mobile
-- **Mobile nav**: `DashboardMobileNav.tsx` — slide-over menu dari kanan
-- **Low stock**: Widget di sidebar & dashboard, realtime update via Supabase subscription
-- **Attendance widget**: Gradient mesh background, card dengan status, jam masuk/pulang, tombol scan
-
-### Invoice (Receipt) Printing
-- **Thermal 58mm**: Nota kecil (struk) — format minimalis, hanya informasi esensial
-- **Faktur Penjualan**: Format A4 lengkap — kop toko, header, detail item, footer, tanda tangan
-- **Footer struk** bisa dikonfigurasi dari `pengaturan` (footer_struk_1/2/3, footer_invoice_1/2/3)
-- **Informasi Bank**: Dari pengaturan (bank1_nama, bank1_rekening, bank1_atas_nama, bank2_...)
-
-### Outstanding Work (from TODO files)
-- **TODO2 Item #8**: PWA service worker caching untuk attendance module
-- **TODO4**: UoM (Unit of Measure) conversion untuk Barang Masuk — SUDAH SELESAI (migration 17-18 + form stock-in)
-- **TODO5**: Member poin pelanggan — SUDAH SELESAI (migration 20-21 + member search/register di POS)
-- **TODO6**: Konfigurasi poin_min_pembelian — SUDAH SELESAI (migration 21 + form store)
-- **Hutang/Piutang**: Module telah dihapus (migration 19 `20260721_drop_hutang_piutang.sql`), tabel sudah di-drop dari database
+- Vibe: professional, financial-grade, hangat, bukan generic SaaS.
+- Gunakan design tokens dari `app/globals.css`.
+- Tombol default pill-shaped (`rounded-full`) mengikuti `components/ui/button.tsx`.
+- Input/select cenderung `rounded-[6px]`.
+- Pakai `lucide-react` untuk icon.
+- Jangan ubah primitive `components/ui/**` kecuali perlu dan efeknya dipahami.
+- Untuk tabel/dashboard CRUD, pakai `DataTable` jika cocok daripada membuat table baru.
+- Untuk angka uang, gunakan `Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" })` dan class `tabular-nums`.
+- Copy visible harus Bahasa Indonesia.
+- Jangan pakai visible text untuk menjelaskan cara memakai UI kecuali memang konten bantuan/support.
 
 ---
 
-## 🔍 REFERENSI CEPAT
+## Testing dan Verifikasi
 
-### Dimana mencari untuk...
-| Kebutuhan | Lokasi |
-|-----------|--------|
-| Schema database | `database.MD` atau `supabase/migrations/` |
-| Design tokens | `DESIGN.md` |
-| Fitur yang belum selesai | `TODO1.md` sampai `TODO4.MD` |
-| API docs laporan penjualan | `docs/api-laporan-penjualan.md` |
-| Cara menambah route baru | `app/api/` (ikuti pattern route handler Next.js 16) |
-| Cara menambah halaman | `app/` (ikuti App Router conventions) |
-| Cara styling | Tailwind CSS v4 classes + `cn()` utility |
-| Error handling pattern | Lihat `pos-store.ts` → `checkout()` action |
-| Mobile responsiveness | Lihat `data-table.tsx` mobileCards prop pattern |
+Command umum:
+
+- `npm run lint`
+- `npm run build`
+- `npx playwright test` hanya jika user meminta atau relevan, dan tetap jangan membuka browser manual.
+
+Catatan:
+
+- ESLint mengabaikan `tests/**`, `*.js`, `supabase/**`, `public/**`, `.agents/**`.
+- Playwright config dapat menjalankan `npm run dev` otomatis di port 3000.
+- Jika perubahan menyentuh database/RPC, verifikasi minimal dengan membaca `supabase/schema_dump.sql` dan action/API pemanggilnya. Jangan menjalankan migration ke database tanpa instruksi eksplisit.
+- Jika perubahan menyentuh kas/stok/transaksi, cek jalur server dan client sekaligus: UI payload, Server Action/API, RPC/table, revalidate, dan laporan yang terdampak.
+
+---
+
+## Env Variables
+
+| Variable | Keterangan |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key public |
+| `SERVICE_ROLE` | Service role secret, hanya server/admin client |
+| `STORE_LATITUDE` | Latitude toko untuk geofencing |
+| `STORE_LONGITUDE` | Longitude toko untuk geofencing |
+| `MAX_ATTENDANCE_RADIUS` | Radius absensi meter |
+| `QR_EXPIRE_SECONDS` | Masa berlaku QR absensi |
+| `ATTENDANCE_START_TIME` | Fallback jam mulai kerja |
+| `ATTENDANCE_TOLERANCE_MINUTES` | Toleransi telat setelah absen dibuka |
+
+---
+
+## Referensi Cepat Saat Mulai Task
+
+1. Baca file yang relevan dulu dengan `rg`/`sed`; jangan mengandalkan nama route di dokumen saja.
+2. Untuk schema akhir, buka `supabase/schema_dump.sql`.
+3. Untuk fungsi RPC, cari nama function di `supabase/schema_dump.sql`.
+4. Untuk perubahan UI dashboard, cek `DataTable`, sidebar/mobile nav, dan design token.
+5. Untuk perubahan POS, cek `pos-client.tsx`, `pos-store.ts`, API POS, lalu RPC.
+6. Untuk perubahan finansial, cek `lib/laporan-kasir.ts`, `lib/laporan-keuangan.ts`, action terkait, dan status transaksi `berhasil`.
+7. Untuk perubahan stok, cek efek ke `produk.stok`, `produk.stok_gudang`, `riwayat_avco`, low stock, dan laporan.
+

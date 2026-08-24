@@ -313,6 +313,13 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
                           <span>Neraca</span>
                           <NavLinkPending />
                         </Link>
+                        {isOwner && (
+                          <Link href="/dashboard/laporan/pergerakan-harga" className={subLinkClass("/dashboard/laporan/pergerakan-harga")} onClick={() => setIsOpen(false)}>
+                            <TrendingUp className="w-4 h-4" />
+                            <span>Pergerakan Harga</span>
+                            <NavLinkPending />
+                          </Link>
+                        )}
                         <Link href="/dashboard/laporan/stok-opname" className={subLinkClass("/dashboard/laporan/stok-opname")} onClick={() => setIsOpen(false)}>
                           <ClipboardList className="w-4 h-4" />
                           <span>Stok Opname</span>

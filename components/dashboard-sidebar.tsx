@@ -261,6 +261,11 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
                       <span>Neraca</span>
                       <NavLinkPending />
                     </Link>
+                    <Link href="/dashboard/laporan/pergerakan-harga" className={subLinkClass("/dashboard/laporan/pergerakan-harga")}>
+                      <TrendingUp className="w-4 h-4" />
+                      <span>Pergerakan Harga</span>
+                      <NavLinkPending />
+                    </Link>
                   </>
                 )}
                 <Link href="/dashboard/laporan/stok-opname" className={subLinkClass("/dashboard/laporan/stok-opname")}>
