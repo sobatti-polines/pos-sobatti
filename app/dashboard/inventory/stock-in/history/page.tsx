@@ -43,6 +43,9 @@ export default async function StockInHistoryPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const suppliers = (suppliersRes.data ?? []) as any[];
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const isOwner = user?.user_metadata?.role === "OWNER";
+
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
       <header className="shrink-0">
@@ -54,7 +57,7 @@ export default async function StockInHistoryPage() {
         </p>
       </header>
 
-      <StockInHistoryClient initialHistory={historyData} suppliers={suppliers} />
+      <StockInHistoryClient initialHistory={historyData} suppliers={suppliers} isOwner={isOwner} />
     </div>
   );
 }

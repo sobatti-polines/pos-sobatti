@@ -554,7 +554,7 @@ export default function InventoryClient({
       "Total Aset",
       "Harga Besar",
     ];
-    const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![8, 24, 25].includes(i));
+    const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![8, 10, 11, 24, 25].includes(i));
     const data = filteredData.map(p => {
       const row = [
         p.nama_produk,
@@ -585,7 +585,7 @@ export default function InventoryClient({
         p.nilai_persediaan ?? 0,
         bigPriceOf(p) ?? "",
       ];
-      return isOwner ? row : row.filter((_, i) => ![8, 24, 25].includes(i));
+      return isOwner ? row : row.filter((_, i) => ![8, 10, 11, 24, 25].includes(i));
     });
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -595,7 +595,7 @@ export default function InventoryClient({
 
   const handleExportPDF = () => {
     const allHeaders = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo", "Harga Besar"];
-    const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![7, 8, 9].includes(i));
+    const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![7, 8, 9, 11, 12].includes(i));
     const data = filteredData.map(p => {
       const row = [
         p.sku || "-", p.barcode || "-", p.nama_produk, p.kategori?.nama || "-",
@@ -605,7 +605,7 @@ export default function InventoryClient({
         formatIDR(p.harga_jual_satuan), formatIDR(p.harga_jual_grosir), p.harga_jual_promo ? formatIDR(p.harga_jual_promo) : "-",
         bigPriceOf(p) != null ? formatIDR(bigPriceOf(p)!) : "-"
       ];
-      return isOwner ? row : row.filter((_, i) => ![7, 8, 9].includes(i));
+      return isOwner ? row : row.filter((_, i) => ![7, 8, 9, 11, 12].includes(i));
     });
     
     const now = new Date();
@@ -719,8 +719,10 @@ export default function InventoryClient({
         <span className="tabular-nums">{formatIDR(p.harga_jual_satuan)}</span>
       </div>
     )},
-    { key: "harga_jual_grosir", header: "Harga Grosir", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{formatIDR(p.harga_jual_grosir)}</span> },
-    { key: "harga_jual_promo", header: "Harga Promo", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{p.harga_jual_promo != null ? formatIDR(p.harga_jual_promo) : "-"}</span> },
+    ...(isOwner ? [
+      { key: "harga_jual_grosir" as const, header: "Harga Grosir", sortable: true, headerClassName: "text-left w-[140px]", render: (p: Product) => <span className="tabular-nums">{formatIDR(p.harga_jual_grosir)}</span> },
+      { key: "harga_jual_promo" as const, header: "Harga Promo", sortable: true, headerClassName: "text-left w-[140px]", render: (p: Product) => <span className="tabular-nums">{p.harga_jual_promo != null ? formatIDR(p.harga_jual_promo) : "-"}</span> },
+    ] : []),
     {
       key: "harga_jual_besar_satuan", header: "Harga Besar", sortable: true, headerClassName: "text-left w-[150px]",
       render: (p) => {

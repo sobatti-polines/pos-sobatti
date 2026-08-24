@@ -80,10 +80,12 @@ interface SupplierRecord {
 
 export default function StockInHistoryClient({
   initialHistory,
-  suppliers
+  suppliers,
+  isOwner = false,
 }: {
   initialHistory: StockInHistoryRecord[];
   suppliers: SupplierRecord[];
+  isOwner?: boolean;
 }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -209,36 +211,44 @@ export default function StockInHistoryClient({
   }, [activeData]);
 
   const handleExportCSV = () => {
-    const headers = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Satuan Suplai", "Qty Suplai", "Rasio", "Base Qty", "HPP/Pcs", "Total Biaya", "Status", "Keterangan"];
-    const rows = filteredData.map(h => [
-      formatDate(h.tgl_masuk),
-      h.no_surat || "",
-      h.supplier?.nama_supplier || "Umum",
-      h.produk?.nama_produk || "Produk dihapus",
-      h.supplied_unit || "-",
-      h.supplied_qty ?? "-",
-      h.applied_conversion_ratio ?? "-",
-      h.base_qty_added ?? h.jumlah,
-      h.base_cost_per_piece ?? h.harga_beli,
-      h.total_cost ?? h.total,
-      h.status || "AKTIF",
-      h.keterangan || "",
-    ]);
+    const allHeaders = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Satuan Suplai", "Qty Suplai", "Rasio", "Base Qty", "HPP/Pcs", "Total Biaya", "Status", "Keterangan"];
+    const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![8, 9].includes(i));
+    const rows = filteredData.map(h => {
+      const row = [
+        formatDate(h.tgl_masuk),
+        h.no_surat || "",
+        h.supplier?.nama_supplier || "Umum",
+        h.produk?.nama_produk || "Produk dihapus",
+        h.supplied_unit || "-",
+        h.supplied_qty ?? "-",
+        h.applied_conversion_ratio ?? "-",
+        h.base_qty_added ?? h.jumlah,
+        h.base_cost_per_piece ?? h.harga_beli,
+        h.total_cost ?? h.total,
+        h.status || "AKTIF",
+        h.keterangan || "",
+      ];
+      return isOwner ? row : row.filter((_, i) => ![8, 9].includes(i));
+    });
     exportToCSV(`Riwayat_Stok_Masuk_${new Date().toISOString().split("T")[0]}`, headers, rows);
   };
 
   const handleExportPDF = () => {
-    const headers = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Base Qty", "HPP/Pcs", "Total Biaya", "Status"];
-    const rows = filteredData.map(h => [
-      formatDate(h.tgl_masuk),
-      h.no_surat || "",
-      h.supplier?.nama_supplier || "Umum",
-      h.produk?.nama_produk || "Produk dihapus",
-      String(h.base_qty_added ?? h.jumlah),
-      formatIDR(h.base_cost_per_piece ?? h.harga_beli),
-      formatIDR(h.total_cost ?? h.total),
-      h.status || "AKTIF",
-    ]);
+    const allHeaders = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Base Qty", "HPP/Pcs", "Total Biaya", "Status"];
+    const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![4, 5].includes(i));
+    const rows = filteredData.map(h => {
+      const row = [
+        formatDate(h.tgl_masuk),
+        h.no_surat || "",
+        h.supplier?.nama_supplier || "Umum",
+        h.produk?.nama_produk || "Produk dihapus",
+        String(h.base_qty_added ?? h.jumlah),
+        formatIDR(h.base_cost_per_piece ?? h.harga_beli),
+        formatIDR(h.total_cost ?? h.total),
+        h.status || "AKTIF",
+      ];
+      return isOwner ? row : row.filter((_, i) => ![4, 5].includes(i));
+    });
     exportToPDF(`Riwayat_Stok_Masuk_${new Date().toISOString().split("T")[0]}`, "Riwayat Stok Masuk", headers, rows);
   };
 
@@ -299,8 +309,10 @@ export default function StockInHistoryClient({
       },
     },
     { key: "base_qty", header: "Base Qty", headerClassName: "w-[100px] text-right", render: (h) => rowText(h, <span className="tabular-nums">{h.base_qty_added ?? h.jumlah}</span>) },
-    { key: "harga_beli", header: "HPP/Pcs", sortable: true, headerClassName: "w-[120px] text-right", render: (h) => rowText(h, <span className="tabular-nums">{formatIDR(h.base_cost_per_piece ?? h.harga_beli)}</span>) },
-    { key: "total", header: "Total", sortable: true, className: "pr-6", headerClassName: "w-[140px] text-right pr-6", render: (h) => rowText(h, <span className="tabular-nums">{formatIDR(h.total_cost ?? h.total)}</span>) },
+    ...(isOwner ? [
+      { key: "harga_beli" as const, header: "HPP/Pcs", sortable: true, headerClassName: "w-[120px] text-right", render: (h: StockInHistoryRecord) => rowText(h, <span className="tabular-nums">{formatIDR(h.base_cost_per_piece ?? h.harga_beli)}</span>) },
+      { key: "total" as const, header: "Total", sortable: true, className: "pr-6", headerClassName: "w-[140px] text-right pr-6", render: (h: StockInHistoryRecord) => rowText(h, <span className="tabular-nums">{formatIDR(h.total_cost ?? h.total)}</span>) },
+    ] : []),
     {
       key: "status", header: "Status", sortable: true, sortKey: "status", headerClassName: "w-[110px] text-center",
       render: (h) => <div className="flex justify-center">{statusBadge(h)}</div>,
@@ -402,11 +414,13 @@ export default function StockInHistoryClient({
           },
         ]}
         topContent={
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Total Nilai Pembelian</p>
-              <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{formatIDR(totalValue)}</p>
-            </div>
+          <div className={`grid grid-cols-1 gap-4 ${isOwner ? 'md:grid-cols-2' : ''}`}>
+            {isOwner && (
+              <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Total Nilai Pembelian</p>
+                <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{formatIDR(totalValue)}</p>
+              </div>
+            )}
             <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-1">Jumlah Catatan</p>
               <p className="text-2xl font-light tracking-tight text-foreground tabular-nums">{activeData.length}</p>

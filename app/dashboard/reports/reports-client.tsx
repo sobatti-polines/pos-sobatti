@@ -222,21 +222,23 @@ export default function ReportsClient({ transactions, details, products, isOwner
         <div className="flex flex-col gap-8 pb-12 max-w-7xl mx-auto w-full">
 
       {/* Overview Stats */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${isOwner ? '4' : '3'} gap-6`}>
-        <Card className="bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden group">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-100 transition-colors">
-                <DollarSign className="w-5 h-5" />
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${isOwner ? '4' : '2'} gap-6`}>
+        {isOwner && (
+          <Card className="bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden group">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-100 transition-colors">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <Badge variant="outline" className="text-[10px] font-medium border-emerald-100 text-emerald-600 bg-emerald-50/50">
+                  +12.5%
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-[10px] font-medium border-emerald-100 text-emerald-600 bg-emerald-50/50">
-                +12.5%
-              </Badge>
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">Total Pendapatan</p>
-            <h3 className="text-2xl font-semibold tracking-tight mt-1">{formatIDR(stats.totalRevenue)}</h3>
-          </CardContent>
-        </Card>
+              <p className="text-sm font-medium text-muted-foreground">Total Pendapatan</p>
+              <h3 className="text-2xl font-semibold tracking-tight mt-1">{formatIDR(stats.totalRevenue)}</h3>
+            </CardContent>
+          </Card>
+        )}
 
         {isOwner && (
           <Card className="bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden group">
@@ -267,17 +269,19 @@ export default function ReportsClient({ transactions, details, products, isOwner
           </CardContent>
         </Card>
 
-        <Card className="bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden group">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 group-hover:bg-purple-100 transition-colors">
-                <ArrowUpRight className="w-5 h-5" />
+        {isOwner && (
+          <Card className="bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden group">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 group-hover:bg-purple-100 transition-colors">
+                  <ArrowUpRight className="w-5 h-5" />
+                </div>
               </div>
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">Rata-rata Penjualan</p>
-            <h3 className="text-2xl font-semibold tracking-tight mt-1">{formatIDR(stats.avgTicket)}</h3>
-          </CardContent>
-        </Card>
+              <p className="text-sm font-medium text-muted-foreground">Rata-rata Penjualan</p>
+              <h3 className="text-2xl font-semibold tracking-tight mt-1">{formatIDR(stats.avgTicket)}</h3>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -296,7 +300,7 @@ export default function ReportsClient({ transactions, details, products, isOwner
                 <TableRow>
                   <TableHead className="pl-6">Produk</TableHead>
                   <TableHead className="text-right">Qty Terjual</TableHead>
-                  <TableHead className="text-right pr-6">Pendapatan</TableHead>
+                  {isOwner && <TableHead className="text-right pr-6">Pendapatan</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -304,12 +308,12 @@ export default function ReportsClient({ transactions, details, products, isOwner
                   <TableRow key={i}>
                     <TableCell className="pl-6">{p.name}</TableCell>
                     <TableCell className="text-right">{formatNumber(p.qty)}</TableCell>
-                    <TableCell className="text-right pr-6">{formatIDR(p.revenue)}</TableCell>
+                    {isOwner && <TableCell className="text-right pr-6">{formatIDR(p.revenue)}</TableCell>}
                   </TableRow>
                 ))}
                 {topProducts.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8">
+                    <TableCell colSpan={isOwner ? 3 : 2} className="text-center py-8">
                       Tidak ada data penjualan pada periode ini
                     </TableCell>
                   </TableRow>

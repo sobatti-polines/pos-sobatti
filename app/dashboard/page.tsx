@@ -126,55 +126,57 @@ export default async function DashboardPage() {
       {!isOwner && <AttendanceWidget initialData={attendanceData} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
-        <section className="flex flex-col">
-          <h3 className="text-sm font-medium text-muted-foreground mb-4 md:mb-6 uppercase tracking-widest">Pendapatan Hari Ini</h3>
-          <div className="mb-6 md:mb-8">
-            <h2 className="text-4xl sm:text-5xl md:text-7xl font-light tracking-tight tabular-nums text-foreground mb-2 md:mb-4 truncate">
-              {formatIDR(dashboardData.todayRevenue)}
-            </h2>
-            <div className="flex items-center text-sm">
-              {dashboardData.revenueChangePercent >= 0 ? (
-                <>
-                  <TrendingUp className="w-4 h-4 text-emerald-600 mr-2" />
-                  <span className="text-emerald-600 font-medium tabular-nums">
-                    +{dashboardData.revenueChangePercent}%
-                  </span>
-                </>
-              ) : (
-                <>
-                  <TrendingDown className="w-4 h-4 text-red-600 mr-2" />
-                  <span className="text-red-600 font-medium tabular-nums">
-                    {dashboardData.revenueChangePercent}%
-                  </span>
-                </>
-              )}
-              <span className="text-muted-foreground ml-2">vs. Kemarin</span>
+        {isOwner && (
+          <section className="flex flex-col">
+            <h3 className="text-sm font-medium text-muted-foreground mb-4 md:mb-6 uppercase tracking-widest">Pendapatan Hari Ini</h3>
+            <div className="mb-6 md:mb-8">
+              <h2 className="text-4xl sm:text-5xl md:text-7xl font-light tracking-tight tabular-nums text-foreground mb-2 md:mb-4 truncate">
+                {formatIDR(dashboardData.todayRevenue)}
+              </h2>
+              <div className="flex items-center text-sm">
+                {dashboardData.revenueChangePercent >= 0 ? (
+                  <>
+                    <TrendingUp className="w-4 h-4 text-emerald-600 mr-2" />
+                    <span className="text-emerald-600 font-medium tabular-nums">
+                      +{dashboardData.revenueChangePercent}%
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <TrendingDown className="w-4 h-4 text-red-600 mr-2" />
+                    <span className="text-red-600 font-medium tabular-nums">
+                      {dashboardData.revenueChangePercent}%
+                    </span>
+                  </>
+                )}
+                <span className="text-muted-foreground ml-2">vs. Kemarin</span>
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
-            <div>
-              <p className="text-3xl font-light tabular-nums text-foreground">{dashboardData.todayOrders}</p>
-              <p className="text-sm text-muted-foreground mt-1">Pesanan</p>
+            <div className="grid grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+              <div>
+                <p className="text-3xl font-light tabular-nums text-foreground">{dashboardData.todayOrders}</p>
+                <p className="text-sm text-muted-foreground mt-1">Pesanan</p>
+              </div>
+              <div>
+                <p className="text-3xl font-light tabular-nums text-foreground">{formatIDR(dashboardData.avgTicket)}</p>
+                <p className="text-sm text-muted-foreground mt-1">Rata-rata</p>
+              </div>
             </div>
-            <div>
-              <p className="text-3xl font-light tabular-nums text-foreground">{formatIDR(dashboardData.avgTicket)}</p>
-              <p className="text-sm text-muted-foreground mt-1">Rata-rata</p>
-            </div>
-          </div>
 
-          {dashboardData.sparklineData.length > 0 && (
-            <div className="h-12 w-full flex items-end gap-1 mt-auto">
-              {dashboardData.sparklineData.map((h, i) => (
-                <div
-                  key={i}
-                  className="flex-1 bg-primary/10 rounded-t-sm"
-                  style={{ height: `${Math.max(5, (h / Math.max(...dashboardData.sparklineData)) * 100)}%` }}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+            {dashboardData.sparklineData.length > 0 && (
+              <div className="h-12 w-full flex items-end gap-1 mt-auto">
+                {dashboardData.sparklineData.map((h, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 bg-primary/10 rounded-t-sm"
+                    style={{ height: `${Math.max(5, (h / Math.max(...dashboardData.sparklineData)) * 100)}%` }}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         <DashboardLowStock initialData={lowStockItems} />
       </div>

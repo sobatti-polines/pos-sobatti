@@ -39,9 +39,11 @@ export default async function TentukanHargaPage() {
   }
 
   // Fetch pending stock-in items
-  const { data: pendingItems, error } = await supabase
-    .from("barang_masuk")
-    .select(`
+  // Coba dulu dengan kolom harga_ditentukan, fallback ke filter lama jika kolom belum ada
+  let pendingItems = null;
+  let fetchError = null;
+
+  const selectFields = `
       id,
       tgl_masuk,
       no_surat,
@@ -65,14 +67,35 @@ export default async function TentukanHargaPage() {
         harga_pokok_avco,
         satuan(nama)
       )
-    `)
+    `;
+
+  // Try 1: with harga_ditentukan column (new migration)
+  const result1 = await supabase
+    .from("barang_masuk")
+    .select(selectFields)
     .eq("status", "AKTIF")
     .eq("harga_ditentukan", false)
     .order("tgl_masuk", { ascending: false })
     .order("id", { ascending: false });
 
-  if (error) {
-    console.error("Failed to fetch pending stock-in:", error);
+  if (result1.error) {
+    // Try 2: fallback — kolom harga_ditentukan belum ada, pakai filter lama
+    const result2 = await supabase
+      .from("barang_masuk")
+      .select(selectFields)
+      .eq("status", "AKTIF")
+      .or("total_cost.eq.0,harga_beli.eq.0")
+      .order("tgl_masuk", { ascending: false })
+      .order("id", { ascending: false });
+
+    pendingItems = result2.data;
+    fetchError = result2.error;
+  } else {
+    pendingItems = result1.data;
+  }
+
+  if (fetchError) {
+    console.error("Failed to fetch pending stock-in:", fetchError);
     return (
       <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -80,7 +103,7 @@ export default async function TentukanHargaPage() {
             Gagal memuat data
           </p>
           <p className="text-sm mt-1">
-            {error.message}
+            {fetchError.message}
           </p>
         </div>
       </div>
