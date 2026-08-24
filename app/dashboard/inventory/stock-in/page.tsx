@@ -67,12 +67,17 @@ export default async function StockInPage({
     initialReorder = await buildReorderPrefill(supabase, reorderId, productsParsed);
   }
 
+  // Determine user role
+  const { data: { user } } = await supabase.auth.getUser();
+  const isOwner = user?.user_metadata?.role === "OWNER";
+
   return (
     <StockInClient
       products={productsParsed}
       suppliers={suppliersRes.data ?? []}
       satuanOptions={satuanOptions}
       initialReorder={initialReorder}
+      isOwner={isOwner}
     />
   );
 }

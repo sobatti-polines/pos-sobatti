@@ -35,6 +35,7 @@ import {
   Wallet,
   ArrowLeftRight,
   Coins,
+  DollarSign,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -200,6 +201,13 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
                   <span>Riwayat Barang Masuk</span>
                   <NavLinkPending />
                 </Link>
+                {isOwner && (
+                  <Link href="/dashboard/inventory/stock-in/tentukan-harga" className={subLinkClass("/dashboard/inventory/stock-in/tentukan-harga")} prefetch={true}>
+                    <DollarSign className="w-4 h-4" />
+                    <span>Tentukan Harga</span>
+                    <NavLinkPending />
+                  </Link>
+                )}
                 <Link href="/dashboard/inventory/stock-in/retur" className={subLinkClass("/dashboard/inventory/stock-in/retur")} prefetch={true}>
                   <RotateCcw className="w-4 h-4" />
                   <span>Retur Barang</span>
@@ -241,16 +249,20 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
                   <span>Ringkasan</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/laporan/laba-rugi" className={subLinkClass("/dashboard/laporan/laba-rugi")}>
-                  <TrendingUp className="w-4 h-4" />
-                  <span>Laba Rugi</span>
-                  <NavLinkPending />
-                </Link>
-                <Link href="/dashboard/laporan/neraca" className={subLinkClass("/dashboard/laporan/neraca")}>
-                  <Scale className="w-4 h-4" />
-                  <span>Neraca</span>
-                  <NavLinkPending />
-                </Link>
+                {isOwner && (
+                  <>
+                    <Link href="/dashboard/laporan/laba-rugi" className={subLinkClass("/dashboard/laporan/laba-rugi")}>
+                      <TrendingUp className="w-4 h-4" />
+                      <span>Laba Rugi</span>
+                      <NavLinkPending />
+                    </Link>
+                    <Link href="/dashboard/laporan/neraca" className={subLinkClass("/dashboard/laporan/neraca")}>
+                      <Scale className="w-4 h-4" />
+                      <span>Neraca</span>
+                      <NavLinkPending />
+                    </Link>
+                  </>
+                )}
                 <Link href="/dashboard/laporan/stok-opname" className={subLinkClass("/dashboard/laporan/stok-opname")}>
                   <ClipboardList className="w-4 h-4" />
                   <span>Stok Opname</span>
@@ -284,11 +296,13 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
                   <span className="text-sm">Pengeluaran</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/keuangan/arus-kas" className={linkClass("/dashboard/keuangan/arus-kas")}>
-                  <ArrowLeftRight className="w-5 h-5" />
-                  <span className="text-sm">Arus Kas</span>
-                  <NavLinkPending />
-                </Link>
+                {isOwner && (
+                  <Link href="/dashboard/keuangan/arus-kas" className={linkClass("/dashboard/keuangan/arus-kas")}>
+                    <ArrowLeftRight className="w-5 h-5" />
+                    <span className="text-sm">Arus Kas</span>
+                    <NavLinkPending />
+                  </Link>
+                )}
               </div>
             </div>
 
@@ -375,7 +389,9 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
         )}
 
         <div className="flex flex-col gap-2">
-          {role !== "KASIR" && role !== "KARYAWAN" && bottomLinks.map(({ href, label, icon: Icon }) => (
+          {role !== "KASIR" && role !== "KARYAWAN" && bottomLinks
+            .filter((link) => isOwner || link.href !== "/dashboard/settings/keuangan")
+            .map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href} className={linkClass(href)} prefetch={true}>
               <Icon className="w-5 h-5" />
               <span className="text-sm">{label}</span>

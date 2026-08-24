@@ -71,9 +71,10 @@ interface ReportsClientProps {
   transactions: ReportTransaction[];
   details: ReportDetail[];
   products: ReportProduct[];
+  isOwner?: boolean;
 }
 
-export default function ReportsClient({ transactions, details, products }: ReportsClientProps) {
+export default function ReportsClient({ transactions, details, products, isOwner }: ReportsClientProps) {
   const [dateRange, setDateRange] = useState("30"); // "1", "7", "30", "all"
 
   const filteredTransactions = useMemo(() => {
@@ -221,7 +222,7 @@ export default function ReportsClient({ transactions, details, products }: Repor
         <div className="flex flex-col gap-8 pb-12 max-w-7xl mx-auto w-full">
 
       {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${isOwner ? '4' : '3'} gap-6`}>
         <Card className="bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden group">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -237,20 +238,22 @@ export default function ReportsClient({ transactions, details, products }: Repor
           </CardContent>
         </Card>
 
-        <Card className="bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden group">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
-                <TrendingUp className="w-5 h-5" />
+        {isOwner && (
+          <Card className="bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden group">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <Badge variant="outline" className="text-[10px] font-medium border-emerald-100 text-emerald-600 bg-emerald-50/50">
+                  +8.2%
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-[10px] font-medium border-emerald-100 text-emerald-600 bg-emerald-50/50">
-                +8.2%
-              </Badge>
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">Total Laba Kotor</p>
-            <h3 className="text-2xl font-semibold tracking-tight mt-1">{formatIDR(stats.totalProfit)}</h3>
-          </CardContent>
-        </Card>
+              <p className="text-sm font-medium text-muted-foreground">Total Laba Kotor</p>
+              <h3 className="text-2xl font-semibold tracking-tight mt-1">{formatIDR(stats.totalProfit)}</h3>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden group">
           <CardContent className="p-6">
@@ -323,12 +326,14 @@ export default function ReportsClient({ transactions, details, products }: Repor
             <CardDescription>Ringkasan stok saat ini</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm text-muted-foreground">Total Nilai Stok (Harga Modal)</p>
-              <h3 className="text-2xl font-semibold tracking-tight">{formatIDR(stockStats.totalStockValue)}</h3>
-            </div>
+            {isOwner && (
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-muted-foreground">Total Nilai Stok (Harga Modal)</p>
+                <h3 className="text-2xl font-semibold tracking-tight">{formatIDR(stockStats.totalStockValue)}</h3>
+              </div>
+            )}
             
-            <div className="pt-4 border-t border-border">
+            <div className={`pt-4 ${isOwner ? 'border-t border-border' : ''}`}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium">Stok Menipis</span>
                 <Badge variant={stockStats.lowStockItems > 0 ? "destructive" : "secondary"}>

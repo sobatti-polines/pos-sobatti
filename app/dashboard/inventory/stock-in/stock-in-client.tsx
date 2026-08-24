@@ -34,7 +34,7 @@ const itemSchema = z.object({
   id_produk: z.number().min(1, "Produk harus dipilih"),
   supplied_qty: z.number().min(0.001, "Jumlah harus lebih dari 0"),
   supplied_unit: z.string().min(1, "Satuan suplai harus diisi"),
-  total_cost: z.number().min(1, "Total harga harus lebih dari 0"),
+  total_cost: z.number().min(0, "Total harga tidak boleh negatif"),
   keterangan: z.string().optional(),
 });
 
@@ -505,11 +505,13 @@ function FormBody({
   suppliers,
   satuanOptions,
   reorderInfo,
+  isOwner = false,
 }: {
   products: Product[];
   suppliers: Supplier[];
   satuanOptions: { id: number; nama: string }[];
   reorderInfo: { supplierName: string; noSurat: string | null; itemCount: number } | null;
+  isOwner?: boolean;
 }) {
   const {
     register,
@@ -534,10 +536,12 @@ function FormBody({
 
   const today = getTodayWIB();
 
-  const computedTotal = watch("items")?.reduce(
-    (sum: number, item: { total_cost?: number }) => sum + (item.total_cost || 0),
-    0
-  ) ?? 0;
+  const computedTotal = isOwner
+    ? (watch("items")?.reduce(
+        (sum: number, item: { total_cost?: number }) => sum + (item.total_cost || 0),
+        0
+      ) ?? 0)
+    : 0;
 
   /* Flatten nested RHF errors into user-facing strings */
   const validationErrors = useMemo(() => {
@@ -575,12 +579,12 @@ function FormBody({
     setWarning("");
 
     const payload = data.items
-      .filter((item) => item.id_produk > 0 && item.supplied_qty > 0 && item.total_cost > 0)
+      .filter((item) => item.id_produk > 0 && item.supplied_qty > 0)
       .map((item) => ({
         id_produk: item.id_produk,
         supplied_qty: item.supplied_qty,
         supplied_unit: item.supplied_unit,
-        total_cost: item.total_cost,
+        total_cost: isOwner ? item.total_cost : 0,
         tgl_masuk: data.tgl_masuk,
         id_supplier: Number(data.id_supplier),
         keterangan: item.keterangan || "",
@@ -666,6 +670,16 @@ function FormBody({
               Cetak Dokumen
             </Link>
           )}
+        </div>
+      )}
+
+      {/* Admin info banner */}
+      {!isOwner && (
+        <div className="shrink-0 flex items-center gap-2 px-6 py-3 bg-primary/5 text-sm border-b border-border">
+          <Info className="w-4 h-4 shrink-0 text-primary" />
+          <span className="text-foreground/80">
+            Mode Admin: Hanya input jumlah stok. Harga beli akan ditentukan oleh Owner.
+          </span>
         </div>
       )}
 
@@ -767,12 +781,16 @@ function FormBody({
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[110px] px-2">
                 Qty Masuk
               </th>
-              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[140px] px-2">
-                Total Harga
-              </th>
-              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-right w-[120px] px-2">
-                Harga/Pcs
-              </th>
+              {isOwner && (
+                <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-left w-[140px] px-2">
+                  Total Harga
+                </th>
+              )}
+              {isOwner && (
+                <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-right w-[120px] px-2">
+                  Harga/Pcs
+                </th>
+              )}
               <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider h-10 text-right w-[110px] px-2">
                 Base Qty
               </th>
@@ -829,20 +847,24 @@ function FormBody({
                       className="h-9 tabular-nums font-medium"
                     />
                   </td>
-                  <td className="px-2 py-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="any"
-                      {...register(`items.${index}.total_cost`, {
-                        valueAsNumber: true,
-                      })}
-                      className="h-9 tabular-nums font-medium"
-                    />
-                  </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-sm font-light text-foreground/70 align-top pt-5">
-                    {perPieceCost > 0 ? formatIDR(Math.round(perPieceCost)) : "-"}
-                  </td>
+                  {isOwner && (
+                    <td className="px-2 py-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="any"
+                        {...register(`items.${index}.total_cost`, {
+                          valueAsNumber: true,
+                        })}
+                        className="h-9 tabular-nums font-medium"
+                      />
+                    </td>
+                  )}
+                  {isOwner && (
+                    <td className="px-2 py-2 text-right tabular-nums text-sm font-light text-foreground/70 align-top pt-5">
+                      {perPieceCost > 0 ? formatIDR(Math.round(perPieceCost)) : "-"}
+                    </td>
+                  )}
                   <td className="px-2 py-2 text-right tabular-nums text-sm font-medium text-foreground align-top pt-5">
                     {baseQty > 0 ? `${baseQty} ${selectedProduct?.inventory_unit || "pcs"}` : "-"}
                   </td>
@@ -904,6 +926,7 @@ function FormBody({
         </Button>
 
         <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 md:justify-end">
+          {isOwner && (
           <div className="text-right">
             <p className="text-[11px] text-muted-foreground uppercase tracking-wider">
               Total Semua
@@ -912,6 +935,7 @@ function FormBody({
               {formatIDR(computedTotal)}
             </p>
           </div>
+        )}
           <Button
             type="submit"
             disabled={fields.length === 0 || loading}
@@ -941,11 +965,13 @@ export default function StockInClient({
   suppliers,
   satuanOptions,
   initialReorder = null,
+  isOwner = false,
 }: {
   products: Product[];
   suppliers: Supplier[];
   satuanOptions: { id: number; nama: string }[];
   initialReorder?: ReorderPrefill | null;
+  isOwner?: boolean;
 }) {
   const today = getTodayWIB();
 
@@ -997,6 +1023,7 @@ export default function StockInClient({
             suppliers={suppliers}
             satuanOptions={satuanOptions}
             reorderInfo={reorderInfo}
+            isOwner={isOwner}
           />
         </div>
       </div>

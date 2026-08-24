@@ -150,6 +150,9 @@ export default async function InventoryPage() {
     };
   });
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const isOwner = user?.user_metadata?.role === "OWNER";
+
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
       <header className="shrink-0">
@@ -167,6 +170,7 @@ export default async function InventoryPage() {
         units={unitsRes.data ?? []}
         lokasiAreas={lokasiRes.data ?? []}
         merks={merksRes.data ?? []}
+        isOwner={isOwner}
       />
     </div>
   );

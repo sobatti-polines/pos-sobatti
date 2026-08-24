@@ -180,7 +180,7 @@ export default async function DashboardPage() {
         <DashboardLowStock initialData={lowStockItems} />
       </div>
 
-      {(isOwner || isAdmin) && (
+      {isOwner && (
         <DashboardFinanceSummary
           labaBersih={dashboardData.monthLabaBersih}
           bebanOperasional={dashboardData.monthBebanOperasional}

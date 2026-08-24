@@ -38,6 +38,7 @@ import {
   Wallet,
   ArrowLeftRight,
   Coins,
+  DollarSign,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -254,6 +255,13 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
                           <span>Riwayat Masuk</span>
                           <NavLinkPending />
                         </Link>
+                        {isOwner && (
+                          <Link href="/dashboard/inventory/stock-in/tentukan-harga" className={subLinkClass("/dashboard/inventory/stock-in/tentukan-harga")} prefetch={true}>
+                            <DollarSign className="w-4 h-4" />
+                            <span>Tentukan Harga</span>
+                            <NavLinkPending />
+                          </Link>
+                        )}
                         <Link href="/dashboard/inventory/stock-in/retur" className={subLinkClass("/dashboard/inventory/stock-in/retur")} prefetch={true}>
                           <RotateCcw className="w-4 h-4" />
                           <span>Retur Barang</span>

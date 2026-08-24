@@ -217,12 +217,14 @@ export default function InventoryClient({
   units,
   lokasiAreas,
   merks,
+  isOwner,
 }: {
   initialProducts: Product[];
   categories: { id: number; nama: string }[];
   units: { id: number; nama: string }[];
   lokasiAreas: { id: number; nama: string }[];
   merks: { id: number; nama: string }[];
+  isOwner?: boolean;
 }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -523,7 +525,7 @@ export default function InventoryClient({
     // Header SAMA dengan template import produk (ImportCSVModal) agar file export
     // bisa langsung dipakai untuk import ulang (round-trip). Kolom yang dihitung
     // sistem (HPP/Total Aset/Harga Besar) diletakkan di akhir & diabaikan saat import.
-    const headers = [
+    const allHeaders = [
       "Nama Produk",
       "SKU / Kode Produk",
       "Barcode",
@@ -552,35 +554,39 @@ export default function InventoryClient({
       "Total Aset",
       "Harga Besar",
     ];
-    const data = filteredData.map(p => [
-      p.nama_produk,
-      p.sku || "",
-      p.barcode || "",
-      p.kategori?.nama || "",
-      p.satuan?.nama || "",
-      merks.find((m) => m.id === p.id_merk)?.nama || "",
-      p.lokasi_area?.nama || "",
-      p.hitung_stok ? "ya" : "tidak",
-      p.harga_modal ?? 0,
-      p.harga_jual_satuan ?? 0,
-      p.harga_jual_grosir ?? 0,
-      p.harga_jual_promo ?? "",
-      p.diskon ?? 0,
-      p.stock ?? 0,
-      p.stok_gudang ?? 0,
-      p.stok_minimum ?? 5,
-      p.stok_minimum_gudang ?? "",
-      p.default_purchase_unit ?? "",
-      p.conversion_ratio ?? 1,
-      p.jual_satuan ?? "",
-      p.id_produk_master ?? "",
-      p.qty_per_unit ?? "",
-      p.jenis_isi_paket ?? "",
-      p.isi_satuan ?? "",
-      p.harga_pokok_avco ?? 0,
-      p.nilai_persediaan ?? 0,
-      bigPriceOf(p) ?? "",
-    ]);
+    const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![8, 24, 25].includes(i));
+    const data = filteredData.map(p => {
+      const row = [
+        p.nama_produk,
+        p.sku || "",
+        p.barcode || "",
+        p.kategori?.nama || "",
+        p.satuan?.nama || "",
+        merks.find((m) => m.id === p.id_merk)?.nama || "",
+        p.lokasi_area?.nama || "",
+        p.hitung_stok ? "ya" : "tidak",
+        p.harga_modal ?? 0,
+        p.harga_jual_satuan ?? 0,
+        p.harga_jual_grosir ?? 0,
+        p.harga_jual_promo ?? "",
+        p.diskon ?? 0,
+        p.stock ?? 0,
+        p.stok_gudang ?? 0,
+        p.stok_minimum ?? 5,
+        p.stok_minimum_gudang ?? "",
+        p.default_purchase_unit ?? "",
+        p.conversion_ratio ?? 1,
+        p.jual_satuan ?? "",
+        p.id_produk_master ?? "",
+        p.qty_per_unit ?? "",
+        p.jenis_isi_paket ?? "",
+        p.isi_satuan ?? "",
+        p.harga_pokok_avco ?? 0,
+        p.nilai_persediaan ?? 0,
+        bigPriceOf(p) ?? "",
+      ];
+      return isOwner ? row : row.filter((_, i) => ![8, 24, 25].includes(i));
+    });
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     const filename = `plk-produk-${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${String(now.getFullYear()).slice(-2)}(${pad(now.getHours())}-${pad(now.getMinutes())})`;
@@ -588,15 +594,19 @@ export default function InventoryClient({
   };
 
   const handleExportPDF = () => {
-    const headers = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo", "Harga Besar"];
-    const data = filteredData.map(p => [
-      p.sku || "-", p.barcode || "-", p.nama_produk, p.kategori?.nama || "-",
-      p.lokasi_area?.nama || "-",
-      p.hitung_stok ? String(p.stock || 0) : "Tidak dilacak", p.hitung_stok ? String(p.stok_gudang) : "-",
-      formatIDR(p.harga_modal), formatIDR(p.harga_pokok_avco), formatIDR(p.nilai_persediaan),
-      formatIDR(p.harga_jual_satuan), formatIDR(p.harga_jual_grosir), p.harga_jual_promo ? formatIDR(p.harga_jual_promo) : "-",
-      bigPriceOf(p) != null ? formatIDR(bigPriceOf(p)!) : "-"
-    ]);
+    const allHeaders = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo", "Harga Besar"];
+    const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![7, 8, 9].includes(i));
+    const data = filteredData.map(p => {
+      const row = [
+        p.sku || "-", p.barcode || "-", p.nama_produk, p.kategori?.nama || "-",
+        p.lokasi_area?.nama || "-",
+        p.hitung_stok ? String(p.stock || 0) : "Tidak dilacak", p.hitung_stok ? String(p.stok_gudang) : "-",
+        formatIDR(p.harga_modal), formatIDR(p.harga_pokok_avco), formatIDR(p.nilai_persediaan),
+        formatIDR(p.harga_jual_satuan), formatIDR(p.harga_jual_grosir), p.harga_jual_promo ? formatIDR(p.harga_jual_promo) : "-",
+        bigPriceOf(p) != null ? formatIDR(bigPriceOf(p)!) : "-"
+      ];
+      return isOwner ? row : row.filter((_, i) => ![7, 8, 9].includes(i));
+    });
     
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -696,7 +706,7 @@ export default function InventoryClient({
         );
       },
     },
-    { key: "harga_modal", header: "Harga Modal", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => <span className="tabular-nums">{formatIDR(p.harga_modal)}</span> },
+    ...(isOwner ? [{ key: "harga_modal" as const, header: "Harga Modal", sortable: true, headerClassName: "text-left w-[140px]", render: (p: Product) => <span className="tabular-nums">{formatIDR(p.harga_modal)}</span> }] : []),
     { key: "harga_jual_satuan", header: "Harga Retail", sortable: true, headerClassName: "text-left w-[140px]", render: (p) => (
       <div className="flex flex-col">
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -762,7 +772,7 @@ export default function InventoryClient({
     ),
   };
 
-  const columns = showAvcoCols
+  const columns = showAvcoCols && isOwner
     ? [...baseColumns, ...avcoColumns, actionsColumn]
     : [...baseColumns, actionsColumn];
 

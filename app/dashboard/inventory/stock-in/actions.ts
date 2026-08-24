@@ -63,7 +63,7 @@ const stockInRowSchema = z.object({
   id_produk: z.number().int().positive("ID produk tidak valid"),
   supplied_qty: z.number().positive("Jumlah suplai harus lebih dari 0"),
   supplied_unit: z.string().min(1, "Satuan suplai harus diisi"),
-  total_cost: z.number().positive("Total harga harus lebih dari 0"),
+  total_cost: z.number().min(0, "Total harga tidak boleh negatif"),
   tgl_masuk: z.string().min(1, "Tanggal harus diisi"),
   id_supplier: z.number().int().positive("Supplier harus dipilih"),
   keterangan: z.string().optional(),

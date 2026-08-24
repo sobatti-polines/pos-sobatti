@@ -53,6 +53,7 @@ export default async function ReportsPage() {
         transactions={transactions} 
         details={details}
         products={products}
+        isOwner={user.user_metadata?.role === "OWNER"}
       />
     </div>
   );
