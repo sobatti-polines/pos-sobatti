@@ -3,8 +3,8 @@
 import { useState, useMemo, useDeferredValue, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ClipboardList, ChevronDown, ChevronRight, Loader2, Search, X } from "lucide-react";
-import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { ClipboardList, ChevronDown, ChevronRight, Loader2, Search, X, FileText } from "lucide-react";
+import { exportToCSV, exportToPDF, generateOpnameTemplate } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,11 +87,13 @@ function SesiAccordion({
   sesi,
   onExportCSV,
   onExportPDF,
+  onPrintTemplate,
   onCancel,
 }: {
   sesi: SesiRecord;
   onExportCSV: () => void;
   onExportPDF: () => void;
+  onPrintTemplate: () => void;
   onCancel?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -258,7 +260,17 @@ function SesiAccordion({
                 </strong>
               </span>
             </div>
-            <ExportDropdown onExportCSV={onExportCSV} onExportPDF={onExportPDF} />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onPrintTemplate}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-full text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+              >
+                <FileText className="w-3 h-3" />
+                Cetak Template
+              </button>
+              <ExportDropdown onExportCSV={onExportCSV} onExportPDF={onExportPDF} />
+            </div>
           </div>
         </div>
       )}
@@ -415,6 +427,26 @@ export default function OpnameHistoryClient({
     );
   };
 
+  const handlePrintTemplate = async (sesi: SesiRecord) => {
+    const items = sesi.stok_opname ?? [];
+    if (items.length === 0) return;
+
+    const products = items.map((item) => ({
+      id: item.id_produk,
+      nama_produk: item.produk?.nama_produk || "Produk dihapus",
+      stok: item.stok_sistem,
+      stok_gudang: 0,
+      barcode: null as string | null,
+      lokasi: null as string | null,
+    }));
+
+    await generateOpnameTemplate(
+      [{ area: "Semua", products }],
+      formatDate(sesi.tgl_sesi),
+      sesi.no_sesi
+    );
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 gap-4 md:gap-8">
       {/* Search & Filter bar */}
@@ -500,6 +532,7 @@ export default function OpnameHistoryClient({
               sesi={sesi}
               onExportCSV={() => handleExportSesiCSV(sesi)}
               onExportPDF={() => handleExportSesiPDF(sesi)}
+              onPrintTemplate={() => handlePrintTemplate(sesi)}
               onCancel={handleRefresh}
             />
           ))

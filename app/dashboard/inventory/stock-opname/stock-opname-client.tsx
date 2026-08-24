@@ -32,7 +32,7 @@ import {
 } from "./actions";
 import { z } from "zod";
 import ImportCSVModal from "@/components/import-csv-modal";
-import { exportToCSV } from "@/lib/export-utils";
+import { exportToCSV, generateOpnameTemplate } from "@/lib/export-utils";
 
 /* ------------------------------------------------------------------ */
 /*  Zod schemas                                                        */
@@ -512,6 +512,41 @@ function Step2({
     exportToCSV(`Stok_Opname_${sesi.no_sesi}`, headers, data);
   };
 
+  const handlePrintTemplate = async () => {
+    // Gunakan produk yang sudah ada di sesi ini (items yang sudah dipilih)
+    // atau fallback ke semua produk
+    const selectedIds = new Set(items.filter((i) => i.id_produk > 0).map((i) => i.id_produk));
+    const productList = selectedIds.size > 0
+      ? products.filter((p) => selectedIds.has(p.id))
+      : products;
+
+    // Group by lokasi_area
+    const grouped = new Map<string, typeof productList>();
+    for (const p of productList) {
+      const area = p.lokasi_area?.nama || "Tanpa Lokasi";
+      if (!grouped.has(area)) grouped.set(area, []);
+      grouped.get(area)!.push(p);
+    }
+
+    // Sort areas alphabetically
+    const sortedAreas = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b));
+
+    // Build array per area → 1 PDF
+    const areaProducts = sortedAreas.map((areaName) => ({
+      area: areaName === "Tanpa Lokasi" ? "Umum" : areaName,
+      products: grouped.get(areaName)!.map((p) => ({
+        id: p.id,
+        nama_produk: p.nama_produk,
+        stok: p.stok ?? 0,
+        stok_gudang: p.stok_gudang ?? 0,
+        barcode: p.barcode,
+        lokasi: areaName === "Tanpa Lokasi" ? null : areaName,
+      })),
+    }));
+
+    await generateOpnameTemplate(areaProducts, formatDate(sesi.tgl_sesi), sesi.no_sesi);
+  };
+
   const handleImportCSV = async (rows: Record<string, string>[]) => {
     let added = 0;
     for (const r of rows) {
@@ -601,6 +636,16 @@ function Step2({
               <RefreshCw className="w-3.5 h-3.5" />
             )}
             Muat Ulang Stok
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handlePrintTemplate}
+            className="rounded-full gap-1.5"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Cetak Template
           </Button>
           <Button
             type="button"
