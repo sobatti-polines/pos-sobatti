@@ -215,7 +215,7 @@ function drawKop(
   areaIndex: number,
   totalAreas: number
 ): number {
-  let y = startY;
+  const y = startY;
 
   // Logo besar: lebar 35mm, tinggi proporsional
   if (logoDataURL) {
@@ -358,8 +358,6 @@ export async function generateOpnameTemplate(
   const ph = doc.internal.pageSize.getHeight();   // 297
   const mx = 12;   // margin kiri/kanan
   const mb = 12;   // margin bawah
-  const tableWidth = pw - 2 * mx;                // 186mm
-
   const storeName = "PLK POS";
 
   for (let areaIdx = 0; areaIdx < areaProducts.length; areaIdx++) {
