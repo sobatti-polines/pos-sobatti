@@ -80,7 +80,6 @@ export async function getDailyCashSummary(supabase: SupabaseClient, date: string
     const amount = Number(s.bayar) - Number(s.kembali);
     grandTotal += amount;
     
-    // @ts-ignore
     const method = s.metode_bayar?.nama || "Unknown";
     if (method === "Tunai") {
       salesInflow += amount;

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import TentukanHargaClient from "./tentukan-harga-client";
+import type { PendingStockInItem } from "./types";
 
 export default async function TentukanHargaPage() {
   const supabase = await createClient();
@@ -87,7 +88,8 @@ export default async function TentukanHargaPage() {
   }
 
   // Format data
-  const items = (pendingItems ?? []).map((item: any) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const items: PendingStockInItem[] = (pendingItems ?? []).map((item: any) => ({
     id: item.id,
     tgl_masuk: item.tgl_masuk,
     no_surat: item.no_surat,

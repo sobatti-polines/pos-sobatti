@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getPendingStockIn, updateHargaBarangMasuk, markTidakAdaHarga } from "./actions";
+import { updateHargaBarangMasuk, markTidakAdaHarga } from "./actions";
 
 interface PendingItem {
   id: number;

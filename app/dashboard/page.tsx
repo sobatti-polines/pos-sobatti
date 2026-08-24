@@ -39,7 +39,6 @@ export default async function DashboardPage() {
 
   const role = user?.user_metadata?.role;
   const isOwner = role === "OWNER";
-  const isAdmin = role === "ADMIN";
   const isKaryawan = role === "KARYAWAN";
 
   if (isKaryawan) {

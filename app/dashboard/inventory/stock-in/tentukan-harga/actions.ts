@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { logActivity } from "@/lib/activity-log";
+import type { PendingStockInItem } from "./types";
 
 async function getAuthUser() {
   const supabase = await createClient();
@@ -135,7 +136,8 @@ export async function getPendingStockIn() {
   }
 
   // Format data
-  const items = (pendingItems ?? []).map((item: any) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const items: PendingStockInItem[] = (pendingItems ?? []).map((item: any) => ({
     id: item.id,
     tgl_masuk: item.tgl_masuk,
     no_surat: item.no_surat,
