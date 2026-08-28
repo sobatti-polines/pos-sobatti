@@ -4,6 +4,7 @@ import { format, startOfMonth } from "date-fns";
 import { getStoreSettings } from "@/lib/store-settings";
 import { getLaporanKas } from "./actions";
 import LaporanKasClient from "./laporan-kas-client";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function LaporanKasPage() {
 
   // Laporan kas (kedua kas) untuk admin & owner
   const role = user.user_metadata?.role;
-  if (role !== "OWNER" && role !== "ADMIN") redirect("/dashboard");
+  if (!isAdminOrOwnerLike(role)) redirect("/dashboard");
 
   const start = format(startOfMonth(new Date()), "yyyy-MM-dd");
   const end = format(new Date(), "yyyy-MM-dd");

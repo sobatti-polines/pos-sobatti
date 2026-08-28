@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { generateLabaRugi } from "@/lib/laporan-keuangan";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 export async function fetchLabaRugi(startDate: string, endDate: string) {
   const supabase = await createClient();
@@ -10,7 +11,7 @@ export async function fetchLabaRugi(startDate: string, endDate: string) {
   if (!user) return { error: "Unauthorized" };
 
   const role = user.user_metadata?.role;
-  if (role !== "OWNER" && role !== "ADMIN") {
+  if (!isAdminOrOwnerLike(role)) {
     return { error: "Forbidden" };
   }
 

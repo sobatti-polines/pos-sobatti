@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Camera, CheckCircle2, Clock, LogIn, LogOut } from "lucide-react";
 import Link from "next/link";
+import { isAttendanceExemptRole } from "@/lib/roles";
 
 interface AttendanceData {
   attendance: {
@@ -37,7 +38,7 @@ export function AttendanceWidget({ initialData }: { initialData?: AttendanceData
 
   if (loading && !data) return null;
 
-  if (!data || data.user.level === "OWNER") return null;
+  if (!data || isAttendanceExemptRole(data.user.level)) return null;
 
   const { attendance } = data;
 

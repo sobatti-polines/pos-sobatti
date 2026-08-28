@@ -75,6 +75,11 @@ const ENTITY_LABELS: Record<string, string> = {
   kategori_beban: "Kategori Beban",
   event_promo: "Event Promo",
   event_promo_produk: "Produk Event Promo",
+  po_custom: "PO Custom",
+  po_custom_pembayaran: "Pembayaran PO Custom",
+  jadwal_mingguan: "Jadwal Mingguan",
+  jadwal_karyawan: "Jadwal Karyawan",
+  shift_kerja: "Shift Kerja",
 };
 
 const COLUMN_LABELS: Record<string, string> = {
@@ -169,7 +174,22 @@ const COLUMN_LABELS: Record<string, string> = {
   poin_ditukar: "Poin Ditukar",
   nama_pengeluaran: "Nama Pengeluaran",
   jumlah: "Jumlah",
+  no_po: "No. PO",
+  nama_pesanan: "Nama Pesanan",
+  spesifikasi: "Spesifikasi",
+  atribut_custom: "Atribut Custom",
+  qty: "Qty",
+  harga_total: "Harga Total",
+  target_selesai: "Target Selesai",
+  catatan_internal: "Catatan Internal",
+  jumlah_bayar: "Jumlah Bayar",
+  jenis_pembayaran: "Jenis Pembayaran",
   metode_bayar: "Metode Bayar",
+  minggu_mulai: "Minggu Mulai",
+  kebutuhan_pagi: "Kebutuhan Pagi",
+  kebutuhan_sore: "Kebutuhan Sore",
+  tipe_jadwal: "Tipe Jadwal",
+  id_shift: "Shift",
   id_kategori_beban: "Kategori Beban",
   status_pengeluaran: "Status Pengeluaran",
   updated_at: "",
@@ -188,6 +208,9 @@ const IDENTIFIER_FIELDS: Record<string, string[]> = {
   metode_bayar: ["nama"],
   event_promo: ["nama"],
   sesi_stok_opname: ["no_sesi"],
+  po_custom: ["no_po", "nama_pesanan"],
+  jadwal_mingguan: ["minggu_mulai"],
+  shift_kerja: ["kode", "nama"],
 };
 
 function extractIdentifier(

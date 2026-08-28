@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 export async function voidTransaction(id: number) {
   const supabase = await createClient();
@@ -15,7 +16,7 @@ export async function voidTransaction(id: number) {
     .select("level")
     .eq("username", user.email?.split("@")[0])
     .single();
-  if (!pengguna || (pengguna.level !== "ADMIN" && pengguna.level !== "OWNER"))
+  if (!pengguna || !isAdminOrOwnerLike(pengguna.level))
     return { error: "Forbidden" };
 
   // 1. Fetch transaction details BEFORE deleting, so stock & AVCO can be restored
@@ -113,7 +114,7 @@ export async function updatePaymentMethod(id: number, id_metode_bayar: number) {
     .eq("username", user.email?.split("@")[0])
     .single();
   
-  if (!pengguna || (pengguna.level !== "ADMIN" && pengguna.level !== "OWNER"))
+  if (!pengguna || !isAdminOrOwnerLike(pengguna.level))
     return { error: "Forbidden" };
 
   const { error } = await supabase

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 export async function saveFinanceSettings(params: {
   modal_awal: number;
@@ -20,7 +21,7 @@ export async function saveFinanceSettings(params: {
     .select("level")
     .eq("username", user.email?.split("@")[0])
     .single();
-  if (!pengguna || (pengguna.level !== "ADMIN" && pengguna.level !== "OWNER"))
+  if (!pengguna || !isAdminOrOwnerLike(pengguna.level))
     return { error: "Forbidden" };
 
   const { data: existing } = await supabase.from("pengaturan_keuangan").select("id").maybeSingle();

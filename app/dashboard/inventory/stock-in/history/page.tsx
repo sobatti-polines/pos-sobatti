@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import StockInHistoryClient from "./history-client";
+import { isOwnerLike } from "@/lib/roles";
 
 export default async function StockInHistoryPage() {
   const supabase = await createClient();
@@ -44,7 +45,7 @@ export default async function StockInHistoryPage() {
   const suppliers = (suppliersRes.data ?? []) as any[];
 
   const { data: { user } } = await supabase.auth.getUser();
-  const isOwner = user?.user_metadata?.role === "OWNER";
+  const isOwner = isOwnerLike(user?.user_metadata?.role);
 
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">

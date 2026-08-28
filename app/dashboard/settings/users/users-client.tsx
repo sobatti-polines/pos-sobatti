@@ -13,6 +13,7 @@ import { createUser, updateUser, deleteUser, importUsers } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
 import { ExportDropdown } from "@/components/export-dropdown";
+import { DEV_ROLE, USER_MANAGED_ROLES } from "@/lib/roles";
 
 type User = {
   id: number;
@@ -119,7 +120,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
     });
   };
 
-  const roleOptions = ["KARYAWAN", "KASIR", "ADMIN", "OWNER"];
+  const roleOptions = [...USER_MANAGED_ROLES];
 
   const handleExportCSV = () => {
     // Header SAMA dengan template import pengguna agar bisa round-trip.
@@ -166,6 +167,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
       render: (u) => (
         <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
           u.level === "OWNER" ? "bg-purple-100 text-purple-700" :
+          u.level === DEV_ROLE ? "bg-zinc-900 text-white" :
           u.level === "ADMIN" ? "bg-blue-100 text-blue-700" :
           u.level === "KARYAWAN" ? "bg-slate-100 text-slate-700" :
           "bg-emerald-100 text-emerald-700"
@@ -186,6 +188,8 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
       key: "actions", header: "", className: "pr-6", headerClassName: "w-[100px] pr-6",
       render: (user) => (
         <div className="flex justify-end gap-1">
+          {user.level === DEV_ROLE ? null : (
+            <>
           <Button variant="ghost" size="icon" aria-label="Edit pengguna" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground"
             onClick={() => {
               setEditingId(user.id);
@@ -205,6 +209,8 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
           <Button variant="ghost" size="icon" aria-label="Hapus pengguna" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(user)}>
             <Trash2 className="h-4 w-4" />
           </Button>
+            </>
+          )}
         </div>
       ),
     },

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 async function checkAuth() {
   const supabase = await createClient();
@@ -16,10 +17,7 @@ async function checkAuth() {
     .select("level")
     .eq("username", user.email?.split("@")[0])
     .single();
-  if (
-    !pengguna ||
-    (pengguna.level !== "ADMIN" && pengguna.level !== "OWNER")
-  ) {
+  if (!pengguna || !isAdminOrOwnerLike(pengguna.level)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return null;

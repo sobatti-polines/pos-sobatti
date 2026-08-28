@@ -22,6 +22,7 @@ import {
   X,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Camera,
+  CalendarDays,
   UserCheck,
   QrCode,
   LogOut,
@@ -45,6 +46,7 @@ import { useRouter } from "next/navigation";
 import { NavLinkPending } from "@/components/nav-link-pending";
 import { UserProfileCard } from "@/components/user-profile-card";
 import { Button } from "@/components/ui/button";
+import { isManagementRole, isOwnerLike, isStaffRole, KASIR_ROLE, KARYAWAN_ROLE } from "@/lib/roles";
 
 const bottomLinks = [
   { href: "/dashboard/settings", label: "Pengaturan", icon: Settings },
@@ -106,9 +108,9 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
       : "flex items-center gap-3 px-3 py-2.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-sm";
   };
 
-  const isOwner = role === "OWNER";
-  const isStaff = role === "ADMIN" || role === "KASIR" || role === "KARYAWAN";
-  const isManagement = role === "OWNER" || role === "ADMIN";
+  const isOwner = isOwnerLike(role);
+  const isStaff = isStaffRole(role);
+  const isManagement = isManagementRole(role);
 
   return (
     <>
@@ -125,7 +127,7 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
           <span className="text-xl font-light tracking-tight text-foreground truncate">PLK POS</span>
         </div>
         <div className="flex items-center gap-2 min-w-0">
-          {role !== "KASIR" && (
+          {role !== KASIR_ROLE && (
             <UserProfileCard
               userName={userName}
               role={role}
@@ -170,7 +172,7 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
             </div>
 
             <div className="flex-1 overflow-y-auto py-6 px-4">
-              {role !== "KASIR" && (
+              {role !== KASIR_ROLE && (
                 <UserProfileCard
                   userName={userName}
                   role={role}
@@ -179,7 +181,7 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
               )}
 
               <nav className="flex flex-col gap-1">
-                {role !== "KASIR" && (
+                {role !== KASIR_ROLE && (
                   <Link href="/dashboard" className={linkClass("/dashboard")} prefetch={true}>
                     <LayoutGrid className="w-5 h-5" />
                     <span>Ringkasan</span>
@@ -187,7 +189,7 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
                   </Link>
                 )}
 
-                {role === "KASIR" && (
+                {role === KASIR_ROLE && (
                   <>
                     <Link href="/pos" className={linkClass("/pos")} prefetch={true}>
                       <CircleDollarSign className="w-5 h-5" />
@@ -224,6 +226,12 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
                     <Link href="/dashboard/suppliers" className={linkClass("/dashboard/suppliers")} prefetch={true}>
                       <Truck className="w-5 h-5" />
                       <span>Supplier</span>
+                      <NavLinkPending />
+                    </Link>
+
+                    <Link href="/dashboard/po-custom" className={linkClass("/dashboard/po-custom")} prefetch={true}>
+                      <ClipboardList className="w-5 h-5" />
+                      <span>PO Custom</span>
                       <NavLinkPending />
                     </Link>
 
@@ -408,6 +416,11 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
                         <span>Riwayat Absen</span>
                         <NavLinkPending />
                       </Link>
+                      <Link href="/dashboard/jadwal-saya" className={linkClass("/dashboard/jadwal-saya")} prefetch={true}>
+                        <CalendarDays className="w-5 h-5" />
+                        <span>Jadwal Saya</span>
+                        <NavLinkPending />
+                      </Link>
                     </div>
                   </div>
                 )}
@@ -429,13 +442,18 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
                         <span>Laporan Pegawai</span>
                         <NavLinkPending />
                       </Link>
+                      <Link href="/dashboard/jadwal-karyawan" className={linkClass("/dashboard/jadwal-karyawan")} prefetch={true}>
+                        <CalendarDays className="w-5 h-5" />
+                        <span>Jadwal Karyawan</span>
+                        <NavLinkPending />
+                      </Link>
                     </div>
                   </div>
                 )}
               </nav>
 
               <div className="flex flex-col gap-2 mt-8 pt-6 border-t border-border">
-                {role !== "KASIR" && role !== "KARYAWAN" && bottomLinks.map(({ href, label, icon: Icon }) => (
+                {role !== KASIR_ROLE && role !== KARYAWAN_ROLE && bottomLinks.map(({ href, label, icon: Icon }) => (
                   <Link key={href} href={href} className={linkClass(href)} prefetch={true}>
                     <Icon className="w-5 h-5" />
                     <span>{label}</span>

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getStoreSettings } from "@/lib/store-settings";
 import LaporanKasirClient from "./laporan-kasir-client";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function LaporanKasirPage() {
 
   const role = user.user_metadata?.role;
   // Laporan kas (kasir harian) untuk admin & owner.
-  if (role !== "OWNER" && role !== "ADMIN") redirect("/dashboard");
+  if (!isAdminOrOwnerLike(role)) redirect("/dashboard");
 
   const reports = await fetchAllRows(supabase, (db, from, to) =>
     db

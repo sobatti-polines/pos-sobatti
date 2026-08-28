@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 /* ------------------------------------------------------------------ */
 /*  Auth helpers                                                        */
@@ -27,7 +28,7 @@ async function getAuthUser() {
 
 function requireAdmin(pengguna: { level: string } | null): string | null {
   if (!pengguna) return "Unauthorized";
-  if (pengguna.level !== "ADMIN" && pengguna.level !== "OWNER") {
+  if (!isAdminOrOwnerLike(pengguna.level)) {
     return "Akses ditolak — hanya ADMIN/OWNER";
   }
   return null;

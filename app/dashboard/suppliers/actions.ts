@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 async function requireAuth() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ async function requireAuth() {
     .select("level")
     .eq("username", user.email?.split("@")[0])
     .single();
-  return pengguna?.level === "ADMIN" || pengguna?.level === "OWNER";
+  return isAdminOrOwnerLike(pengguna?.level);
 }
 
 export async function addSupplier(data: {

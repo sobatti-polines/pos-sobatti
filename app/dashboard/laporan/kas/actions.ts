@@ -8,6 +8,7 @@ import {
   getKasBankNonTunai,
   getKasKasir,
 } from "@/lib/laporan-keuangan";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 export type KasKasirRow = {
   tanggal: string;
@@ -55,7 +56,7 @@ async function requireAdminOwner() {
   if (!user) return { supabase: null, error: "Unauthorized" };
 
   const role = user.user_metadata?.role;
-  if (role !== "OWNER" && role !== "ADMIN") {
+  if (!isAdminOrOwnerLike(role)) {
     return { supabase: null, error: "Forbidden — laporan kas hanya untuk admin/owner" };
   }
   return { supabase, error: null };

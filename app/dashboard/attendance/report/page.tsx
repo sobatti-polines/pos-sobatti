@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { ReportClient } from "./report-client";
+import { isOwnerLike } from "@/lib/roles";
 
 export default async function AdminAttendanceReportPage() {
   const supabase = await createClient();
@@ -9,7 +10,7 @@ export default async function AdminAttendanceReportPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || user.user_metadata?.role !== "OWNER") {
+  if (!user || !isOwnerLike(user.user_metadata?.role)) {
     return <div>Access Denied. Owner only.</div>;
   }
 

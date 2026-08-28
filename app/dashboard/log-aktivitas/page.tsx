@@ -1,12 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import LogClient from "./client";
+import { DEV_ROLE, isDev } from "@/lib/roles";
 
 export default async function LogAktivitasPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const role = user?.user_metadata?.role;
 
   const logs = await fetchAllRows(supabase, (db, from, to) =>
-    db
+    {
+      let query = db
       .from("log_aktivitas")
       .select(`
         id,
@@ -21,7 +27,14 @@ export default async function LogAktivitasPage() {
         pengguna!inner(nama, username, level)
       `)
       .order("created_at", { ascending: false })
-      .range(from, to)
+      .range(from, to);
+
+      if (!isDev(role)) {
+        query = query.neq("pengguna.level", DEV_ROLE);
+      }
+
+      return query;
+    }
   );
 
   return (
@@ -31,7 +44,7 @@ export default async function LogAktivitasPage() {
           Log Aktivitas
         </h1>
         <p className="text-muted-foreground mt-2">
-          Riwayat semua aksi yang dilakukan oleh admin dan owner
+          Riwayat aksi admin, owner, dan sistem
         </p>
       </header>
 

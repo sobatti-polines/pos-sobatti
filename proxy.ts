@@ -1,8 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const KASIR_ALLOWED = ["/pos", "/dashboard/transactions", "/dashboard/tutup-kasir", "/dashboard/buka-kasir", "/dashboard/attendance/scan", "/dashboard/attendance/history"];
-const KARYAWAN_ALLOWED = ["/dashboard", "/dashboard/attendance/scan", "/dashboard/attendance/history"];
+const KASIR_ALLOWED = ["/pos", "/dashboard/transactions", "/dashboard/tutup-kasir", "/dashboard/buka-kasir", "/dashboard/attendance/scan", "/dashboard/attendance/history", "/dashboard/jadwal-saya"];
+const KARYAWAN_ALLOWED = ["/dashboard", "/dashboard/attendance/scan", "/dashboard/attendance/history", "/dashboard/jadwal-saya"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({

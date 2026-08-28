@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { generateNeraca } from "@/lib/laporan-keuangan";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 export async function fetchNeraca(date: string) {
   const supabase = await createClient();
@@ -10,7 +11,7 @@ export async function fetchNeraca(date: string) {
   if (!user) return { error: "Unauthorized" };
 
   const role = user.user_metadata?.role;
-  if (role !== "OWNER" && role !== "ADMIN") {
+  if (!isAdminOrOwnerLike(role)) {
     return { error: "Forbidden" };
   }
 

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { logActivity } from "@/lib/activity-log";
 import type { PendingStockInItem } from "./types";
+import { isOwnerLike } from "@/lib/roles";
 
 async function getAuthUser() {
   const supabase = await createClient();
@@ -23,7 +24,7 @@ async function getAuthUser() {
 
 function requireOwner(pengguna: { level: string } | null): string | null {
   if (!pengguna) return "Unauthorized";
-  if (pengguna.level !== "OWNER") {
+  if (!isOwnerLike(pengguna.level)) {
     return "Akses ditolak — hanya OWNER";
   }
   return null;

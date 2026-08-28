@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import TentukanHargaClient from "./tentukan-harga-client";
 import type { PendingStockInItem } from "./types";
+import { isOwnerLike } from "@/lib/roles";
 
 export default async function TentukanHargaPage() {
   const supabase = await createClient();
@@ -23,7 +24,7 @@ export default async function TentukanHargaPage() {
   }
 
   const role = user.user_metadata?.role;
-  if (role !== "OWNER") {
+  if (!isOwnerLike(role)) {
     return (
       <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">

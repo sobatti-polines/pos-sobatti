@@ -32,6 +32,7 @@ import { ExportDropdown } from "@/components/export-dropdown";
 import { editSesiKasir } from "@/app/dashboard/tutup-kasir/actions";
 import { terbilangRupiah } from "@/lib/terbilang";
 import type { StoreSettings } from "@/lib/store-settings";
+import { isOwnerLike } from "@/lib/roles";
 
 function formatIDR(n: number | null) {
   if (n == null) return "—";
@@ -76,7 +77,7 @@ export default function LaporanKasirClient({
   store?: StoreSettings | null;
   role?: string;
 }) {
-  const isOwner = role === "OWNER";
+  const isOwner = isOwnerLike(role);
   const router = useRouter();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

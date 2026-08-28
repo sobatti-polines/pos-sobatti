@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import ReportsClient from "./reports-client";
+import { isOwnerLike } from "@/lib/roles";
 import { redirect } from "next/navigation";
 
 export default async function ReportsPage() {
@@ -53,7 +54,7 @@ export default async function ReportsPage() {
         transactions={transactions} 
         details={details}
         products={products}
-        isOwner={user.user_metadata?.role === "OWNER"}
+        isOwner={isOwnerLike(user.user_metadata?.role)}
       />
     </div>
   );

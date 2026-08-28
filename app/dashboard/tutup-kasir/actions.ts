@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { confirmTutupKasir, getDailyCashSummary, openKasirSession } from "@/lib/laporan-kasir";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
+import { isOwnerLike } from "@/lib/roles";
 
 /** Hanya kasir yang boleh membuka/menutup kas kasir. */
 async function requireKasir(
@@ -46,7 +47,7 @@ async function requireOwner(
     .single();
 
   if (!pengguna) return { error: "User profile not found.", pengguna: null };
-  if (pengguna.level !== "OWNER") {
+  if (!isOwnerLike(pengguna.level)) {
     return {
       error: "Akses ditolak — hanya owner yang dapat mengedit saldo kasir",
       pengguna: null,

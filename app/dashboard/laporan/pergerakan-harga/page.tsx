@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import PergerakanHargaClient from "./pergerakan-harga-client";
 import { type ProductOption } from "./actions";
+import { isOwnerLike } from "@/lib/roles";
 
 export default async function PergerakanHargaPage() {
   const supabase = await createClient();
@@ -19,7 +20,7 @@ export default async function PergerakanHargaPage() {
     .eq("username", username)
     .maybeSingle();
 
-  if (pengguna?.level !== "OWNER") redirect("/dashboard");
+  if (!isOwnerLike(pengguna?.level)) redirect("/dashboard");
 
   const products = await fetchAllRows<ProductOption>(supabase, (db, from, to) =>
     db

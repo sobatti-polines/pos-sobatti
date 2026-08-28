@@ -4,6 +4,7 @@ import { StoreForm, type StoreSettings } from "./store-form";
 import { redirect } from "next/navigation";
 import { User, Store, Shield, ArrowRight, Database } from "lucide-react";
 import Link from "next/link";
+import { isAdminOrOwnerLike, isOwnerLike } from "@/lib/roles";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -54,7 +55,7 @@ export default async function SettingsPage() {
         <div className="w-full h-px bg-border my-10 md:my-16" />
 
         {/* User Management Section (Owner only) */}
-        {role === "OWNER" && (
+        {isOwnerLike(role) && (
           <>
             <section className="flex flex-col lg:flex-row gap-8 lg:gap-16">
               <div className="w-full lg:w-1/3 shrink-0">
@@ -89,7 +90,7 @@ export default async function SettingsPage() {
         )}
 
         {/* Reference Data Section (Owner / Admin) */}
-        {(role === "OWNER" || role === "ADMIN") && (
+        {isAdminOrOwnerLike(role) && (
           <>
             <section className="flex flex-col lg:flex-row gap-8 lg:gap-16">
               <div className="w-full lg:w-1/3 shrink-0">

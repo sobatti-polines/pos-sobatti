@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
+import { isOwnerLike } from "@/lib/roles";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function POST(_request: Request) {
@@ -22,7 +23,7 @@ export async function POST(_request: Request) {
       .eq("username", user.email?.split("@")[0])
       .single();
 
-    if (!pengguna || pengguna.level !== "OWNER") {
+    if (!pengguna || !isOwnerLike(pengguna.level)) {
       return NextResponse.json({ error: "Forbidden: Owner only" }, { status: 403 });
     }
 

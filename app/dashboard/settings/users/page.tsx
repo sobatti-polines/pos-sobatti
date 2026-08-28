@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { UsersClient } from "./users-client";
+import { DEV_ROLE, isDev, isOwnerLike } from "@/lib/roles";
 
 export const metadata = {
   title: "Manajemen Pengguna - POS",
@@ -15,14 +16,20 @@ export default async function UsersPage() {
   if (!user) redirect("/");
 
   const role = user.user_metadata?.role;
-  if (role !== "OWNER") {
+  if (!isOwnerLike(role)) {
     redirect("/dashboard/settings");
   }
 
-  const { data: users, error } = await supabase
+  let usersQuery = supabase
     .from("pengguna")
     .select("*")
     .order("created_at", { ascending: false });
+
+  if (!isDev(role)) {
+    usersQuery = usersQuery.neq("level", DEV_ROLE);
+  }
+
+  const { data: users, error } = await usersQuery;
 
   if (error) {
     console.error("Error fetching users:", error);

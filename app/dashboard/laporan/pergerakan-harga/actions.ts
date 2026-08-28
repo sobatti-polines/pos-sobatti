@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
+import { isOwnerLike } from "@/lib/roles";
 
 type PriceSource = "trigger" | "backfill_log" | "initial";
 type ChangeDirection = "naik" | "turun" | "campuran" | "awal" | "tetap";
@@ -190,7 +191,7 @@ async function requireOwner() {
     .eq("username", username)
     .maybeSingle();
 
-  if (pengguna?.level !== "OWNER") return { supabase, error: "Forbidden" };
+  if (!isOwnerLike(pengguna?.level)) return { supabase, error: "Forbidden" };
   return { supabase, error: null };
 }
 
@@ -438,4 +439,3 @@ export async function fetchPergerakanHarga(input: {
     },
   };
 }
-

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
+import { DEV_ROLE, canManageDevRole, isOwnerLike, isUserManagedRole } from "@/lib/roles";
 
 export type UserActionState = {
   success?: boolean;
@@ -25,7 +26,8 @@ export async function createUser(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.user_metadata?.role !== "OWNER") {
+  const currentRole = user?.user_metadata?.role;
+  if (!user || !isOwnerLike(currentRole)) {
     return { error: "Unauthorized" };
   }
 
@@ -37,6 +39,9 @@ export async function createUser(
 
   if (!username || !password || !level) {
     return { error: "Semua kolom wajib diisi" };
+  }
+  if (!isUserManagedRole(level)) {
+    return { error: "Level pengguna tidak valid" };
   }
 
   const email = getAuthEmail(username);
@@ -91,7 +96,8 @@ export async function updateUser(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.user_metadata?.role !== "OWNER") {
+  const currentRole = user?.user_metadata?.role;
+  if (!user || !isOwnerLike(currentRole)) {
     return { error: "Unauthorized" };
   }
 
@@ -105,6 +111,19 @@ export async function updateUser(
 
   if (isNaN(id) || !username || !level) {
     return { error: "Data tidak valid" };
+  }
+  if (!isUserManagedRole(level)) {
+    return { error: "Level pengguna tidak valid" };
+  }
+
+  const { data: oldUser } = await supabase
+    .from("pengguna")
+    .select("username, level, aktif, nama")
+    .eq("id", id)
+    .single();
+
+  if (oldUser?.level === DEV_ROLE && !canManageDevRole(currentRole)) {
+    return { error: "Akses ditolak" };
   }
 
   // 1. Find the Auth User
@@ -128,13 +147,6 @@ export async function updateUser(
       await supabaseAdmin.auth.admin.updateUserById(authUser.id, updatePayload);
     }
   }
-
-  // 2. Fetch old data for log
-  const { data: oldUser } = await supabase
-    .from("pengguna")
-    .select("username, level, aktif, nama")
-    .eq("id", id)
-    .single();
 
   // 3. Update pengguna table
   const { error: dbError } = await supabase
@@ -168,7 +180,8 @@ export async function deleteUser(id: number, username: string): Promise<UserActi
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.user_metadata?.role !== "OWNER") {
+  const currentRole = user?.user_metadata?.role;
+  if (!user || !isOwnerLike(currentRole)) {
     return { error: "Unauthorized" };
   }
 
@@ -183,6 +196,10 @@ export async function deleteUser(id: number, username: string): Promise<UserActi
     .select("level, nama")
     .eq("id", id)
     .single();
+
+  if (deletedUser?.level === DEV_ROLE && !canManageDevRole(currentRole)) {
+    return { error: "Akses ditolak" };
+  }
 
   // 1. Delete from database
   const { error: dbError } = await supabase
@@ -222,7 +239,8 @@ export async function importUsers(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.user_metadata?.role !== "OWNER") {
+  const currentRole = user?.user_metadata?.role;
+  if (!user || !isOwnerLike(currentRole)) {
     return { error: "Unauthorized: Hanya OWNER yang dapat mengimpor pengguna" };
   }
 
@@ -238,7 +256,11 @@ export async function importUsers(
     const password = (r["Password"] || r["password"] || "").trim();
     const nama = (r["Nama Lengkap"] || r["Nama"] || r["nama"] || username).trim();
     const rawLevel = (r["Level"] || r["Role"] || r["level"] || "KASIR").trim().toUpperCase();
-    const level = ["ADMIN", "KASIR", "OWNER", "KARYAWAN"].includes(rawLevel) ? rawLevel : "KASIR";
+    if (rawLevel === DEV_ROLE) {
+      errors.push(`Baris ${idx + 1}: Level DEV hanya dapat dibuat manual oleh server`);
+      continue;
+    }
+    const level = isUserManagedRole(rawLevel) ? rawLevel : "KASIR";
     const statusRaw = (r["Status"] || r["status"] || "aktif").trim().toLowerCase();
     const aktif = statusRaw === "aktif" || statusRaw === "true" || statusRaw === "1";
 

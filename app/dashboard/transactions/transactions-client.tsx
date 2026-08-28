@@ -12,6 +12,7 @@ import { voidTransaction, getTransactionDetails, updatePaymentMethod } from "./a
 import { exportToCSV, exportToPDF, exportToExcel } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 import { createClient } from "@/lib/supabase/client";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -100,7 +101,7 @@ export default function TransactionsClient({
     }
   };
 
-  const isOwnerOrAdmin = role === "OWNER" || role === "ADMIN";
+  const isOwnerOrAdmin = isAdminOrOwnerLike(role);
 
   const handleOpenVoid = async (e: React.MouseEvent, t: Transaction) => {
     e.stopPropagation();

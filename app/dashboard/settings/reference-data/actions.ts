@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 export type ReferenceActionState = {
   success?: boolean;
@@ -19,7 +20,7 @@ export async function createReferenceData(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || (user.user_metadata?.role !== "ADMIN" && user.user_metadata?.role !== "OWNER")) {
+  if (!user || !isAdminOrOwnerLike(user.user_metadata?.role)) {
     return { error: "Unauthorized" };
   }
 
@@ -66,7 +67,7 @@ export async function updateReferenceData(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || (user.user_metadata?.role !== "ADMIN" && user.user_metadata?.role !== "OWNER")) {
+  if (!user || !isAdminOrOwnerLike(user.user_metadata?.role)) {
     return { error: "Unauthorized" };
   }
 
@@ -116,7 +117,7 @@ export async function deleteReferenceData(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || (user.user_metadata?.role !== "ADMIN" && user.user_metadata?.role !== "OWNER")) {
+  if (!user || !isAdminOrOwnerLike(user.user_metadata?.role)) {
     return { error: "Unauthorized" };
   }
 
@@ -151,7 +152,7 @@ export async function importReferenceData(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || (user.user_metadata?.role !== "ADMIN" && user.user_metadata?.role !== "OWNER")) {
+  if (!user || !isAdminOrOwnerLike(user.user_metadata?.role)) {
     return { error: "Unauthorized" };
   }
 

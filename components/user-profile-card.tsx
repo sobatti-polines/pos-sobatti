@@ -1,11 +1,5 @@
 import { cn } from "@/lib/utils";
-
-const ROLE_LABELS: Record<string, string> = {
-  OWNER: "Pemilik",
-  ADMIN: "Admin",
-  KASIR: "Kasir",
-  KARYAWAN: "Karyawan",
-};
+import { ROLE_LABELS } from "@/lib/roles";
 
 function getInitials(name: string) {
   return name

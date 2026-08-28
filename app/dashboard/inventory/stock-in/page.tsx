@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import StockInClient, { type ReorderPrefill } from "./stock-in-client";
+import { isOwnerLike } from "@/lib/roles";
 
 interface ReorderRawItem {
   id_produk: number;
@@ -69,7 +70,7 @@ export default async function StockInPage({
 
   // Determine user role
   const { data: { user } } = await supabase.auth.getUser();
-  const isOwner = user?.user_metadata?.role === "OWNER";
+  const isOwner = isOwnerLike(user?.user_metadata?.role);
 
   return (
     <StockInClient

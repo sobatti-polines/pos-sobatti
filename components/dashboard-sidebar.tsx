@@ -22,6 +22,7 @@ import {
   QrCode,
   UserCheck,
   Camera,
+  CalendarDays,
   LogOut,
   Calculator,
   FileText,
@@ -42,6 +43,7 @@ import { useRouter } from "next/navigation";
 import { NavLinkPending } from "@/components/nav-link-pending";
 import { UserProfileCard } from "@/components/user-profile-card";
 import logoPerusahaan from "@/public/login-logo.jpeg";
+import { isOwnerLike, isStaffRole, isManagementRole, KASIR_ROLE, KARYAWAN_ROLE } from "@/lib/roles";
 
 const bottomLinks = [
   { href: "/dashboard/settings", label: "Pengaturan", icon: Settings },
@@ -56,9 +58,9 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
 
   const [isMounted, setIsMounted] = useState(false);
 
-  const isOwner = role === "OWNER";
-  const isStaff = role === "ADMIN" || role === "KASIR" || role === "KARYAWAN";
-  const isManagement = role === "OWNER" || role === "ADMIN";
+  const isOwner = isOwnerLike(role);
+  const isStaff = isStaffRole(role);
+  const isManagement = isManagementRole(role);
 
   const lowStockItems = useLowStockRealtime();
   const lowStockCount = isManagement ? lowStockItems.length : 0;
@@ -114,7 +116,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
       </div>
 
       <nav className="flex flex-col gap-1 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-        {role !== "KASIR" && (
+        {role !== KASIR_ROLE && (
           <Link href="/dashboard" className={linkClass("/dashboard")} prefetch={true}>
             <LayoutGrid className="w-5 h-5" />
             <span className="text-sm">Ringkasan</span>
@@ -122,7 +124,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
           </Link>
         )}
 
-        {role === "KASIR" && (
+        {role === KASIR_ROLE && (
           <>
             <Link href="/pos" className={linkClass("/pos")} prefetch={true}>
               <CircleDollarSign className="w-5 h-5" />
@@ -164,6 +166,12 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
             <Link href="/dashboard/suppliers" className={linkClass("/dashboard/suppliers")} prefetch={true}>
               <Truck className="w-5 h-5" />
               <span className="text-sm">Supplier</span>
+              <NavLinkPending />
+            </Link>
+
+            <Link href="/dashboard/po-custom" className={linkClass("/dashboard/po-custom")} prefetch={true}>
+              <ClipboardList className="w-5 h-5" />
+              <span className="text-sm">PO Custom</span>
               <NavLinkPending />
             </Link>
 
@@ -358,6 +366,11 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
                 <span className="text-sm">Riwayat Absen</span>
                 <NavLinkPending />
               </Link>
+              <Link href="/dashboard/jadwal-saya" className={linkClass("/dashboard/jadwal-saya")} prefetch={true}>
+                <CalendarDays className="w-5 h-5" />
+                <span className="text-sm">Jadwal Saya</span>
+                <NavLinkPending />
+              </Link>
             </div>
           </div>
         )}
@@ -379,13 +392,18 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
                 <span className="text-sm">Laporan Pegawai</span>
                 <NavLinkPending />
               </Link>
+              <Link href="/dashboard/jadwal-karyawan" className={linkClass("/dashboard/jadwal-karyawan")} prefetch={true}>
+                <CalendarDays className="w-5 h-5" />
+                <span className="text-sm">Jadwal Karyawan</span>
+                <NavLinkPending />
+              </Link>
             </div>
           </div>
         )}
       </nav>
 
       <div className="mt-auto pt-6 border-t border-border">
-        {role !== "KASIR" && (
+        {role !== KASIR_ROLE && (
           <UserProfileCard
             userName={userName}
             role={role}
@@ -394,7 +412,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
         )}
 
         <div className="flex flex-col gap-2">
-          {role !== "KASIR" && role !== "KARYAWAN" && bottomLinks
+          {role !== KASIR_ROLE && role !== KARYAWAN_ROLE && bottomLinks
             .filter((link) => isOwner || link.href !== "/dashboard/settings/keuangan")
             .map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href} className={linkClass(href)} prefetch={true}>

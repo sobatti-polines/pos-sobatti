@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ReferenceClient } from "./reference-client";
+import { isAdminOrOwnerLike } from "@/lib/roles";
 
 export const metadata = {
   title: "Data Referensi - POS",
@@ -16,7 +17,7 @@ export default async function ReferenceDataPage() {
 
   const role = user.user_metadata?.role;
   // Based on access rules, Admin or Owner can access settings like Reference Data
-  if (role !== "ADMIN" && role !== "OWNER") {
+  if (!isAdminOrOwnerLike(role)) {
     redirect("/dashboard/settings");
   }
 

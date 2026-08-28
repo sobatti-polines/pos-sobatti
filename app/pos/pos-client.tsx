@@ -950,7 +950,26 @@ export function PosClient() {
                               >
                                 <Minus className="w-3.5 h-3.5" />
                               </Button>
-                              <span className="w-8 text-center tabular-nums text-lg font-medium">{item.qty_satuan}</span>
+                              <input
+                                type="number"
+                                min="1"
+                                defaultValue={item.qty_satuan}
+                                key={`${item.id_produk}-${item.qty_satuan}`}
+                                className="w-14 h-9 md:w-12 md:h-8 text-center text-base md:text-sm font-medium tabular-nums rounded-md border border-input bg-background focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/20 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                onClick={(e) => e.stopPropagation()}
+                                onBlur={(e) => {
+                                  const v = parseInt(e.target.value, 10);
+                                  if (!isNaN(v) && v >= 1) {
+                                    const delta = v - item.qty_satuan;
+                                    if (delta !== 0) updateQty(item.id_produk, delta);
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    (e.target as HTMLInputElement).blur();
+                                  }
+                                }}
+                              />
                               <Button
                                 variant="outline"
                                 size="icon"
@@ -1787,29 +1806,42 @@ export function PosClient() {
                   return formatIDR(addItemProduct.harga_jual_satuan);
                 })()}
               </span>
-            </div>
-
-            {/* Qty */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Jumlah</label>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="w-10 h-10 rounded-full border border-border bg-background hover:bg-muted/80 flex items-center justify-center text-lg"
-                  onClick={() => setAddItemQty((q) => Math.max(1, q - 1))}
-                >
-                  -
-                </button>
-                <span className="w-12 text-center text-lg font-medium tabular-nums">{addItemQty}</span>
-                <button
-                  type="button"
-                  className="w-10 h-10 rounded-full border border-border bg-background hover:bg-muted/80 flex items-center justify-center text-lg"
-                  onClick={() => setAddItemQty((q) => q + 1)}
-                >
-                  +
-                </button>
+            </div>              {/* Qty */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Jumlah</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="w-10 h-10 rounded-full border border-border bg-background hover:bg-muted/80 flex items-center justify-center text-lg"
+                    onClick={() => setAddItemQty((q) => Math.max(1, q - 1))}
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    value={addItemQty}
+                    className="w-16 h-10 text-center text-lg font-medium tabular-nums rounded-md border border-input bg-background focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/20 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      if (!isNaN(v) && v >= 1) setAddItemQty(v);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddItemConfirm();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="w-10 h-10 rounded-full border border-border bg-background hover:bg-muted/80 flex items-center justify-center text-lg"
+                    onClick={() => setAddItemQty((q) => q + 1)}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            </div>
 
             {/* Total */}
             <div className="flex items-center justify-between border-t border-border pt-4">

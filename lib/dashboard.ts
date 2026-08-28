@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { generateLabaRugi } from "@/lib/laporan-keuangan";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { startOfMonth, format } from "date-fns";
+import { DEV_ROLE, isDev } from "@/lib/roles";
 
 export interface DashboardData {
   todayRevenue: number;
@@ -46,6 +47,10 @@ export interface LowStockItem {
 
 export async function getDashboardData(): Promise<DashboardData> {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const role = user?.user_metadata?.role;
 
   // Use WIB (UTC+7) for business-day boundaries, consistent with
   // no_transaksi prefix and /api/laporan/penjualan (+07:00 filters).
@@ -56,6 +61,18 @@ export async function getDashboardData(): Promise<DashboardData> {
   const yesterday = new Date(nowWIB);
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  let activityQuery = supabase
+    .from("log_aktivitas")
+    .select(`
+      id, aksi, entitas, deskripsi, created_at,
+      pengguna!inner(nama, username, level)
+    `)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (!isDev(role)) {
+    activityQuery = activityQuery.neq("pengguna.level", DEV_ROLE);
+  }
 
   const [
     todayRevenueRes,
@@ -110,14 +127,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .lte("tgl_transaksi", `${todayStr}T23:59:59`)
       .order("tgl_transaksi", { ascending: true })
       .limit(100000),
-    supabase
-      .from("log_aktivitas")
-      .select(`
-        id, aksi, entitas, deskripsi, created_at,
-        pengguna!inner(nama, username)
-      `)
-      .order("created_at", { ascending: false })
-      .limit(10),
+    activityQuery,
   ]);
 
   const todayRevenue =

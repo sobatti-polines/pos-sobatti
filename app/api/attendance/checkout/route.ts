@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isAttendanceExemptRole } from "@/lib/roles";
 
 export async function POST(request: Request) {
   try {
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (pengguna.level === "OWNER") {
+    if (isAttendanceExemptRole(pengguna.level)) {
       return NextResponse.json(
         { error: "Owner tidak dapat melakukan absensi" },
         { status: 403 }
