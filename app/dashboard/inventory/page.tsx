@@ -55,6 +55,7 @@ export default async function InventoryPage() {
     harga_jual_besar_satuan: number | null;
     harga_jual_besar_grosir: number | null;
     harga_jual_besar_promo: number | null;
+    harga_jual_besar_manual?: boolean;
     id_produk_master: number | null;
     qty_per_unit: number | null;
     isi_satuan: string | null;
@@ -90,7 +91,11 @@ export default async function InventoryPage() {
 
   const productsWithStock = withMaster.map((p) => {
     const harga_asli_satuan = p.harga_jual_satuan;
+    const harga_asli_grosir = p.harga_jual_grosir;
+    const harga_asli_promo = p.harga_jual_promo;
     const harga_asli_besar_satuan = p.harga_jual_besar_satuan;
+    const harga_asli_besar_grosir = p.harga_jual_besar_grosir;
+    const harga_asli_besar_promo = p.harga_jual_besar_promo;
     let harga_jual_satuan = p.harga_jual_satuan;
     let harga_jual_grosir = p.harga_jual_grosir;
     let harga_jual_promo = p.harga_jual_promo;
@@ -130,6 +135,7 @@ export default async function InventoryPage() {
       default_purchase_unit: p.default_purchase_unit ?? null,
       conversion_ratio: p.conversion_ratio ?? 1,
       jual_satuan: p.jual_satuan ?? null,
+      harga_jual_besar_manual: p.harga_jual_besar_manual ?? false,
       harga_jual_besar_satuan,
       harga_jual_besar_grosir,
       harga_jual_besar_promo,
@@ -141,7 +147,11 @@ export default async function InventoryPage() {
       lokasi_area: p.lokasi_area ?? null,
       master: p.master as MasterInfo | null,
       harga_asli_satuan,
+      harga_asli_grosir,
+      harga_asli_promo,
       harga_asli_besar_satuan,
+      harga_asli_besar_grosir,
+      harga_asli_besar_promo,
       harga_jual_satuan,
       harga_jual_grosir,
       harga_jual_promo,

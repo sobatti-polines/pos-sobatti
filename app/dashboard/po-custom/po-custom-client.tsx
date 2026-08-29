@@ -117,7 +117,7 @@ interface PoFormState {
   target_selesai: string;
   status: PoCustomStatus;
   catatan_internal: string;
-  dp_awal: string;
+  dp_persen: string;
   id_metode_bayar_dp: string;
 }
 
@@ -246,7 +246,7 @@ function buildForm(record?: PoCustomRecord | null): PoFormState {
     target_selesai: record?.target_selesai ?? "",
     status: record?.status ?? "MENUNGGU_DP",
     catatan_internal: record?.catatan_internal ?? "",
-    dp_awal: "",
+    dp_persen: "",
     id_metode_bayar_dp: "",
   };
 }
@@ -435,6 +435,9 @@ export default function PoCustomClient({
   const [finalizePaymentMethodId, setFinalizePaymentMethodId] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
+  const hargaTotal = Number(form.harga_total || 0) || 0;
+  const dpPersen = Number(form.dp_persen || 0) || 0;
+  const dpAwal = Math.round((hargaTotal * dpPersen) / 100);
 
   const customerOptions = useMemo<SearchableOption[]>(
     () =>
@@ -534,6 +537,10 @@ export default function PoCustomClient({
 
   const handleSave = () => {
     setErrorMsg("");
+    if (dpPersen < 0 || dpPersen > 100) {
+      setErrorMsg("Persentase DP awal harus di antara 0% sampai 100%");
+      return;
+    }
     startTransition(async () => {
       const result = await savePoCustom(editingRecord?.id ?? null, {
         id_pelanggan: Number(form.id_pelanggan),
@@ -547,7 +554,7 @@ export default function PoCustomClient({
         target_selesai: form.target_selesai || null,
         status: form.status,
         catatan_internal: form.catatan_internal,
-        dp_awal: Number(form.dp_awal || 0),
+        dp_awal: dpAwal,
         id_metode_bayar_dp: form.id_metode_bayar_dp
           ? Number(form.id_metode_bayar_dp)
           : null,
@@ -1001,17 +1008,22 @@ export default function PoCustomClient({
               <div className="grid gap-4 rounded-[12px] border border-border p-4 md:grid-cols-2">
                 <label className="grid gap-1.5">
                   <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    DP Awal
+                    DP Awal (%)
                   </span>
                   <Input
                     type="number"
                     min="0"
-                    value={form.dp_awal}
+                    max="100"
+                    step="0.01"
+                    value={form.dp_persen ?? ""}
                     onChange={(event) =>
-                      setForm((prev) => ({ ...prev, dp_awal: event.target.value }))
+                      setForm((prev) => ({ ...prev, dp_persen: event.target.value }))
                     }
-                    placeholder="Opsional"
+                    placeholder="Contoh: 20"
                   />
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    Nominal DP: {formatIDR(dpAwal)}
+                  </span>
                 </label>
 
                 <label className="grid gap-1.5">
@@ -1026,7 +1038,7 @@ export default function PoCustomClient({
                         id_metode_bayar_dp: event.target.value,
                       }))
                     }
-                    disabled={!Number(form.dp_awal)}
+                    disabled={!dpAwal}
                   >
                     <option value="">Pilih metode bayar</option>
                     {paymentMethods.map((method) => (
@@ -1035,6 +1047,9 @@ export default function PoCustomClient({
                       </option>
                     ))}
                   </Select>
+                  <span className="text-xs text-muted-foreground">
+                    {dpAwal ? "Dicatat sebagai pembayaran DP awal" : "Aktif setelah DP diisi"}
+                  </span>
                 </label>
               </div>
             )}

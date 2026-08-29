@@ -39,6 +39,7 @@ interface ProductData {
   harga_jual_besar_satuan?: number | null;
   harga_jual_besar_grosir?: number | null;
   harga_jual_besar_promo?: number | null;
+  harga_jual_besar_manual?: boolean;
   id_produk_master?: number | null;
   qty_per_unit?: number | null;
   isi_satuan?: string | null;
@@ -46,14 +47,21 @@ interface ProductData {
   id_lokasi_area?: number | null;
 }
 
-// Harga jual satuan besar (ROLL/LUSIN/dll) SELALU dihitung otomatis
-// dari harga jual satuan kecil × conversion_ratio (aturan baru, lihat
-// migration 20260816_harga_jual_besar_otomatis.sql). Server tidak
-// pernah menerima harga besar dari client — dihitung ulang di sini.
 function computeBigPrices(data: ProductData) {
   const ratio = Number(data.conversion_ratio ?? 1);
   if (data.jual_satuan && ratio > 0) {
+    if (data.harga_jual_besar_manual) {
+      return {
+        harga_jual_besar_manual: true,
+        harga_jual_besar_satuan: Number(data.harga_jual_besar_satuan),
+        harga_jual_besar_grosir: Number(data.harga_jual_besar_grosir),
+        harga_jual_besar_promo: data.harga_jual_promo != null
+          ? Number(data.harga_jual_besar_promo)
+          : null,
+      };
+    }
     return {
+      harga_jual_besar_manual: false,
       harga_jual_besar_satuan: Math.round(Number(data.harga_jual_satuan || 0) * ratio),
       harga_jual_besar_grosir: Math.round(Number(data.harga_jual_grosir || 0) * ratio),
       harga_jual_besar_promo: data.harga_jual_promo != null
@@ -62,10 +70,27 @@ function computeBigPrices(data: ProductData) {
     };
   }
   return {
+    harga_jual_besar_manual: false,
     harga_jual_besar_satuan: null,
     harga_jual_besar_grosir: null,
     harga_jual_besar_promo: null,
   };
+}
+
+function validateBigPrices(data: ProductData): string | null {
+  if (!data.jual_satuan) return null;
+  const ratio = Number(data.conversion_ratio ?? 1);
+  if (!Number.isFinite(ratio) || ratio <= 0) return "Rasio satuan besar harus lebih dari 0";
+  if (!data.harga_jual_besar_manual) return null;
+
+  const positive = (value: number | null | undefined) =>
+    Number.isFinite(Number(value)) && Number(value) > 0;
+  if (!positive(data.harga_jual_besar_satuan)) return "Harga Retail satuan besar harus lebih dari 0";
+  if (!positive(data.harga_jual_besar_grosir)) return "Harga Grosir satuan besar harus lebih dari 0";
+  if (data.harga_jual_promo != null && !positive(data.harga_jual_besar_promo)) {
+    return "Harga Promo satuan besar harus lebih dari 0";
+  }
+  return null;
 }
 
 function paketErrorMessage(msg: string): string | null {
@@ -82,6 +107,8 @@ function paketErrorMessage(msg: string): string | null {
 export async function addProduct(data: ProductData) {
   const ok = await requireAuth();
   if (!ok) return { error: "Unauthorized" };
+  const bigPriceError = validateBigPrices(data);
+  if (bigPriceError) return { error: bigPriceError };
 
   const supabase = await createClient();
 
@@ -127,13 +154,15 @@ export async function addProduct(data: ProductData) {
 export async function updateProduct(id: number, data: ProductData) {
   const ok = await requireAuth();
   if (!ok) return { error: "Unauthorized" };
+  const bigPriceError = validateBigPrices(data);
+  if (bigPriceError) return { error: bigPriceError };
 
   const supabase = await createClient();
 
   // Fetch old data for log
   const { data: oldProduct } = await supabase
     .from("produk")
-    .select("nama_produk, id_kategori, id_satuan, hitung_stok, sku, barcode, harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon, stok_minimum, stok_minimum_gudang, default_purchase_unit, conversion_ratio, jual_satuan, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo, id_produk_master, qty_per_unit, id_lokasi_area")
+    .select("nama_produk, id_kategori, id_satuan, hitung_stok, sku, barcode, harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon, stok_minimum, stok_minimum_gudang, default_purchase_unit, conversion_ratio, jual_satuan, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo, harga_jual_besar_manual, id_produk_master, qty_per_unit, id_lokasi_area")
     .eq("id", id)
     .single();
 

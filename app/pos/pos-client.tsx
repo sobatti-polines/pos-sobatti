@@ -51,19 +51,20 @@ import { usePosStore, type Customer, type Product } from "@/stores/pos-store";
 import { LowStockBanner } from "@/components/low-stock-banner";
 import { Highlight } from "@/components/highlight";
 
-// Harga jual besar (ROLL/LUSIN/dll) SELALU dihitung dari harga kecil × rasio
-// (aturan 20260816_harga_jual_besar_otomatis). POS tidak boleh bergantung pada
-// kolom DB yang bisa NULL/0 untuk data lama — hitung ulang saat data dimuat.
+// Pertahankan harga besar manual dari database; hitung otomatis hanya sebagai
+// fallback untuk data lama yang masih NULL/0.
 function normalizeBigPrices(p: Product): Product {
   const ratio = Number(p.conversion_ratio) || 1;
   if (p.jual_satuan && ratio > 0) {
+    const bigPrice = (stored: number | null, small: number | null) =>
+      stored != null && stored > 0 ? stored : Math.round(Number(small || 0) * ratio);
     return {
       ...p,
-      harga_jual_besar_satuan: Math.round(Number(p.harga_jual_satuan || 0) * ratio),
-      harga_jual_besar_grosir: Math.round(Number(p.harga_jual_grosir || 0) * ratio),
+      harga_jual_besar_satuan: bigPrice(p.harga_jual_besar_satuan, p.harga_jual_satuan),
+      harga_jual_besar_grosir: bigPrice(p.harga_jual_besar_grosir, p.harga_jual_grosir),
       harga_jual_besar_promo:
         p.harga_jual_promo != null
-          ? Math.round(Number(p.harga_jual_promo) * ratio)
+          ? bigPrice(p.harga_jual_besar_promo, p.harga_jual_promo)
           : null,
     };
   }

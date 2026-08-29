@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useDeferredValue } from "react";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Search, Receipt, Trash2, AlertTriangle, Loader2, X, Eye, Printer, Pencil } from "lucide-react";
+import { Search, Receipt, Trash2, AlertTriangle, Loader2, X, Eye, Printer, Pencil, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +71,7 @@ export default function TransactionsClient({
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState({ start: "", end: "" });
+  const [exportSortOrder, setExportSortOrder] = useState<"asc" | "desc">("desc");
 
   const [voidModal, setVoidModal] = useState<{ open: boolean; transaction: Transaction | null; items: TransactionDetail[]; loading: boolean }>({
     open: false,
@@ -185,6 +186,14 @@ export default function TransactionsClient({
     return result;
   }, [initialTransactions, deferredSearchQuery, paymentFilter, dateFilter]);
 
+  const sortedForExport = useMemo(() => {
+    return [...filteredData].sort((a, b) => {
+      const dateA = new Date(a.tgl_transaksi).getTime();
+      const dateB = new Date(b.tgl_transaksi).getTime();
+      return exportSortOrder === "asc" ? dateA - dateB : dateB - dateA;
+    });
+  }, [filteredData, exportSortOrder]);
+
   const table = useTable({ data: filteredData, defaultItemsPerPage: 25 });
 
   const validTransactions = useMemo(() => {
@@ -214,7 +223,7 @@ export default function TransactionsClient({
   const fetchExportData = async () => {
     setIsExporting(true);
     try {
-      const txIds = filteredData.map(t => t.id);
+      const txIds = sortedForExport.map(t => t.id);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const detailsMap = new Map<number, any[]>();
       
@@ -245,7 +254,7 @@ export default function TransactionsClient({
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any[][] = [];
-    filteredData.forEach(t => {
+    sortedForExport.forEach(t => {
       const items = detailsMap.get(t.id) || [];
       const baseInfo = [
         `#${t.no_transaksi}`,
@@ -280,7 +289,7 @@ export default function TransactionsClient({
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any[][] = [];
-    filteredData.forEach(t => {
+    sortedForExport.forEach(t => {
       const items = detailsMap.get(t.id) || [];
       const baseInfo = [
         `#${t.no_transaksi}`,
@@ -315,7 +324,7 @@ export default function TransactionsClient({
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any[][] = [];
-    filteredData.forEach(t => {
+    sortedForExport.forEach(t => {
       const items = detailsMap.get(t.id) || [];
       const txName = `#${t.no_transaksi} - ${t.pelanggan?.nama_pelanggan || "Umum"} (${formatDate(t.tgl_transaksi)})`;
       
@@ -413,13 +422,35 @@ export default function TransactionsClient({
           {
             label: "Export",
             customRender: () => (
-              <ExportDropdown
-                onExportCSV={handleExportCSV}
-                onExportExcel={handleExportExcel}
-                onExportPDF={handleExportPDF}
-                className="flex-1 md:flex-none"
-                isLoading={isExporting}
-              />
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+                  <Button
+                    variant={exportSortOrder === "desc" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setExportSortOrder("desc")}
+                    title="Urutkan: Terbaru ke Terlama"
+                  >
+                    <ArrowDown className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={exportSortOrder === "asc" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setExportSortOrder("asc")}
+                    title="Urutkan: Terlama ke Terbaru"
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </Button>
+                </div>
+                <ExportDropdown
+                  onExportCSV={handleExportCSV}
+                  onExportExcel={handleExportExcel}
+                  onExportPDF={handleExportPDF}
+                  className="flex-1 md:flex-none"
+                  isLoading={isExporting}
+                />
+              </div>
             ),
           },
         ]}

@@ -198,6 +198,13 @@ interface Product {
   harga_jual_besar_satuan: number | null;
   harga_jual_besar_grosir: number | null;
   harga_jual_besar_promo: number | null;
+  harga_jual_besar_manual: boolean;
+  harga_asli_satuan?: number;
+  harga_asli_grosir?: number;
+  harga_asli_promo?: number | null;
+  harga_asli_besar_satuan?: number | null;
+  harga_asli_besar_grosir?: number | null;
+  harga_asli_besar_promo?: number | null;
   id_produk_master: number | null;
   qty_per_unit: number | null;
   isi_satuan: string | null;
@@ -346,6 +353,13 @@ export default function InventoryClient({
         return;
       }
     }
+    if (editForm.jual_satuan && editForm.harga_jual_besar_manual) {
+      if (!(Number(editForm.harga_jual_besar_satuan) > 0)) { setErrorMsg("Harga Retail satuan besar harus lebih dari 0"); return; }
+      if (!(Number(editForm.harga_jual_besar_grosir) > 0)) { setErrorMsg("Harga Grosir satuan besar harus lebih dari 0"); return; }
+      if (editForm.harga_jual_promo != null && !(Number(editForm.harga_jual_besar_promo) > 0)) {
+        setErrorMsg("Harga Promo satuan besar harus lebih dari 0"); return;
+      }
+    }
     setErrorMsg("");
 
     const data = {
@@ -364,7 +378,10 @@ export default function InventoryClient({
       default_purchase_unit: editForm.default_purchase_unit || null,
       conversion_ratio: Number(editForm.conversion_ratio ?? 1),
       jual_satuan: isPaketMode ? null : (editForm.jual_satuan || null),
-      // Harga jual besar tidak dikirim — dihitung otomatis server-side (harga kecil × rasio)
+      harga_jual_besar_manual: !isPaketMode && !!editForm.jual_satuan && !!editForm.harga_jual_besar_manual,
+      harga_jual_besar_satuan: editForm.harga_jual_besar_satuan ?? null,
+      harga_jual_besar_grosir: editForm.harga_jual_besar_grosir ?? null,
+      harga_jual_besar_promo: editForm.harga_jual_besar_promo ?? null,
       id_produk_master: isPaketMode ? Number(editForm.id_produk_master) : null,
       qty_per_unit: isPaketMode ? Number(editForm.qty_per_unit) : null,
     };
@@ -509,7 +526,16 @@ export default function InventoryClient({
     e.stopPropagation();
     setEditingId(product.id);
     setIsPaket(Boolean(product.id_produk_master));
-    setEditForm({ ...product, hitung_stok: product.hitung_stok ?? true });
+    setEditForm({
+      ...product,
+      harga_jual_satuan: product.harga_asli_satuan ?? product.harga_jual_satuan,
+      harga_jual_grosir: product.harga_asli_grosir ?? product.harga_jual_grosir,
+      harga_jual_promo: product.harga_asli_promo ?? product.harga_jual_promo,
+      harga_jual_besar_satuan: product.harga_asli_besar_satuan ?? product.harga_jual_besar_satuan,
+      harga_jual_besar_grosir: product.harga_asli_besar_grosir ?? product.harga_jual_besar_grosir,
+      harga_jual_besar_promo: product.harga_asli_besar_promo ?? product.harga_jual_besar_promo,
+      hitung_stok: product.hitung_stok ?? true,
+    });
     setErrorMsg("");
   };
 
@@ -673,7 +699,7 @@ export default function InventoryClient({
 
         return (
           <div className="flex flex-col gap-1.5 w-full min-w-[150px]">
-            <div className={`flex items-center justify-between gap-3 text-[12px] px-2 py-1 rounded-md border ${displayOut ? 'bg-destructive/10 border-destructive/20' : displayLow ? 'bg-warning/10 border-warning/20' : 'bg-muted/30 border-border/50'}`}>
+            <div className={`flex items-center justify-between gap-3 text-xs px-2 py-1 rounded-md border ${displayOut ? 'bg-destructive/10 border-destructive/20' : displayLow ? 'bg-warning/10 border-warning/20' : 'bg-muted/30 border-border/50'}`}>
                <div className="flex items-center gap-1.5">
                  <span className="text-muted-foreground font-medium">Display</span>
                  <span className={`font-semibold ${displayOut ? 'text-destructive' : displayLow ? 'text-warning' : 'text-primary'}`}>
@@ -683,7 +709,7 @@ export default function InventoryClient({
                <span className="text-[10px] text-muted-foreground/80 font-medium">Min: {minDisplay}</span>
             </div>
 
-            <div className={`flex items-center justify-between gap-3 text-[12px] px-2 py-1 rounded-md border ${gudangOut && minGudang != null ? 'bg-destructive/10 border-destructive/20' : gudangLow ? 'bg-warning/10 border-warning/20' : 'bg-muted/30 border-border/50'}`}>
+            <div className={`flex items-center justify-between gap-3 text-xs px-2 py-1 rounded-md border ${gudangOut && minGudang != null ? 'bg-destructive/10 border-destructive/20' : gudangLow ? 'bg-warning/10 border-warning/20' : 'bg-muted/30 border-border/50'}`}>
                <div className="flex items-center gap-1.5">
                  <span className="text-muted-foreground font-medium">Gudang</span>
                  <span className={`font-semibold ${gudangOut && minGudang != null ? 'text-destructive' : gudangLow ? 'text-warning' : 'text-foreground'}`}>
@@ -871,7 +897,7 @@ export default function InventoryClient({
           },
           {
             label: "Tambah Produk", icon: <Plus className="w-4 h-4" />, kind: "primary",
-            onClick: () => { setEditingId("new"); setIsPaket(false); setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5, stok_minimum_gudang: null, default_purchase_unit: "", conversion_ratio: 1, id_satuan: 0 }); setErrorMsg(""); },
+            onClick: () => { setEditingId("new"); setIsPaket(false); setEditForm({ hitung_stok: true, diskon: 0, stok_minimum: 5, stok_minimum_gudang: null, default_purchase_unit: "", conversion_ratio: 1, id_satuan: 0, harga_jual_besar_manual: false }); setErrorMsg(""); },
             disabled: editingId !== null,
           },
         ]}
@@ -969,6 +995,7 @@ export default function InventoryClient({
                       harga_jual_besar_satuan: null,
                       harga_jual_besar_grosir: null,
                       harga_jual_besar_promo: null,
+                      harga_jual_besar_manual: false,
                       default_purchase_unit: null,
                     }));
                   }}
@@ -1258,6 +1285,7 @@ export default function InventoryClient({
                                   harga_jual_besar_satuan: null,
                                   harga_jual_besar_grosir: null,
                                   harga_jual_besar_promo: null,
+                                  harga_jual_besar_manual: false,
                                 }));
                               }
                             }}
@@ -1266,43 +1294,117 @@ export default function InventoryClient({
                         </div>
                       </div>
 
-                    {/* Harga Jual Besar — otomatis = harga kecil × rasio (read-only) */}
                     {editForm.jual_satuan && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-3 border-t border-border/40">
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            Harga {editForm.jual_satuan} (Satuan)
-                          </label>
-                          <div className="h-11 rounded-md border border-border bg-muted/30 px-3.5 flex items-center text-sm font-semibold tabular-nums text-foreground">
-                            {formatIDR(Math.round((editForm.harga_jual_satuan || 0) * (editForm.conversion_ratio || 1)))}
+                      <div className="flex flex-col gap-3.5 pt-3 border-t border-border/40">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Harga Satuan Besar</p>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {editForm.harga_jual_besar_manual
+                                ? "Masukkan harga Retail, Grosir, dan Promo secara manual."
+                                : "Harga dihitung otomatis dari harga satuan kecil × rasio."}
+                            </p>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-foreground">
+                              {editForm.harga_jual_besar_manual ? "Manual" : "Otomatis"}
+                            </span>
+                            <Switch
+                              checked={!!editForm.harga_jual_besar_manual}
+                              onCheckedChange={(manual) => setEditForm((prev) => {
+                                if (!manual) return { ...prev, harga_jual_besar_manual: false };
+                                const ratio = Number(prev.conversion_ratio) || 1;
+                                return {
+                                  ...prev,
+                                  harga_jual_besar_manual: true,
+                                  harga_jual_besar_satuan: Number(prev.harga_jual_besar_satuan) > 0
+                                    ? prev.harga_jual_besar_satuan
+                                    : Math.round(Number(prev.harga_jual_satuan || 0) * ratio),
+                                  harga_jual_besar_grosir: Number(prev.harga_jual_besar_grosir) > 0
+                                    ? prev.harga_jual_besar_grosir
+                                    : Math.round(Number(prev.harga_jual_grosir || 0) * ratio),
+                                  harga_jual_besar_promo: prev.harga_jual_promo != null
+                                    ? (Number(prev.harga_jual_besar_promo) > 0
+                                      ? prev.harga_jual_besar_promo
+                                      : Math.round(Number(prev.harga_jual_promo) * ratio))
+                                    : null,
+                                };
+                              })}
+                              aria-label="Gunakan harga satuan besar manual"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                          <div className="flex flex-col gap-1.5">
+                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Harga {editForm.jual_satuan} (Retail)
+                          </label>
+                          {editForm.harga_jual_besar_manual ? (
+                            <Input
+                              type="number"
+                              min={1}
+                              value={editForm.harga_jual_besar_satuan ?? ""}
+                              onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_satuan: e.target.value === "" ? null : Number(e.target.value) }))}
+                              className="h-11 tabular-nums"
+                            />
+                          ) : (
+                            <div className="h-11 rounded-md border border-border bg-muted/30 px-3.5 flex items-center text-sm font-semibold tabular-nums text-foreground">
+                              {formatIDR(Math.round((editForm.harga_jual_satuan || 0) * (editForm.conversion_ratio || 1)))}
+                            </div>
+                          )}
                           <span className="text-[10px] leading-snug text-muted-foreground/80">
-                            Otomatis = {formatIDR(editForm.harga_jual_satuan || 0)} × {editForm.conversion_ratio || 1}
+                            Acuan otomatis: {formatIDR(Math.round((editForm.harga_jual_satuan || 0) * (editForm.conversion_ratio || 1)))}
                           </span>
                         </div>
                         <div className="flex flex-col gap-1.5">
                           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             Harga {editForm.jual_satuan} (Grosir)
                           </label>
-                          <div className="h-11 rounded-md border border-border bg-muted/30 px-3.5 flex items-center text-sm font-semibold tabular-nums text-foreground">
-                            {formatIDR(Math.round((editForm.harga_jual_grosir || 0) * (editForm.conversion_ratio || 1)))}
-                          </div>
+                          {editForm.harga_jual_besar_manual ? (
+                            <Input
+                              type="number"
+                              min={1}
+                              value={editForm.harga_jual_besar_grosir ?? ""}
+                              onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_grosir: e.target.value === "" ? null : Number(e.target.value) }))}
+                              className="h-11 tabular-nums"
+                            />
+                          ) : (
+                            <div className="h-11 rounded-md border border-border bg-muted/30 px-3.5 flex items-center text-sm font-semibold tabular-nums text-foreground">
+                              {formatIDR(Math.round((editForm.harga_jual_grosir || 0) * (editForm.conversion_ratio || 1)))}
+                            </div>
+                          )}
                           <span className="text-[10px] leading-snug text-muted-foreground/80">
-                            Otomatis = {formatIDR(editForm.harga_jual_grosir || 0)} × {editForm.conversion_ratio || 1}
+                            Acuan otomatis: {formatIDR(Math.round((editForm.harga_jual_grosir || 0) * (editForm.conversion_ratio || 1)))}
                           </span>
                         </div>
                         <div className="flex flex-col gap-1.5">
                           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             Harga {editForm.jual_satuan} (Promo)
                           </label>
-                          <div className="h-11 rounded-md border border-border bg-muted/30 px-3.5 flex items-center text-sm font-semibold tabular-nums text-foreground">
-                            {editForm.harga_jual_promo != null
-                              ? formatIDR(Math.round(editForm.harga_jual_promo * (editForm.conversion_ratio || 1)))
-                              : "-"}
-                          </div>
+                          {editForm.harga_jual_besar_manual ? (
+                            <Input
+                              type="number"
+                              min={1}
+                              value={editForm.harga_jual_besar_promo ?? ""}
+                              onChange={(e) => setEditForm((prev) => ({ ...prev, harga_jual_besar_promo: e.target.value === "" ? null : Number(e.target.value) }))}
+                              disabled={editForm.harga_jual_promo == null}
+                              placeholder={editForm.harga_jual_promo == null ? "Isi Harga Promo dahulu" : undefined}
+                              className="h-11 tabular-nums"
+                            />
+                          ) : (
+                            <div className="h-11 rounded-md border border-border bg-muted/30 px-3.5 flex items-center text-sm font-semibold tabular-nums text-foreground">
+                              {editForm.harga_jual_promo != null
+                                ? formatIDR(Math.round(editForm.harga_jual_promo * (editForm.conversion_ratio || 1)))
+                                : "-"}
+                            </div>
+                          )}
                           <span className="text-[10px] leading-snug text-muted-foreground/80">
-                            Otomatis = Harga Promo × {editForm.conversion_ratio || 1} (isi Harga Promo untuk mengaktifkan)
+                            {editForm.harga_jual_promo != null
+                              ? `Acuan otomatis: ${formatIDR(Math.round(editForm.harga_jual_promo * (editForm.conversion_ratio || 1)))}`
+                              : "Isi Harga Promo kecil untuk mengaktifkan."}
                           </span>
+                        </div>
                         </div>
                       </div>
                     )}

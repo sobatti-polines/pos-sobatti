@@ -113,6 +113,7 @@ const COLUMN_LABELS: Record<string, string> = {
   harga_jual_besar_satuan: "Harga Jual Besar (Eceran)",
   harga_jual_besar_grosir: "Harga Jual Besar (Grosir)",
   harga_jual_besar_promo: "Harga Jual Besar (Promo)",
+  harga_jual_besar_manual: "Mode Harga Jual Besar Manual",
   id_produk_master: "Produk Master",
   qty_per_unit: "Qty per Unit",
   isi_satuan: "Satuan Isi",
