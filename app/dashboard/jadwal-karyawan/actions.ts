@@ -3,10 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { buildDeskripsi, logActivity } from "@/lib/activity-log";
-import { isOwnerLike } from "@/lib/roles";
+import { isOperationalEmployeeRole, isOwnerLike } from "@/lib/roles";
 
 export type ScheduleType = "PAGI" | "SORE" | "LIBUR";
 export type WeeklyScheduleStatus = "DRAFT" | "TERBIT";
+export type LeaveRequestStatus = "MENUNGGU" | "DISETUJUI" | "DITOLAK" | "DIBATALKAN";
+export type LeaveReviewDecision = "SETUJUI" | "TOLAK" | "BATALKAN_PERSETUJUAN";
 
 export interface ScheduleRowInput {
   tanggal: string;
@@ -48,6 +50,27 @@ async function requireOwner() {
   return { supabase, pengguna, error: null };
 }
 
+async function requireEmployee() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { supabase, pengguna: null, error: "Sesi login tidak ditemukan" };
+
+  const { data: pengguna } = await supabase
+    .from("pengguna")
+    .select("id, level, aktif")
+    .eq("username", user.email?.split("@")[0])
+    .maybeSingle();
+
+  if (!pengguna?.aktif || !isOperationalEmployeeRole(pengguna.level)) {
+    return { supabase, pengguna: null, error: "Hanya pegawai aktif yang dapat booking libur" };
+  }
+
+  return { supabase, pengguna, error: null };
+}
+
 function toInt(value: unknown, fallback = 0) {
   const n = Number(value);
   return Number.isInteger(n) && n >= 0 ? n : fallback;
@@ -72,7 +95,12 @@ function cleanText(value: unknown) {
   return text || null;
 }
 
-function validateRowsForPublish(rows: ScheduleRowInput[], employeeIds: number[], weekDates: string[]) {
+function validateRowsForPublish(
+  rows: ScheduleRowInput[],
+  employeeIds: number[],
+  weekDates: string[],
+  capacity: number
+) {
   const byEmployee = new Map<number, ScheduleRowInput[]>();
   for (const id of employeeIds) byEmployee.set(id, []);
 
@@ -95,7 +123,46 @@ function validateRowsForPublish(rows: ScheduleRowInput[], employeeIds: number[],
     }
   }
 
+  for (const date of weekDates) {
+    const liburCount = rows.filter(
+      (row) => row.tanggal === date && row.tipe_jadwal === "LIBUR"
+    ).length;
+    if (liburCount > capacity) {
+      return `Jumlah pegawai libur pada ${date} melebihi batas ${capacity} orang`;
+    }
+  }
+
   return null;
+}
+
+function scheduleRowsByEmployee(rows: ScheduleRowInput[]) {
+  const result = new Map<number, Map<string, ScheduleType>>();
+  for (const row of rows) {
+    if (!result.has(row.id_pengguna)) result.set(row.id_pengguna, new Map());
+    result.get(row.id_pengguna)?.set(row.tanggal, row.tipe_jadwal);
+  }
+  return result;
+}
+
+function validateCompleteRows(
+  rows: ScheduleRowInput[],
+  employeeIds: number[],
+  weekDates: string[]
+) {
+  if (rows.length !== employeeIds.length * weekDates.length) {
+    return "Jadwal harus lengkap selama 7 hari untuk seluruh pegawai";
+  }
+
+  const rowMap = scheduleRowsByEmployee(rows);
+  if (employeeIds.some((id) => rowMap.get(id)?.size !== weekDates.length)) {
+    return "Setiap pegawai harus memiliki tepat satu jadwal per hari";
+  }
+
+  return null;
+}
+
+function databaseMessage(error: { message?: string } | null, fallback: string) {
+  return error?.message?.replace(/^.*?:\s*/, "") || fallback;
 }
 
 export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
@@ -114,18 +181,36 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
   const kebutuhanSore = toInt(input.kebutuhan_sore, 1);
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(input.minggu_mulai, index));
 
-  const { data: employees, error: employeeError } = await supabase
-    .from("pengguna")
-    .select("id")
-    .eq("aktif", true)
-    .in("level", ["ADMIN", "KASIR", "KARYAWAN"]);
+  const { data: existing } = await supabase
+    .from("jadwal_mingguan")
+    .select("*")
+    .eq("minggu_mulai", input.minggu_mulai)
+    .maybeSingle();
+
+  if (existing?.status === "TERBIT") {
+    return { error: "Jadwal yang sudah terbit tidak bisa diedit" };
+  }
+
+  const employeeQuery = existing
+    ? supabase
+        .from("jadwal_karyawan")
+        .select("id_pengguna")
+        .eq("id_jadwal_mingguan", existing.id)
+    : supabase
+        .from("pengguna")
+        .select("id")
+        .eq("aktif", true)
+        .in("level", ["ADMIN", "KASIR", "KARYAWAN"]);
+  const { data: employees, error: employeeError } = await employeeQuery;
 
   if (employeeError) {
     console.error("Failed to fetch employees for schedule:", employeeError);
     return { error: "Gagal membaca data pegawai" };
   }
 
-  const employeeIds = (employees ?? []).map((employee) => Number(employee.id));
+  const employeeIds = [...new Set(
+    (employees ?? []).map((employee) => Number("id_pengguna" in employee ? employee.id_pengguna : employee.id))
+  )];
   if (employeeIds.length === 0) return { error: "Belum ada pegawai aktif untuk dijadwalkan" };
 
   const normalizedRows = (input.rows ?? [])
@@ -140,19 +225,50 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
       catatan: cleanText(row.catatan),
     }));
 
-  if (input.publish) {
-    const validationError = validateRowsForPublish(normalizedRows, employeeIds, weekDates);
-    if (validationError) return { error: validationError };
+  const completeRowsError = validateCompleteRows(normalizedRows, employeeIds, weekDates);
+  if (completeRowsError) return { error: completeRowsError };
+  if (!existing && normalizedRows.some((row) => row.tipe_jadwal === "LIBUR")) {
+    return { error: "Draft awal hanya boleh berisi shift pagi atau sore" };
   }
 
-  const { data: existing } = await supabase
-    .from("jadwal_mingguan")
-    .select("*")
-    .eq("minggu_mulai", input.minggu_mulai)
-    .maybeSingle();
+  const capacity = Math.max(1, Math.ceil(employeeIds.length / 7));
+  const { data: leaveRequests, error: leaveRequestError } = existing
+    ? await supabase
+        .from("permintaan_libur")
+        .select("id, id_pengguna, tanggal, status")
+        .eq("id_jadwal_mingguan", existing.id)
+        .in("status", ["MENUNGGU", "DISETUJUI"])
+    : { data: [], error: null };
 
-  if (existing?.status === "TERBIT") {
-    return { error: "Jadwal yang sudah terbit tidak bisa diedit" };
+  if (leaveRequestError) {
+    console.error("Failed to fetch leave requests:", leaveRequestError);
+    return { error: "Gagal memeriksa permintaan libur" };
+  }
+
+  const rowMap = scheduleRowsByEmployee(normalizedRows);
+  for (const request of leaveRequests ?? []) {
+    if ((rowMap.get(Number(request.id_pengguna))?.size ?? 0) !== 7) {
+      return { error: "Jadwal pegawai yang memiliki permintaan libur harus tetap lengkap" };
+    }
+    if (
+      request.status === "DISETUJUI" &&
+      rowMap.get(Number(request.id_pengguna))?.get(request.tanggal) !== "LIBUR"
+    ) {
+      return { error: "Hari libur yang sudah disetujui tidak boleh diubah dari grid" };
+    }
+  }
+
+  if (input.publish) {
+    if ((leaveRequests ?? []).some((request) => request.status === "MENUNGGU")) {
+      return { error: "Selesaikan semua permintaan libur yang masih menunggu sebelum menerbitkan jadwal" };
+    }
+    const validationError = validateRowsForPublish(
+      normalizedRows,
+      employeeIds,
+      weekDates,
+      capacity
+    );
+    if (validationError) return { error: validationError };
   }
 
   const { error: shiftPagiError } = await supabase
@@ -220,32 +336,22 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
     return { error: "Gagal menyimpan header jadwal" };
   }
 
-  const { error: deleteError } = await supabase
+  const details = normalizedRows.map((row) => ({
+    id_jadwal_mingguan: header.id,
+    tanggal: row.tanggal,
+    id_pengguna: row.id_pengguna,
+    tipe_jadwal: row.tipe_jadwal,
+    id_shift:
+      row.tipe_jadwal === "PAGI" ? pagiId : row.tipe_jadwal === "SORE" ? soreId : null,
+    catatan: row.catatan,
+  }));
+
+  const { error: detailError } = await supabase
     .from("jadwal_karyawan")
-    .delete()
-    .eq("id_jadwal_mingguan", header.id);
-
-  if (deleteError) {
-    console.error("Failed to reset weekly schedule detail:", deleteError);
-    return { error: "Gagal memperbarui detail jadwal" };
-  }
-
-  if (normalizedRows.length > 0) {
-    const details = normalizedRows.map((row) => ({
-      id_jadwal_mingguan: header.id,
-      tanggal: row.tanggal,
-      id_pengguna: row.id_pengguna,
-      tipe_jadwal: row.tipe_jadwal,
-      id_shift:
-        row.tipe_jadwal === "PAGI" ? pagiId : row.tipe_jadwal === "SORE" ? soreId : null,
-      catatan: row.catatan,
-    }));
-
-    const { error: insertError } = await supabase.from("jadwal_karyawan").insert(details);
-    if (insertError) {
-      console.error("Failed to insert weekly schedule details:", insertError);
-      return { error: "Gagal menyimpan detail jadwal" };
-    }
+    .upsert(details, { onConflict: "id_jadwal_mingguan,id_pengguna,tanggal" });
+  if (detailError) {
+    console.error("Failed to save weekly schedule details:", detailError);
+    return { error: "Gagal menyimpan detail jadwal" };
   }
 
   await logActivity(supabase, {
@@ -265,5 +371,142 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
 
   revalidatePath("/dashboard/jadwal-karyawan");
   revalidatePath("/dashboard/jadwal-saya");
+  return { success: true };
+}
+
+export async function saveLeaveRequest(idSchedule: number, date: string) {
+  const { supabase, pengguna, error: authError } = await requireEmployee();
+  if (authError || !pengguna) return { error: authError ?? "Sesi login tidak ditemukan" };
+  if (!Number.isInteger(idSchedule) || idSchedule <= 0 || !isDate(date)) {
+    return { error: "Pilihan hari libur tidak valid" };
+  }
+
+  const { data: existing } = await supabase
+    .from("permintaan_libur")
+    .select("id, tanggal, status")
+    .eq("id_jadwal_mingguan", idSchedule)
+    .eq("id_pengguna", pengguna.id)
+    .in("status", ["MENUNGGU", "DISETUJUI"])
+    .maybeSingle();
+
+  if (existing?.status === "DISETUJUI") {
+    return { error: "Permintaan yang sudah disetujui hanya dapat diubah oleh owner" };
+  }
+
+  const mutation = existing
+    ? supabase
+        .from("permintaan_libur")
+        .update({ tanggal: date })
+        .eq("id", existing.id)
+        .eq("status", "MENUNGGU")
+        .select("id")
+        .single()
+    : supabase
+        .from("permintaan_libur")
+        .insert({ id_jadwal_mingguan: idSchedule, id_pengguna: pengguna.id, tanggal: date })
+        .select("id")
+        .single();
+  const { data, error } = await mutation;
+
+  if (error || !data) {
+    return { error: databaseMessage(error, "Gagal menyimpan permintaan libur") };
+  }
+
+  await logActivity(supabase, {
+    aksi: existing ? "UPDATE" : "CREATE",
+    entitas: "permintaan_libur",
+    id_entitas: Number(data.id),
+    deskripsi: existing
+      ? `Memindahkan booking libur dari ${existing.tanggal} ke ${date}`
+      : `Membuat booking libur untuk ${date}`,
+    data_lama: existing ? { tanggal: existing.tanggal, status: existing.status } : null,
+    data_baru: { tanggal: date, status: "MENUNGGU" },
+  });
+
+  revalidatePath("/dashboard/jadwal-saya");
+  revalidatePath("/dashboard/jadwal-karyawan");
+  return { success: true };
+}
+
+export async function cancelLeaveRequest(idRequest: number) {
+  const { supabase, pengguna, error: authError } = await requireEmployee();
+  if (authError || !pengguna) return { error: authError ?? "Sesi login tidak ditemukan" };
+  if (!Number.isInteger(idRequest) || idRequest <= 0) return { error: "Permintaan tidak valid" };
+
+  const { data, error } = await supabase
+    .from("permintaan_libur")
+    .update({ status: "DIBATALKAN" })
+    .eq("id", idRequest)
+    .eq("id_pengguna", pengguna.id)
+    .eq("status", "MENUNGGU")
+    .select("id, tanggal")
+    .maybeSingle();
+
+  if (error || !data) {
+    return { error: databaseMessage(error, "Permintaan hanya dapat dibatalkan saat masih menunggu") };
+  }
+
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "permintaan_libur",
+    id_entitas: Number(data.id),
+    deskripsi: `Membatalkan booking libur untuk ${data.tanggal}`,
+    data_lama: { status: "MENUNGGU" },
+    data_baru: { status: "DIBATALKAN" },
+  });
+
+  revalidatePath("/dashboard/jadwal-saya");
+  revalidatePath("/dashboard/jadwal-karyawan");
+  return { success: true };
+}
+
+export async function reviewLeaveRequest(idRequest: number, decision: LeaveReviewDecision) {
+  const { supabase, error: authError } = await requireOwner();
+  if (authError) return { error: authError };
+  if (!Number.isInteger(idRequest) || idRequest <= 0) return { error: "Permintaan tidak valid" };
+
+  const { data: request } = await supabase
+    .from("permintaan_libur")
+    .select("id, tanggal, status, id_pengguna")
+    .eq("id", idRequest)
+    .maybeSingle();
+
+  if (!request) return { error: "Permintaan tidak ditemukan" };
+
+  const expectedStatus = decision === "BATALKAN_PERSETUJUAN" ? "DISETUJUI" : "MENUNGGU";
+  const nextStatus: LeaveRequestStatus = decision === "SETUJUI" ? "DISETUJUI" : "DITOLAK";
+  if (request.status !== expectedStatus) {
+    return { error: "Status permintaan sudah berubah. Muat ulang halaman lalu coba lagi." };
+  }
+
+  const { data, error } = await supabase
+    .from("permintaan_libur")
+    .update({ status: nextStatus })
+    .eq("id", idRequest)
+    .eq("status", expectedStatus)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    return { error: databaseMessage(error, "Gagal memproses permintaan libur") };
+  }
+
+  const actionLabel =
+    decision === "SETUJUI"
+      ? "Menyetujui"
+      : decision === "TOLAK"
+        ? "Menolak"
+        : "Membatalkan persetujuan";
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "permintaan_libur",
+    id_entitas: idRequest,
+    deskripsi: `${actionLabel} permintaan libur pegawai #${request.id_pengguna} untuk ${request.tanggal}`,
+    data_lama: { status: request.status },
+    data_baru: { status: nextStatus },
+  });
+
+  revalidatePath("/dashboard/jadwal-saya");
+  revalidatePath("/dashboard/jadwal-karyawan");
   return { success: true };
 }

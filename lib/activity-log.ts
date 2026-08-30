@@ -80,6 +80,7 @@ const ENTITY_LABELS: Record<string, string> = {
   jadwal_mingguan: "Jadwal Mingguan",
   jadwal_karyawan: "Jadwal Karyawan",
   shift_kerja: "Shift Kerja",
+  permintaan_libur: "Permintaan Libur",
 };
 
 const COLUMN_LABELS: Record<string, string> = {
@@ -212,6 +213,7 @@ const IDENTIFIER_FIELDS: Record<string, string[]> = {
   po_custom: ["no_po", "nama_pesanan"],
   jadwal_mingguan: ["minggu_mulai"],
   shift_kerja: ["kode", "nama"],
+  permintaan_libur: ["tanggal", "status"],
 };
 
 function extractIdentifier(

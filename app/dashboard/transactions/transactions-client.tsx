@@ -423,24 +423,29 @@ export default function TransactionsClient({
             label: "Export",
             customRender: () => (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+                <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border" aria-label="Urutan laporan">
+                  <span className="px-2 text-xs font-medium text-muted-foreground whitespace-nowrap">Urutan laporan</span>
                   <Button
                     variant={exportSortOrder === "desc" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-9 w-9"
+                    size="sm"
+                    className="h-9 gap-1.5 px-3 text-xs"
                     onClick={() => setExportSortOrder("desc")}
-                    title="Urutkan: Terbaru ke Terlama"
+                    aria-pressed={exportSortOrder === "desc"}
+                    title="Urutkan laporan dari terbaru ke terlama"
                   >
                     <ArrowDown className="w-4 h-4" />
+                    Terbaru
                   </Button>
                   <Button
                     variant={exportSortOrder === "asc" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-9 w-9"
+                    size="sm"
+                    className="h-9 gap-1.5 px-3 text-xs"
                     onClick={() => setExportSortOrder("asc")}
-                    title="Urutkan: Terlama ke Terbaru"
+                    aria-pressed={exportSortOrder === "asc"}
+                    title="Urutkan laporan dari terlama ke terbaru"
                   >
                     <ArrowUp className="w-4 h-4" />
+                    Terlama
                   </Button>
                 </div>
                 <ExportDropdown

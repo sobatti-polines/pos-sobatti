@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import JadwalKaryawanClient, {
   type EmployeeOption,
+  type LeaveRequestRecord,
   type ScheduleDetailRecord,
   type ShiftOption,
   type WeeklyScheduleRecord,
@@ -53,7 +54,7 @@ export default async function JadwalKaryawanPage({
 
   if (!isOwnerLike(currentUser?.level)) redirect("/dashboard");
 
-  const [employees, shifts, weeklySchedule, historyRows] = await Promise.all([
+  const [activeEmployees, shifts, weeklySchedule, historyRows] = await Promise.all([
     supabase
       .from("pengguna")
       .select("id, username, nama, level")
@@ -118,6 +119,34 @@ export default async function JadwalKaryawanPage({
       }),
   ]);
 
+  const scheduledEmployees = weeklySchedule
+    ? Array.from(
+        new Map(
+          (weeklySchedule.jadwal_karyawan ?? [])
+            .map((row) => row.pengguna)
+            .filter((employee): employee is EmployeeOption => Boolean(employee))
+            .map((employee) => [employee.id, employee])
+        ).values()
+      ).sort((a, b) => (a.nama || a.username).localeCompare(b.nama || b.username, "id"))
+    : activeEmployees;
+
+  let leaveRequests: LeaveRequestRecord[] = [];
+  if (weeklySchedule) {
+    const { data, error } = await supabase
+      .from("permintaan_libur")
+      .select(
+        "id, id_jadwal_mingguan, id_pengguna, tanggal, status, created_at, ditinjau_pada, pengguna:pengguna!permintaan_libur_id_pengguna_fkey(id, username, nama, level)"
+      )
+      .eq("id_jadwal_mingguan", weeklySchedule.id)
+      .in("status", ["MENUNGGU", "DISETUJUI"])
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("Failed to fetch leave requests:", error);
+    } else {
+      leaveRequests = (data ?? []) as unknown as LeaveRequestRecord[];
+    }
+  }
+
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-6 md:gap-9 mx-auto h-full md:max-h-screen md:overflow-hidden">
       <header className="shrink-0 space-y-3 pt-1 md:pt-2">
@@ -132,10 +161,11 @@ export default async function JadwalKaryawanPage({
       <JadwalKaryawanClient
         weekStart={weekStart}
         weekEnd={weekEnd}
-        employees={employees}
+        employees={scheduledEmployees}
         shifts={shifts}
         weeklySchedule={weeklySchedule}
         historyRows={historyRows}
+        leaveRequests={leaveRequests}
       />
     </div>
   );

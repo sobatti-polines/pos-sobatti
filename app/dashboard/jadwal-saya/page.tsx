@@ -3,6 +3,10 @@ import { CalendarDays, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { isOwnerLike } from "@/lib/roles";
+import { getTodayWIB } from "@/lib/utils";
+import BookingLiburClient, {
+  type LeaveBookingRequest,
+} from "./booking-libur-client";
 
 type ScheduleType = "PAGI" | "SORE" | "LIBUR";
 
@@ -91,29 +95,70 @@ export default async function JadwalSayaPage() {
   if (!pengguna) redirect("/");
   if (isOwnerLike(pengguna.level)) redirect("/dashboard/jadwal-karyawan");
 
-  const weekStart = startOfWeekMonday();
+  const today = getTodayWIB();
+  const weekStart = startOfWeekMonday(new Date(`${today}T00:00:00.000Z`));
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const weekEnd = addDays(weekStart, 6);
+  const nextWeekStart = addDays(weekStart, 7);
+  const nextWeekEnd = addDays(nextWeekStart, 6);
 
-  const { data, error } = await supabase
-    .from("jadwal_karyawan")
-    .select(
+  const [{ data, error }, { data: draftSchedule, error: draftError }] = await Promise.all([
+    supabase
+      .from("jadwal_karyawan")
+      .select(
+        `
+        id,
+        tanggal,
+        tipe_jadwal,
+        shift_kerja(kode, nama, jam_mulai, jam_selesai),
+        jadwal_mingguan!inner(status)
       `
-      id,
-      tanggal,
-      tipe_jadwal,
-      shift_kerja(kode, nama, jam_mulai, jam_selesai),
-      jadwal_mingguan!inner(status)
-    `
-    )
-    .eq("id_pengguna", pengguna.id)
-    .gte("tanggal", weekStart)
-    .lte("tanggal", weekEnd)
-    .eq("jadwal_mingguan.status", "TERBIT")
-    .order("tanggal", { ascending: true });
+      )
+      .eq("id_pengguna", pengguna.id)
+      .gte("tanggal", weekStart)
+      .lte("tanggal", weekEnd)
+      .eq("jadwal_mingguan.status", "TERBIT")
+      .order("tanggal", { ascending: true }),
+    supabase
+      .from("jadwal_mingguan")
+      .select("id, minggu_mulai, status, jadwal_karyawan(id_pengguna)")
+      .eq("minggu_mulai", nextWeekStart)
+      .eq("status", "DRAFT")
+      .maybeSingle(),
+  ]);
 
   if (error) {
     console.error("Failed to fetch my schedule:", error);
+  }
+  if (draftError) {
+    console.error("Failed to fetch next schedule draft:", draftError);
+  }
+
+  let leaveRequests: LeaveBookingRequest[] = [];
+  let ownLatestRequest: LeaveBookingRequest | null = null;
+  if (draftSchedule) {
+    const [{ data: activeRequests }, { data: latestRequest }] = await Promise.all([
+      supabase
+        .from("permintaan_libur")
+        .select(
+          "id, id_pengguna, tanggal, status, pengguna:pengguna!permintaan_libur_id_pengguna_fkey(id, username, nama)"
+        )
+        .eq("id_jadwal_mingguan", draftSchedule.id)
+        .in("status", ["MENUNGGU", "DISETUJUI"])
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("permintaan_libur")
+        .select(
+          "id, id_pengguna, tanggal, status, pengguna:pengguna!permintaan_libur_id_pengguna_fkey(id, username, nama)"
+        )
+        .eq("id_jadwal_mingguan", draftSchedule.id)
+        .eq("id_pengguna", pengguna.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    leaveRequests = (activeRequests ?? []) as unknown as LeaveBookingRequest[];
+    ownLatestRequest = latestRequest as unknown as LeaveBookingRequest | null;
   }
 
   const scheduleRows = ((data ?? []) as unknown as RawMyScheduleRow[]).map((row) => ({
@@ -125,8 +170,11 @@ export default async function JadwalSayaPage() {
   })) satisfies MyScheduleRow[];
 
   const scheduleByDate = new Map(scheduleRows.map((row) => [row.tanggal, row]));
-  const today = toDateString(new Date());
   const todaySchedule = scheduleByDate.get(today);
+  const participantIds = new Set(
+    (draftSchedule?.jadwal_karyawan ?? []).map((row) => Number(row.id_pengguna))
+  );
+  const leaveCapacity = Math.max(1, Math.ceil(participantIds.size / 7));
 
   return (
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-4 md:gap-8 mx-auto h-full md:max-h-screen md:overflow-hidden">
@@ -140,6 +188,18 @@ export default async function JadwalSayaPage() {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto rounded-[16px] border border-border bg-card p-4 md:p-6">
+        <BookingLiburClient
+          scheduleId={draftSchedule?.id ?? null}
+          weekStart={nextWeekStart}
+          weekEnd={nextWeekEnd}
+          employeeId={Number(pengguna.id)}
+          eligible={participantIds.has(Number(pengguna.id))}
+          capacity={leaveCapacity}
+          requests={leaveRequests}
+          ownLatestRequest={ownLatestRequest}
+          bookingOpen={Boolean(draftSchedule) && today < nextWeekStart}
+        />
+
         <div className="mb-5 grid gap-4 md:grid-cols-[1fr_320px]">
           <div className="rounded-[14px] border border-border p-4">
             <p className="text-sm text-muted-foreground">Periode Minggu Ini</p>

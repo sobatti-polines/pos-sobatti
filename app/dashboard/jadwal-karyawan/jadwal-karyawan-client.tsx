@@ -4,20 +4,28 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  Check,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   Clock,
   Loader2,
+  RotateCcw,
   Save,
   Send,
   Sparkles,
   UserCheck,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { saveWeeklySchedule, type ScheduleType } from "./actions";
+import {
+  reviewLeaveRequest,
+  saveWeeklySchedule,
+  type LeaveRequestStatus,
+  type ScheduleType,
+} from "./actions";
 
 export interface EmployeeOption {
   id: number;
@@ -53,6 +61,17 @@ export interface WeeklyScheduleRecord {
   kebutuhan_sore: number;
   status: "DRAFT" | "TERBIT";
   jadwal_karyawan?: ScheduleDetailRecord[];
+}
+
+export interface LeaveRequestRecord {
+  id: number;
+  id_jadwal_mingguan: number;
+  id_pengguna: number;
+  tanggal: string;
+  status: LeaveRequestStatus;
+  created_at: string;
+  ditinjau_pada?: string | null;
+  pengguna: EmployeeOption | null;
 }
 
 type CellValue = ScheduleType | "";
@@ -147,6 +166,7 @@ export default function JadwalKaryawanClient({
   shifts,
   weeklySchedule,
   historyRows,
+  leaveRequests,
 }: {
   weekStart: string;
   weekEnd: string;
@@ -154,6 +174,7 @@ export default function JadwalKaryawanClient({
   shifts: ShiftOption[];
   weeklySchedule: WeeklyScheduleRecord | null;
   historyRows: ScheduleDetailRecord[];
+  leaveRequests: LeaveRequestRecord[];
 }) {
   const weekDates = useMemo(
     () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
@@ -190,6 +211,17 @@ export default function JadwalKaryawanClient({
   const previousWeek = addDays(weekStart, -7);
   const nextWeek = addDays(weekStart, 7);
   const status = weeklySchedule?.status ?? "BELUM_ADA";
+  const leaveCapacity = Math.max(1, Math.ceil(employees.length / 7));
+  const waitingRequests = leaveRequests.filter((request) => request.status === "MENUNGGU");
+  const approvedCellKeys = useMemo(
+    () =>
+      new Set(
+        leaveRequests
+          .filter((request) => request.status === "DISETUJUI")
+          .map((request) => cellKey(Number(request.id_pengguna), request.tanggal))
+      ),
+    [leaveRequests]
+  );
 
   const historyCounts = useMemo(() => {
     const counts: Record<number, { PAGI: number; SORE: number }> = {};
@@ -231,13 +263,32 @@ export default function JadwalKaryawanClient({
     for (const day of dailyStats) {
       if (day.pagi < Number(kebutuhanPagi)) warnings.push(`${formatDate(day.date)} shift pagi kurang.`);
       if (day.sore < Number(kebutuhanSore)) warnings.push(`${formatDate(day.date)} shift sore kurang.`);
+      if (day.libur > leaveCapacity) {
+        warnings.push(`${formatDate(day.date)} melebihi batas ${leaveCapacity} pegawai libur.`);
+      }
     }
 
     return { employeeStats, dailyStats, warnings };
-  }, [employees, weekDates, schedule, kebutuhanPagi, kebutuhanSore]);
+  }, [employees, weekDates, schedule, kebutuhanPagi, kebutuhanSore, leaveCapacity]);
 
   const setCell = (employeeId: number, date: string, value: CellValue) => {
+    if (approvedCellKeys.has(cellKey(employeeId, date))) return;
     setSchedule((prev) => ({ ...prev, [cellKey(employeeId, date)]: value }));
+  };
+
+  const handleReview = (
+    requestId: number,
+    decision: "SETUJUI" | "TOLAK" | "BATALKAN_PERSETUJUAN"
+  ) => {
+    setErrorMsg("");
+    startTransition(async () => {
+      const result = await reviewLeaveRequest(requestId, decision);
+      if (result.error) {
+        setErrorMsg(result.error);
+        return;
+      }
+      window.location.reload();
+    });
   };
 
   const handleSuggest = () => {
@@ -451,12 +502,109 @@ export default function JadwalKaryawanClient({
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Simpan Draft
             </Button>
-            <Button type="button" onClick={() => handleSave(true)} disabled={isPending || isPublished}>
+            <Button
+              type="button"
+              onClick={() => handleSave(true)}
+              disabled={isPending || isPublished || waitingRequests.length > 0}
+            >
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Terbitkan
             </Button>
           </div>
         </div>
+
+        <section className="border-y border-border py-5">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-medium text-foreground">Permintaan Libur</h3>
+                {waitingRequests.length > 0 && (
+                  <Badge className="border-none bg-amber-100 text-amber-800">
+                    {waitingRequests.length} menunggu
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Maksimal {leaveCapacity} pegawai libur pada hari yang sama.
+              </p>
+            </div>
+          </div>
+
+          {!weeklySchedule ? (
+            <p className="text-sm text-muted-foreground">
+              Simpan draft jadwal lengkap agar pegawai dapat mulai booking libur.
+            </p>
+          ) : leaveRequests.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Belum ada permintaan libur aktif.</p>
+          ) : (
+            <div className="divide-y divide-border rounded-[8px] border border-border">
+              {leaveRequests.map((request) => {
+                const employeeName = request.pengguna?.nama || request.pengguna?.username || `Pegawai #${request.id_pengguna}`;
+                const isWaiting = request.status === "MENUNGGU";
+                return (
+                  <div
+                    key={request.id}
+                    className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-medium text-foreground">{employeeName}</p>
+                        <Badge
+                          className={
+                            isWaiting
+                              ? "border-none bg-amber-100 text-amber-800"
+                              : "border-none bg-emerald-100 text-emerald-800"
+                          }
+                        >
+                          {isWaiting ? "Menunggu" : "Disetujui"}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {formatLongDate(request.tanggal)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {isWaiting ? (
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => handleReview(request.id, "SETUJUI")}
+                            disabled={isPending || isPublished}
+                          >
+                            <Check />
+                            ACC
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleReview(request.id, "TOLAK")}
+                            disabled={isPending || isPublished}
+                          >
+                            <X />
+                            Tolak
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleReview(request.id, "BATALKAN_PERSETUJUAN")}
+                          disabled={isPending || isPublished}
+                        >
+                          <RotateCcw />
+                          Batalkan ACC
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         <div className="grid gap-4 xl:grid-cols-[1fr_280px]">
           <div className="overflow-hidden rounded-[14px] border border-border">
@@ -491,12 +639,14 @@ export default function JadwalKaryawanClient({
                       </td>
                       {weekDates.map((date) => {
                         const value = schedule[cellKey(employee.id, date)];
+                        const isApprovedLeave = approvedCellKeys.has(cellKey(employee.id, date));
                         return (
                           <td key={date} className="px-2 py-3 text-center align-middle">
                             <button
                               type="button"
-                              disabled={isPublished}
+                              disabled={isPublished || isApprovedLeave}
                               onClick={() => setCell(employee.id, date, nextValue(value))}
+                              title={isApprovedLeave ? "Libur sudah disetujui. Batalkan ACC untuk mengubahnya." : undefined}
                               className={`mx-auto flex h-10 min-w-24 items-center justify-center rounded-full px-3 text-xs font-medium ring-1 transition-colors disabled:cursor-not-allowed disabled:opacity-80 ${shiftClass(value)}`}
                             >
                               {value || "Kosong"}
