@@ -11,6 +11,7 @@ export default function GenerateQRPage() {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [expireSeconds, setExpireSeconds] = useState<number>(30);
 
   const fetchQR = useCallback(async () => {
     try {
@@ -35,7 +36,9 @@ export default function GenerateQRPage() {
         setQrDataUrl(url);
         
         // Use expire_seconds from server for a reliable, timezone-independent countdown
-        setTimeLeft(data.expire_seconds || 60);
+        const serverExpire = data.expire_seconds || 30;
+        setExpireSeconds(serverExpire);
+        setTimeLeft(serverExpire);
       }
     } catch (error) {
       console.error("Failed to generate QR:", error);
@@ -82,7 +85,7 @@ export default function GenerateQRPage() {
         <Card className="w-full max-w-md bg-card border border-border/50 rounded-xl shadow-[0_8px_24px_rgba(0,55,112,0.08),_0_2px_6px_rgba(0,55,112,0.04)] overflow-hidden">
           <CardHeader className="text-center pb-2 bg-muted/30 border-b border-border/50">
             <CardTitle className="text-2xl font-light">QR Absensi</CardTitle>
-            <CardDescription>Berlaku selama {timeLeft > 0 ? timeLeft : 30} detik</CardDescription>
+            <CardDescription>Berlaku selama {timeLeft > 0 ? timeLeft : expireSeconds} detik</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-8 py-10">
             <div className="bg-background p-4 rounded-2xl relative w-full max-w-[282px] mx-auto">
@@ -151,8 +154,12 @@ export default function GenerateQRPage() {
             <RefreshCw className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <h4 className="font-medium mb-1">Informasi</h4>
-            <p className="text-muted-foreground leading-relaxed">QR code harus diperbarui secara manual untuk memastikan keamanan data absensi.</p>
+            <h4 className="font-medium mb-1">Alur Absensi</h4>
+            <p className="text-muted-foreground leading-relaxed">
+              1. Klik &quot;Buat QR Baru&quot; untuk check-in karyawan.
+              2. Setelah karyawan check-in, buat QR baru lagi untuk check-out.
+              3. QR hanya berlaku sekali scan dan akan kedaluwarsa otomatis.
+            </p>
           </div>
         </div>
         <div className="p-4 rounded-lg bg-muted/50 border border-border flex gap-4">
@@ -160,8 +167,8 @@ export default function GenerateQRPage() {
             <Timer className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <h4 className="font-medium mb-1">Cara Penggunaan</h4>
-            <p className="text-muted-foreground leading-relaxed">Klik &quot;Buat QR Baru&quot;, lalu minta karyawan melakukan scan menggunakan menu &quot;Scan QR&quot;.</p>
+            <h4 className="font-medium mb-1">Keamanan</h4>
+            <p className="text-muted-foreground leading-relaxed">QR code kedaluwarsa secara otomatis. Pastikan karyawan melakukan scan sebelum QR berakhir.</p>
           </div>
         </div>
       </div>

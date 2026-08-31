@@ -68,16 +68,16 @@ export default function AttendanceScanPage() {
         checkinData = await checkinRes.json();
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_e) {
-        checkinData = { error: "Failed to parse response from server" };
+        checkinData = { error: "Gagal memproses respons dari server" };
       }
 
       if (checkinRes.ok) {
         setStatus("success");
-        setSuccessMsg(`Check-in Berhasil! Status: ${checkinData.status}`);
+        setSuccessMsg(`Check-in Berhasil! Status: ${checkinData.status === "TELAT" ? "Telat" : "Tepat Waktu"}`);
         return;
       }
 
-      // If already checked in, try checkout
+      // If already checked in, try checkout with the same QR token
       const alreadyCheckedIn =
         checkinData.code === "ALREADY_CHECKED_IN" ||
         checkinData.error?.toLowerCase().includes("already checked in");
@@ -93,24 +93,40 @@ export default function AttendanceScanPage() {
           checkoutData = await checkoutRes.json();
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (_e) {
-          checkoutData = { error: "Failed to parse response from server" };
+          checkoutData = { error: "Gagal memproses respons dari server" };
         }
 
         if (checkoutRes.ok) {
           setStatus("success");
           setSuccessMsg("Check-out Berhasil! Sampai jumpa besok.");
         } else {
+          // Checkout gagal — QR mungkin sudah habis masa berlakunya atau sudah dipakai
           setStatus("error");
-          setErrorMsg(checkoutData.error || "Gagal melakukan absensi.");
+          setErrorMsg(
+            checkoutData.error === "Kode QR tidak valid atau sudah digunakan"
+              ? "QR sudah tidak berlaku. Minta owner membuat QR baru untuk check-out."
+              : checkoutData.error || "Gagal melakukan check-out."
+          );
         }
       } else {
         setStatus("error");
-        setErrorMsg(checkinData.error || "Gagal melakukan absensi.");
+        // Berikan pesan yang lebih jelas berdasarkan jenis error
+        if (checkinData.code === "INVALID_TOKEN" || checkinData.code === "TOKEN_EXPIRED") {
+          setErrorMsg(
+            checkinData.code === "TOKEN_EXPIRED"
+              ? "QR sudah kedaluwarsa. Minta owner membuat QR baru."
+              : "QR tidak valid atau sudah digunakan. Minta owner membuat QR baru."
+          );
+        } else if (checkinData.code === "GPS_UNAVAILABLE" || checkinData.code === "OUTSIDE_RADIUS") {
+          setErrorMsg(checkinData.error);
+        } else {
+          setErrorMsg(checkinData.error || "Gagal melakukan absensi.");
+        }
       }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_err) {
       setStatus("error");
-      setErrorMsg("Terjadi kesalahan koneksi.");
+      setErrorMsg("Terjadi kesalahan koneksi. Periksa jaringan Anda.");
     }
   }, [getCurrentPosition]);
 
@@ -192,10 +208,10 @@ export default function AttendanceScanPage() {
     <div className="flex-1 p-4 md:p-8 lg:p-12 w-full max-w-8xl mx-auto flex flex-col gap-8">
       <header>
         <h1 className="text-4xl font-light tracking-tight text-foreground">
-          Scan QR Attendance
+          Scan QR Absensi
         </h1>
         <p className="text-muted-foreground mt-2">
-          Arahkan kamera ke kode QR yang ada di layar admin.
+          Arahkan kamera ke kode QR yang ditampilkan oleh owner untuk check-in atau check-out.
         </p>
       </header>
 
@@ -315,8 +331,8 @@ export default function AttendanceScanPage() {
             <div className="flex items-start gap-4">
               <RefreshCw className="w-5 h-5 text-primary shrink-0 mt-1" />
               <div>
-                <p className="font-medium">QR Dinamis</p>
-                <p className="text-sm text-muted-foreground leading-relaxed">Pastikan Anda melakukan scan sebelum kode QR kedaluwarsa (30 detik).</p>
+                <p className="font-medium">Alur Absensi</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">Scan QR pertama untuk check-in. Untuk check-out, scan QR baru yang dibuat owner.</p>
               </div>
             </div>
           </CardContent>

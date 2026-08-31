@@ -227,9 +227,6 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
 
   const completeRowsError = validateCompleteRows(normalizedRows, employeeIds, weekDates);
   if (completeRowsError) return { error: completeRowsError };
-  if (!existing && normalizedRows.some((row) => row.tipe_jadwal === "LIBUR")) {
-    return { error: "Draft awal hanya boleh berisi shift pagi atau sore" };
-  }
 
   const capacity = Math.max(1, Math.ceil(employeeIds.length / 7));
   const { data: leaveRequests, error: leaveRequestError } = existing

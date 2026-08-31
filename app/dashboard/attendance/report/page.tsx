@@ -10,8 +10,18 @@ export default async function AdminAttendanceReportPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || !isOwnerLike(user.user_metadata?.role)) {
-    return <div>Access Denied. Owner only.</div>;
+  if (!user) {
+    return <div>Tidak terautentikasi.</div>;
+  }
+
+  const { data: pengguna } = await supabase
+    .from("pengguna")
+    .select("level")
+    .eq("username", user.email?.split("@")[0])
+    .single();
+
+  if (!isOwnerLike(pengguna?.level)) {
+    return <div>Akses ditolak. Hanya Owner yang dapat melihat laporan ini.</div>;
   }
 
   // Get current month's initial data

@@ -71,3 +71,21 @@ export async function getMonthlyAttendanceStats() {
 
   return { total, hadir, telat };
 }
+
+/**
+ * Bersihkan session QR yang sudah expired atau sudah tidak aktif.
+ * Panggil secara periodik (misal saat generate QR baru) untuk menjaga
+ * tabel qr_session tetap rampit.
+ */
+export async function cleanupExpiredQRSessions() {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("qr_session")
+    .delete()
+    .or("is_active.eq.false,expired_at.lt." + new Date().toISOString());
+
+  if (error) {
+    console.error("Gagal membersihkan QR session expired:", error);
+  }
+}

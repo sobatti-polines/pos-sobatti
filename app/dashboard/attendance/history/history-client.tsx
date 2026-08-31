@@ -10,11 +10,13 @@ import { ExportDropdown } from "@/components/export-dropdown";
 
 function formatTime(isoString: string | null) {
   if (!isoString) return "--:--";
-  return new Date(isoString).toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Jakarta"
-  });
+  // jam_masuk/jam_pulang disimpan sebagai literal WIB ("2026-08-31T09:30:00")
+  // tanpa suffix timezone. Ekstrak langsung dari string agar tidak bergantung
+  // pada timezone browser/server.
+  const timePart = isoString.includes("T") ? isoString.split("T")[1] : isoString;
+  const [hh, mm] = timePart.split(":");
+  if (hh == null || mm == null) return "--:--";
+  return `${hh}:${mm}`;
 }
 
 function formatDate(dateStr: string) {

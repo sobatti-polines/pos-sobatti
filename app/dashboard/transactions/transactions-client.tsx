@@ -423,30 +423,37 @@ export default function TransactionsClient({
             label: "Export",
             customRender: () => (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border" aria-label="Urutan laporan">
-                  <span className="px-2 text-xs font-medium text-muted-foreground whitespace-nowrap">Urutan laporan</span>
-                  <Button
-                    variant={exportSortOrder === "desc" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-9 gap-1.5 px-3 text-xs"
+                <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5" role="radiogroup" aria-label="Urutan laporan">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={exportSortOrder === "desc"}
                     onClick={() => setExportSortOrder("desc")}
-                    aria-pressed={exportSortOrder === "desc"}
-                    title="Urutkan laporan dari terbaru ke terlama"
+                    title="Urutkan dari terbaru ke terlama"
+                    className={`inline-flex items-center gap-1 rounded-[5px] px-2.5 py-1 text-xs font-medium transition-all ${
+                      exportSortOrder === "desc"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
                   >
-                    <ArrowDown className="w-4 h-4" />
+                    <ArrowDown className="w-3.5 h-3.5" />
                     Terbaru
-                  </Button>
-                  <Button
-                    variant={exportSortOrder === "asc" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-9 gap-1.5 px-3 text-xs"
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={exportSortOrder === "asc"}
                     onClick={() => setExportSortOrder("asc")}
-                    aria-pressed={exportSortOrder === "asc"}
-                    title="Urutkan laporan dari terlama ke terbaru"
+                    title="Urutkan dari terlama ke terbaru"
+                    className={`inline-flex items-center gap-1 rounded-[5px] px-2.5 py-1 text-xs font-medium transition-all ${
+                      exportSortOrder === "asc"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
                   >
-                    <ArrowUp className="w-4 h-4" />
+                    <ArrowUp className="w-3.5 h-3.5" />
                     Terlama
-                  </Button>
+                  </button>
                 </div>
                 <ExportDropdown
                   onExportCSV={handleExportCSV}

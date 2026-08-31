@@ -17,7 +17,7 @@ export default async function AttendanceHistoryPage() {
     .eq("username", user.email?.split("@")[0])
     .single();
 
-  if (!pengguna) return <div>User profile not found.</div>;
+  if (!pengguna) return <div>Profil pengguna tidak ditemukan.</div>;
 
   const { data: history, error } = await supabase
     .from("absensi")
