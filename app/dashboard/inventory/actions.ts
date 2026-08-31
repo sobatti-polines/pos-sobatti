@@ -81,15 +81,7 @@ function validateBigPrices(data: ProductData): string | null {
   if (!data.jual_satuan) return null;
   const ratio = Number(data.conversion_ratio ?? 1);
   if (!Number.isFinite(ratio) || ratio <= 0) return "Rasio satuan besar harus lebih dari 0";
-  if (!data.harga_jual_besar_manual) return null;
-
-  const positive = (value: number | null | undefined) =>
-    Number.isFinite(Number(value)) && Number(value) > 0;
-  if (!positive(data.harga_jual_besar_satuan)) return "Harga Retail satuan besar harus lebih dari 0";
-  if (!positive(data.harga_jual_besar_grosir)) return "Harga Grosir satuan besar harus lebih dari 0";
-  if (data.harga_jual_promo != null && !positive(data.harga_jual_besar_promo)) {
-    return "Harga Promo satuan besar harus lebih dari 0";
-  }
+  // Harga besar opsional — boleh 0 atau kosong, tidak perlu validasi > 0
   return null;
 }
 
@@ -749,13 +741,29 @@ export async function importProducts(
     const default_purchase_unit = (r["Satuan Beli dari Supplier"] || r["Satuan Beli"] || r["default_purchase_unit"] || "").trim() || null;
     const conversion_ratio = parseNum(r["Isi per Satuan Beli"] || r["Rasio Konversi"] || r["conversion_ratio"], 1);
 
-    // Satuan jual besar (multi-unit selling) — harga besar TIDAK diimport,
-    // otomatis dihitung = harga jual kecil × conversion_ratio.
+    // Satuan jual besar (multi-unit selling) — harga besar bisa diimport dari CSV.
+    // Jika kolom harga besar diisi (>= 0), pakai nilai CSV.
+    // Jika kolom harga besar kosong/null, auto-calculate = harga jual kecil × conversion_ratio.
     const jual_satuan = (r["Satuan Jual Besar"] || r["jual_satuan"] || "").trim() || null;
-    const harga_jual_besar_satuan = jual_satuan ? Math.round(harga_jual_satuan * conversion_ratio) : null;
-    const harga_jual_besar_grosir = jual_satuan ? Math.round(harga_jual_grosir * conversion_ratio) : null;
-    const harga_jual_besar_promo = jual_satuan && harga_jual_promo != null
-      ? Math.round(harga_jual_promo * conversion_ratio)
+
+    const hargaJualBesarSatuanRaw = r["Harga Jual Besar Satuan"] || r["harga_jual_besar_satuan"];
+    const hargaJualBesarGrosirRaw = r["Harga Jual Besar Grosir"] || r["harga_jual_besar_grosir"];
+    const hargaJualBesarPromoRaw = r["Harga Jual Besar Promo"] || r["harga_jual_besar_promo"];
+
+    const harga_jual_besar_satuan = jual_satuan
+      ? (hargaJualBesarSatuanRaw != null && hargaJualBesarSatuanRaw !== ""
+          ? parseNum(hargaJualBesarSatuanRaw)
+          : Math.round(harga_jual_satuan * conversion_ratio))
+      : null;
+    const harga_jual_besar_grosir = jual_satuan
+      ? (hargaJualBesarGrosirRaw != null && hargaJualBesarGrosirRaw !== ""
+          ? parseNum(hargaJualBesarGrosirRaw)
+          : Math.round(harga_jual_grosir * conversion_ratio))
+      : null;
+    const harga_jual_besar_promo = jual_satuan
+      ? (hargaJualBesarPromoRaw != null && hargaJualBesarPromoRaw !== ""
+          ? parseNum(hargaJualBesarPromoRaw)
+          : (harga_jual_promo != null ? Math.round(harga_jual_promo * conversion_ratio) : null))
       : null;
 
     // Paket fields

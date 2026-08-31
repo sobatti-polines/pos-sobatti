@@ -353,13 +353,7 @@ export default function InventoryClient({
         return;
       }
     }
-    if (editForm.jual_satuan && editForm.harga_jual_besar_manual) {
-      if (!(Number(editForm.harga_jual_besar_satuan) > 0)) { setErrorMsg("Harga Retail satuan besar harus lebih dari 0"); return; }
-      if (!(Number(editForm.harga_jual_besar_grosir) > 0)) { setErrorMsg("Harga Grosir satuan besar harus lebih dari 0"); return; }
-      if (editForm.harga_jual_promo != null && !(Number(editForm.harga_jual_besar_promo) > 0)) {
-        setErrorMsg("Harga Promo satuan besar harus lebih dari 0"); return;
-      }
-    }
+    // Harga besar opsional — boleh 0 atau kosong
     setErrorMsg("");
 
     const data = {
@@ -572,13 +566,15 @@ export default function InventoryClient({
       "Satuan Beli dari Supplier",
       "Isi per Satuan Beli",
       "Satuan Jual Besar",
+      "Harga Jual Besar Satuan",
+      "Harga Jual Besar Grosir",
+      "Harga Jual Besar Promo",
       "Produk Master (ID)",
       "Qty Isi per Paket",
       "Jenis Isi Paket",
       "Satuan Isi Paket",
       "HPP (AVCO)",
       "Total Aset",
-      "Harga Besar",
     ];
     const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![8, 10, 11, 24, 25].includes(i));
     const data = filteredData.map(p => {
@@ -603,15 +599,17 @@ export default function InventoryClient({
         p.default_purchase_unit ?? "",
         p.conversion_ratio ?? 1,
         p.jual_satuan ?? "",
+        p.harga_jual_besar_satuan ?? "",
+        p.harga_jual_besar_grosir ?? "",
+        p.harga_jual_besar_promo ?? "",
         p.id_produk_master ?? "",
         p.qty_per_unit ?? "",
         p.jenis_isi_paket ?? "",
         p.isi_satuan ?? "",
         p.harga_pokok_avco ?? 0,
         p.nilai_persediaan ?? 0,
-        bigPriceOf(p) ?? "",
       ];
-      return isOwner ? row : row.filter((_, i) => ![8, 10, 11, 24, 25].includes(i));
+      return isOwner ? row : row.filter((_, i) => ![8, 10, 11, 20, 21, 22, 27, 28].includes(i));
     });
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -1800,6 +1798,9 @@ export default function InventoryClient({
           "Satuan Beli dari Supplier",
           "Isi per Satuan Beli",
           "Satuan Jual Besar",
+          "Harga Jual Besar Satuan",
+          "Harga Jual Besar Grosir",
+          "Harga Jual Besar Promo",
           "Produk Master (ID)",
           "Qty Isi per Paket",
           "Jenis Isi Paket",
@@ -1859,13 +1860,15 @@ export default function InventoryClient({
             "",
             "",
             "",
+            "",
+            "",
           ],
         ]}
         templateInstructions={[
           "1. Isi data produk pada sheet \"Data Produk\". Baris contoh boleh dihapus sebelum mengisi data asli.",
           "2. Kolom yang WAJIB diisi: Nama Produk. Kolom lain boleh dikosongkan (memakai nilai default).",
           "3. Kategori, Satuan, Merk, dan Lokasi dibuat otomatis jika belum ada — gunakan nama yang sama persis agar tidak dobel.",
-          "4. Harga ditulis angka Rupiah tanpa titik/koma ribuan (contoh: 68000, bukan 68.000).",
+          "4. Semua kolom harga (Modal, Eceran, Grosir, Promo, Besar) bersifat OPSIONAL — boleh dikosongkan atau diisi 0.",
           "5. Jika Barcode, SKU, atau Nama Produk sama dengan barang di sistem, sistem akan MELAKUKAN UPDATE pada kolom lainnya.",
           "6. KHUSUS UPDATE: Nilai STOK pada Excel akan DIABAIKAN untuk mencegah tertimpanya stok jika ada barang terjual selama Anda mengedit file.",
           "7. Untuk penjelasan lengkap setiap kolom, lihat tabel \"TABEL PENJELASAN KOLOM\" di bawah.",
@@ -1880,10 +1883,10 @@ export default function InventoryClient({
           { kolom: "Merk / Brand", penjelasan: "Merek produk (opsional). Dibuat otomatis jika belum ada.", contoh: "Semen Indonesia" },
           { kolom: "Lokasi / Rak", penjelasan: "Letak penyimpanan produk di toko / gudang (opsional). Dibuat otomatis jika belum ada.", contoh: "Rak A1" },
           { kolom: "Hitung Stok (ya/tidak)", penjelasan: "Isi \"ya\" jika stok dihitung otomatis, \"tidak\" untuk produk yang stoknya tidak perlu dihitung (misal jasa). Default: ya.", contoh: "ya" },
-          { kolom: "Harga Modal / Beli", penjelasan: "Harga beli / harga pokok per satuan dasar, dalam Rupiah. Dipakai untuk menghitung laba. Angka tanpa titik ribuan.", contoh: "62000" },
-          { kolom: "Harga Jual Eceran", penjelasan: "Harga jual normal per satuan dasar — harga yang muncul pertama di kasir (tier default).", contoh: "68000" },
-          { kolom: "Harga Jual Grosir", penjelasan: "Harga untuk pembelian jumlah besar per satuan dasar (opsional, boleh sama dengan eceran).", contoh: "65000" },
-          { kolom: "Harga Jual Promo", penjelasan: "Harga tier promo per satuan dasar (opsional). Kosongkan jika tidak ada harga promo.", contoh: "60000" },
+          { kolom: "Harga Modal / Beli", penjelasan: "Harga beli / harga pokok per satuan dasar, dalam Rupiah. Boleh 0 atau kosong (default: 0). Angka tanpa titik ribuan.", contoh: "62000" },
+          { kolom: "Harga Jual Eceran", penjelasan: "Harga jual normal per satuan dasar — harga yang muncul pertama di kasir (tier default). Boleh 0 atau kosong.", contoh: "68000" },
+          { kolom: "Harga Jual Grosir", penjelasan: "Harga untuk pembelian jumlah besar per satuan dasar (opsional). Boleh 0 atau kosong.", contoh: "65000" },
+          { kolom: "Harga Jual Promo", penjelasan: "Harga tier promo per satuan dasar (opsional). Boleh 0 atau kosong.", contoh: "60000" },
           { kolom: "Diskon per Item (Rp)", penjelasan: "Potongan harga tetap dalam Rupiah per 1 satuan, otomatis dikurangi dari harga berapapun tier-nya. Isi 0 jika tidak ada.", contoh: "0" },
           { kolom: "Stok di Rak / Display", penjelasan: "Jumlah stok yang tersedia di rak toko (opsional — stok biasanya ditambah lewat menu Barang Masuk).", contoh: "50" },
           { kolom: "Stok di Gudang", penjelasan: "Jumlah stok yang tersimpan di gudang (opsional).", contoh: "200" },
@@ -1891,7 +1894,10 @@ export default function InventoryClient({
           { kolom: "Stok Minimum Gudang", penjelasan: "Batas stok GUDANG untuk peringatan \"stok gudang menipis\" (opsional, kosongkan = nonaktif). Dalam satuan dasar, misal 500 = peringatan saat stok gudang 500 atau kurang.", contoh: "500" },
           { kolom: "Satuan Beli dari Supplier", penjelasan: "Satuan saat membeli dari supplier, jika berbeda dari satuan dasar (opsional). Contoh: beli per Dus padahal satuan dasar Kg.", contoh: "Dus" },
           { kolom: "Isi per Satuan Beli", penjelasan: "Berapa satuan dasar dalam 1 satuan beli. Contoh: 1 Dus = 10 Kg, isi \"10\". Default: 1.", contoh: "10" },
-          { kolom: "Satuan Jual Besar", penjelasan: "Satuan besar untuk menjual produk (opsional), misal Dus, Roll, Set. Kosongkan jika hanya dijual per satuan dasar. Harga jual besar dihitung OTOMATIS = harga jual kecil × isi per satuan beli.", contoh: "Dus" },
+          { kolom: "Satuan Jual Besar", penjelasan: "Satuan besar untuk menjual produk (opsional), misal Dus, Roll, Set. Kosongkan jika hanya dijual per satuan dasar. Jika kolom harga besar diisi, nilai CSV dipakai. Jika kosong, harga besar otomatis = harga kecil × isi per satuan beli.", contoh: "Dus" },
+          { kolom: "Harga Jual Besar Satuan", penjelasan: "Harga eceran per satuan besar (opsional). Jika diisi, dipakai langsung. Jika kosong, otomatis = Harga Jual Eceran × Isi per Satuan Beli. Boleh 0 atau kosong.", contoh: "680000" },
+          { kolom: "Harga Jual Besar Grosir", penjelasan: "Harga grosir per satuan besar (opsional). Jika diisi, dipakai langsung. Jika kosong, otomatis = Harga Jual Grosir × Isi per Satuan Beli. Boleh 0 atau kosong.", contoh: "650000" },
+          { kolom: "Harga Jual Besar Promo", penjelasan: "Harga promo per satuan besar (opsional). Jika diisi, dipakai langsung. Jika kosong, otomatis = Harga Jual Promo × Isi per Satuan Beli. Boleh 0 atau kosong.", contoh: "600000" },
           { kolom: "Produk Master (ID)", penjelasan: "Khusus produk PAKET: isi ID produk induk/master (angka). Kosongkan untuk produk biasa. Lihat ID produk di halaman Inventaris.", contoh: "12" },
           { kolom: "Qty Isi per Paket", penjelasan: "Jumlah isi dalam 1 paket — khusus produk paket (opsional).", contoh: "50" },
           { kolom: "Jenis Isi Paket", penjelasan: "Cara menghitung isi paket: FIXED_RATIO (isi tetap) atau ACTUAL_WEIGHT (dihitung dari berat asli). Khusus produk paket.", contoh: "FIXED_RATIO" },
