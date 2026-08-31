@@ -2,6 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import {
   AlertTriangle,
   Check,
@@ -9,6 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  FileDown,
+  FileSpreadsheet,
   Loader2,
   RotateCcw,
   Save,
@@ -157,6 +162,230 @@ function nextValue(current: CellValue): CellValue {
   if (current === "PAGI") return "SORE";
   if (current === "SORE") return "LIBUR";
   return "";
+}
+
+/* ------------------------------------------------------------------ */
+/*  Export helpers — PDF & Excel untuk jadwal mingguan                  */
+/* ------------------------------------------------------------------ */
+
+function shiftLabel(value: CellValue): string {
+  if (value === "PAGI") return "Pagi";
+  if (value === "SORE") return "Sore";
+  if (value === "LIBUR") return "Libur";
+  return "-";
+}
+
+function exportSchedulePDF(
+  weekStart: string,
+  weekEnd: string,
+  employees: EmployeeOption[],
+  weekDates: string[],
+  schedule: ScheduleMap,
+  shifts: ShiftOption[],
+  kebutuhanPagi: string,
+  kebutuhanSore: string,
+) {
+  const pagiShift = shifts.find((s) => s.kode === "PAGI");
+  const soreShift = shifts.find((s) => s.kode === "SORE");
+
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+  const mx = 14;
+
+  // --- Header ---
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 30, 30);
+  doc.text("Jadwal Karyawan Mingguan", mx, 16);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  const dateRangeText = `${formatLongDate(weekStart)} — ${formatLongDate(weekEnd)}`;
+  doc.text(dateRangeText, mx, 23);
+
+  // Info bar
+  const infoY = 29;
+  doc.setFontSize(9);
+  doc.setTextColor(80, 80, 80);
+  const shiftInfo = `Pagi: ${pagiShift?.jam_mulai ?? "08:00"}-${pagiShift?.jam_selesai ?? "15:00"} (min ${kebutuhanPagi}) · Sore: ${soreShift?.jam_mulai ?? "15:00"}-${soreShift?.jam_selesai ?? "22:00"} (min ${kebutuhanSore})`;
+  doc.text(shiftInfo, mx, infoY);
+  doc.text(`Dicetak: ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`, pw - mx, infoY, { align: "right" });
+
+  // --- Table ---
+  const headerRow = ["No", "Nama Pegawai", "Level", ...DAY_LABELS.map((d, i) => `${d}\n${formatDate(weekDates[i])}`)];
+
+  const bodyRows = employees.map((employee, idx) => {
+    const cells = weekDates.map((date) => {
+      const v = schedule[cellKey(employee.id, date)] as CellValue;
+      return shiftLabel(v);
+    });
+    return [
+      idx + 1,
+      employee.nama || employee.username,
+      employee.level,
+      ...cells,
+    ];
+  });
+
+  // Hitung jumlah Pagi/Sore/Libur per pegawai untuk baris ringkasan
+  const summaryRow = ["", "", "TOTAL", ...weekDates.map((date) => {
+    let p = 0, s = 0, l = 0;
+    for (const emp of employees) {
+      const v = schedule[cellKey(emp.id, date)] as CellValue;
+      if (v === "PAGI") p++;
+      else if (v === "SORE") s++;
+      else if (v === "LIBUR") l++;
+    }
+    return `P:${p} S:${s} L:${l}`;
+  })];
+
+  autoTable(doc, {
+    head: [headerRow],
+    body: [...bodyRows, summaryRow],
+    startY: infoY + 6,
+    styles: {
+      fontSize: 8,
+      cellPadding: 3,
+      valign: "middle",
+      halign: "center",
+      lineColor: [200, 200, 200],
+      lineWidth: 0.3,
+    },
+    headStyles: {
+      fillColor: [55, 65, 81],
+      textColor: [255, 255, 255],
+      fontStyle: "bold",
+      fontSize: 8,
+      halign: "center",
+      cellPadding: 4,
+    },
+    columnStyles: {
+      0: { halign: "center", cellPadding: 3, cellWidth: 10 },
+      1: { halign: "left", fontStyle: "bold", cellWidth: 48 },
+      2: { halign: "center", cellWidth: 20 },
+    },
+    didParseCell: (data) => {
+      // Warna baris ringkasan
+      if (data.row.index === bodyRows.length) {
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fillColor = [243, 244, 246];
+        data.cell.styles.fontSize = 7.5;
+      }
+      // Warna cell shift
+      if (data.section === "body" && data.column.index >= 3) {
+        const val = String(data.cell.raw);
+        if (val === "Pagi") {
+          data.cell.styles.textColor = [3, 105, 161]; // sky-700
+        } else if (val === "Sore") {
+          data.cell.styles.textColor = [55, 48, 163]; // indigo-700
+        } else if (val === "Libur") {
+          data.cell.styles.textColor = [190, 18, 60]; // rose-700
+          data.cell.styles.fontStyle = "bold";
+        }
+      }
+    },
+    margin: { left: mx, right: mx },
+  });
+
+  // --- Footer ---
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(
+      `Halaman ${i} dari ${pageCount} — Jadwal Karyawan ${dateRangeText}`,
+      pw / 2,
+      ph - 6,
+      { align: "center" }
+    );
+  }
+
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  doc.save(`jadwal-karyawan-${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${String(now.getFullYear()).slice(-2)}.pdf`);
+}
+
+function exportScheduleExcel(
+  weekStart: string,
+  weekEnd: string,
+  employees: EmployeeOption[],
+  weekDates: string[],
+  schedule: ScheduleMap,
+  shifts: ShiftOption[],
+  kebutuhanPagi: string,
+  kebutuhanSore: string,
+) {
+  const pagiShift = shifts.find((s) => s.kode === "PAGI");
+  const soreShift = shifts.find((s) => s.kode === "SORE");
+
+  const wb = XLSX.utils.book_new();
+
+  // --- Sheet Jadwal ---
+  const headers = ["No", "Nama Pegawai", "Username", "Level", ...DAY_LABELS.map((d, i) => `${d} (${formatDate(weekDates[i])})`)];
+
+  const dataRows = employees.map((employee, idx) => {
+    const cells = weekDates.map((date) => shiftLabel(schedule[cellKey(employee.id, date)] as CellValue));
+    return [idx + 1, employee.nama || "", employee.username, employee.level, ...cells];
+  });
+
+  // Baris total
+  const totalRow = ["", "", "TOTAL", "", ...weekDates.map((date) => {
+    let p = 0, s = 0, l = 0;
+    for (const emp of employees) {
+      const v = schedule[cellKey(emp.id, date)] as CellValue;
+      if (v === "PAGI") p++;
+      else if (v === "SORE") s++;
+      else if (v === "LIBUR") l++;
+    }
+    return `Pagi: ${p} / Sore: ${s} / Libur: ${l}`;
+  })];
+
+  const sheetData = [headers, ...dataRows, totalRow];
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+  // Atur lebar kolom
+  ws["!cols"] = [
+    { wch: 5 },   // No
+    { wch: 25 },  // Nama
+    { wch: 15 },  // Username
+    { wch: 10 },  // Level
+    { wch: 18 },  // Senin
+    { wch: 18 },  // Selasa
+    { wch: 18 },  // Rabu
+    { wch: 18 },  // Kamis
+    { wch: 18 },  // Jumat
+    { wch: 18 },  // Sabtu
+    { wch: 18 },  // Minggu
+  ];
+
+  // Merge cell header judul
+  ws["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, // merge No s/d Level
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, "Jadwal");
+
+  // --- Sheet Info ---
+  const dateRange = `${formatLongDate(weekStart)} — ${formatLongDate(weekEnd)}`;
+  const infoData = [
+    ["JADWAL KARYAWAN MINGGUAN"],
+    [""],
+    ["Periode", dateRange],
+    ["Pagi", `${pagiShift?.jam_mulai ?? "08:00"}-${pagiShift?.jam_selesai ?? "15:00"} (min ${kebutuhanPagi} orang)`],
+    ["Sore", `${soreShift?.jam_mulai ?? "15:00"}-${soreShift?.jam_selesai ?? "22:00"} (min ${kebutuhanSore} orang)`],
+    ["Jumlah Pegawai", String(employees.length)],
+    ["Dicetak", new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })],
+  ];
+  const wsInfo = XLSX.utils.aoa_to_sheet(infoData);
+  wsInfo["!cols"] = [{ wch: 18 }, { wch: 50 }];
+  XLSX.utils.book_append_sheet(wb, wsInfo, "Info");
+
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  XLSX.writeFile(wb, `jadwal-karyawan-${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${String(now.getFullYear()).slice(-2)}.xlsx`);
 }
 
 export default function JadwalKaryawanClient({
@@ -509,6 +738,36 @@ export default function JadwalKaryawanClient({
             >
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Terbitkan
+            </Button>
+          </div>
+
+          {/* Export buttons */}
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => exportSchedulePDF(
+                weekStart, weekEnd, employees, weekDates,
+                schedule, shifts, kebutuhanPagi, kebutuhanSore
+              )}
+              disabled={employees.length === 0}
+              className="rounded-full"
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              Export PDF
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => exportScheduleExcel(
+                weekStart, weekEnd, employees, weekDates,
+                schedule, shifts, kebutuhanPagi, kebutuhanSore
+              )}
+              disabled={employees.length === 0}
+              className="rounded-full"
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Export Excel
             </Button>
           </div>
         </div>
