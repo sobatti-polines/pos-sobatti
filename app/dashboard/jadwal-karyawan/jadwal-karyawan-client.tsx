@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Download,
   FileDown,
   FileSpreadsheet,
   Loader2,
@@ -24,6 +25,12 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   reviewLeaveRequest,
@@ -214,7 +221,15 @@ function exportSchedulePDF(
   doc.text(`Dicetak: ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`, pw - mx, infoY, { align: "right" });
 
   // --- Table ---
-  const headerRow = ["No", "Nama Pegawai", "Level", ...DAY_LABELS.map((d, i) => `${d}\n${formatDate(weekDates[i])}`)];
+  // Header: No, Nama, Level, 7 hari
+  // Lebar: A4 landscape = 297mm - 28mm margin = 269mm usable
+  // No(10) + Nama(42) + Level(24) + 7 hari(27ea = 189) = 265mm
+  const headerRow = [
+    "#",
+    "Nama",
+    "Level",
+    ...DAY_LABELS.map((d, i) => `${d}\n${formatDate(weekDates[i])}`),
+  ];
 
   const bodyRows = employees.map((employee, idx) => {
     const cells = weekDates.map((date) => {
@@ -222,15 +237,15 @@ function exportSchedulePDF(
       return shiftLabel(v);
     });
     return [
-      idx + 1,
+      String(idx + 1),
       employee.nama || employee.username,
       employee.level,
       ...cells,
     ];
   });
 
-  // Hitung jumlah Pagi/Sore/Libur per pegawai untuk baris ringkasan
-  const summaryRow = ["", "", "TOTAL", ...weekDates.map((date) => {
+  // Baris total
+  const summaryRow = ["", "TOTAL", "", ...weekDates.map((date) => {
     let p = 0, s = 0, l = 0;
     for (const emp of employees) {
       const v = schedule[cellKey(emp.id, date)] as CellValue;
@@ -252,22 +267,25 @@ function exportSchedulePDF(
       halign: "center",
       lineColor: [200, 200, 200],
       lineWidth: 0.3,
+      overflow: "linebreak",
     },
     headStyles: {
       fillColor: [55, 65, 81],
       textColor: [255, 255, 255],
       fontStyle: "bold",
-      fontSize: 8,
+      fontSize: 7.5,
       halign: "center",
       cellPadding: 4,
+      lineColor: [75, 85, 99],
+      lineWidth: 0.4,
     },
     columnStyles: {
-      0: { halign: "center", cellPadding: 3, cellWidth: 10 },
-      1: { halign: "left", fontStyle: "bold", cellWidth: 48 },
-      2: { halign: "center", cellWidth: 20 },
+      0: { halign: "center", cellWidth: 10 },
+      1: { halign: "left", fontStyle: "normal", cellWidth: 42 },
+      2: { halign: "center", cellWidth: 26 },
     },
     didParseCell: (data) => {
-      // Warna baris ringkasan
+      // Baris ringkasan
       if (data.row.index === bodyRows.length) {
         data.cell.styles.fontStyle = "bold";
         data.cell.styles.fillColor = [243, 244, 246];
@@ -277,16 +295,17 @@ function exportSchedulePDF(
       if (data.section === "body" && data.column.index >= 3) {
         const val = String(data.cell.raw);
         if (val === "Pagi") {
-          data.cell.styles.textColor = [3, 105, 161]; // sky-700
+          data.cell.styles.textColor = [3, 105, 161];
         } else if (val === "Sore") {
-          data.cell.styles.textColor = [55, 48, 163]; // indigo-700
+          data.cell.styles.textColor = [55, 48, 163];
         } else if (val === "Libur") {
-          data.cell.styles.textColor = [190, 18, 60]; // rose-700
+          data.cell.styles.textColor = [190, 18, 60];
           data.cell.styles.fontStyle = "bold";
         }
       }
     },
     margin: { left: mx, right: mx },
+    tableWidth: "auto",
   });
 
   // --- Footer ---
@@ -324,15 +343,15 @@ function exportScheduleExcel(
   const wb = XLSX.utils.book_new();
 
   // --- Sheet Jadwal ---
-  const headers = ["No", "Nama Pegawai", "Username", "Level", ...DAY_LABELS.map((d, i) => `${d} (${formatDate(weekDates[i])})`)];
+  const headers = ["#", "Nama", "Level", ...DAY_LABELS.map((d, i) => `${d} (${formatDate(weekDates[i])})`)];
 
   const dataRows = employees.map((employee, idx) => {
     const cells = weekDates.map((date) => shiftLabel(schedule[cellKey(employee.id, date)] as CellValue));
-    return [idx + 1, employee.nama || "", employee.username, employee.level, ...cells];
+    return [String(idx + 1), employee.nama || employee.username, employee.level, ...cells];
   });
 
   // Baris total
-  const totalRow = ["", "", "TOTAL", "", ...weekDates.map((date) => {
+  const totalRow = ["", "TOTAL", "", ...weekDates.map((date) => {
     let p = 0, s = 0, l = 0;
     for (const emp of employees) {
       const v = schedule[cellKey(emp.id, date)] as CellValue;
@@ -340,30 +359,23 @@ function exportScheduleExcel(
       else if (v === "SORE") s++;
       else if (v === "LIBUR") l++;
     }
-    return `Pagi: ${p} / Sore: ${s} / Libur: ${l}`;
+    return `P:${p} S:${s} L:${l}`;
   })];
 
   const sheetData = [headers, ...dataRows, totalRow];
   const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
-  // Atur lebar kolom
   ws["!cols"] = [
-    { wch: 5 },   // No
-    { wch: 25 },  // Nama
-    { wch: 15 },  // Username
-    { wch: 10 },  // Level
-    { wch: 18 },  // Senin
-    { wch: 18 },  // Selasa
-    { wch: 18 },  // Rabu
-    { wch: 18 },  // Kamis
-    { wch: 18 },  // Jumat
-    { wch: 18 },  // Sabtu
-    { wch: 18 },  // Minggu
-  ];
-
-  // Merge cell header judul
-  ws["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, // merge No s/d Level
+    { wch: 5 },   // #
+    { wch: 22 },  // Nama
+    { wch: 14 },  // Level
+    { wch: 16 },  // Senin
+    { wch: 16 },  // Selasa
+    { wch: 16 },  // Rabu
+    { wch: 16 },  // Kamis
+    { wch: 16 },  // Jumat
+    { wch: 16 },  // Sabtu
+    { wch: 16 },  // Minggu
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, "Jadwal");
@@ -642,17 +654,46 @@ export default function JadwalKaryawanClient({
             </h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button asChild variant="outline">
+          <div className="flex flex-wrap items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="rounded-full">
+                  <Download className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem
+                  onClick={() => exportSchedulePDF(
+                    weekStart, weekEnd, employees, weekDates,
+                    schedule, shifts, kebutuhanPagi, kebutuhanSore
+                  )}
+                >
+                  <FileDown className="mr-2 h-4 w-4" />
+                  PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => exportScheduleExcel(
+                    weekStart, weekEnd, employees, weekDates,
+                    schedule, shifts, kebutuhanPagi, kebutuhanSore
+                  )}
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="hidden sm:block w-px h-5 bg-border" />
+            <Button asChild variant="outline" size="sm">
               <Link href={`/dashboard/jadwal-karyawan?week=${previousWeek}`}>
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Minggu Sebelumnya
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden md:inline">Minggu Sebelumnya</span>
               </Link>
             </Button>
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" size="sm">
               <Link href={`/dashboard/jadwal-karyawan?week=${nextWeek}`}>
-                Minggu Berikutnya
-                <ChevronRight className="ml-2 h-4 w-4" />
+                <span className="hidden md:inline">Minggu Berikutnya</span>
+                <ChevronRight className="h-4 w-4" />
               </Link>
             </Button>
           </div>
@@ -738,36 +779,6 @@ export default function JadwalKaryawanClient({
             >
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Terbitkan
-            </Button>
-          </div>
-
-          {/* Export buttons */}
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => exportSchedulePDF(
-                weekStart, weekEnd, employees, weekDates,
-                schedule, shifts, kebutuhanPagi, kebutuhanSore
-              )}
-              disabled={employees.length === 0}
-              className="rounded-full"
-            >
-              <FileDown className="mr-2 h-4 w-4" />
-              Export PDF
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => exportScheduleExcel(
-                weekStart, weekEnd, employees, weekDates,
-                schedule, shifts, kebutuhanPagi, kebutuhanSore
-              )}
-              disabled={employees.length === 0}
-              className="rounded-full"
-            >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Export Excel
             </Button>
           </div>
         </div>
