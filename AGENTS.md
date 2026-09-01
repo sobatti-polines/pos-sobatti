@@ -221,7 +221,7 @@ Guard utama:
 - QR session expired sesuai env `QR_EXPIRE_SECONDS`.
 - Check-in memvalidasi QR aktif dan menandai token terpakai; lokasi/GPS tidak digunakan.
 - Owner tidak melakukan absensi.
-- Status telat dihitung dari QR pertama hari itu + toleransi, fallback ke `ATTENDANCE_START_TIME`.
+- Status telat dihitung berdasarkan jam mulai shift karyawan (`jadwal_karyawan` + `shift_kerja.jam_mulai`). Jika tidak ada jadwal terbit, fallback ke QR pertama hari itu + toleransi, lalu `ATTENDANCE_START_TIME`.
 - Gunakan tanggal bisnis WIB saat membaca/menulis status harian.
 
 ### Low Stock
