@@ -22,6 +22,7 @@ interface MyScheduleRow {
   } | null;
   jadwal_mingguan: {
     status: string;
+    catatan_seragam?: Record<string, string> | null;
   } | null;
 }
 
@@ -111,7 +112,7 @@ export default async function JadwalSayaPage() {
         tanggal,
         tipe_jadwal,
         shift_kerja(kode, nama, jam_mulai, jam_selesai),
-        jadwal_mingguan!inner(status)
+        jadwal_mingguan!inner(status, catatan_seragam)
       `
       )
       .eq("id_pengguna", pengguna.id)
@@ -171,6 +172,7 @@ export default async function JadwalSayaPage() {
 
   const scheduleByDate = new Map(scheduleRows.map((row) => [row.tanggal, row]));
   const todaySchedule = scheduleByDate.get(today);
+  const catatanSeragam = scheduleRows[0]?.jadwal_mingguan?.catatan_seragam ?? null;
   const participantIds = new Set(
     (draftSchedule?.jadwal_karyawan ?? []).map((row) => Number(row.id_pengguna))
   );
@@ -233,7 +235,7 @@ export default async function JadwalSayaPage() {
             return (
               <div
                 key={date}
-                className={`grid gap-3 rounded-[14px] border px-4 py-3 md:grid-cols-[160px_1fr_auto] md:items-center ${
+                className={`grid gap-3 rounded-[14px] border px-4 py-3 sm:grid-cols-2 lg:grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center ${
                   date === today ? "border-primary/30 bg-primary/5" : "border-border"
                 }`}
               >
@@ -253,7 +255,17 @@ export default async function JadwalSayaPage() {
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-sm tabular-nums text-muted-foreground">
+                <div className="min-w-0 text-sm text-muted-foreground">
+                  {catatanSeragam?.[date] ? (
+                    <span className="inline-flex max-w-full items-start gap-1.5 whitespace-normal break-words rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
+                      {catatanSeragam[date]}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/60">-</span>
+                  )}
+                </div>
+                <div className="flex min-w-0 items-center gap-2 text-sm tabular-nums text-muted-foreground lg:whitespace-nowrap">
                   <CalendarDays className="h-4 w-4" />
                   {row?.tipe_jadwal === "LIBUR"
                     ? "Libur"

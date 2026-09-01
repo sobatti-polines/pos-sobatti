@@ -2,18 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isAttendanceExemptRole } from "@/lib/roles";
 
-/** Jarak Haversine antara dua koordinat dalam meter. */
-function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371000; // radius bumi (meter)
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
@@ -21,8 +9,6 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const token = body.token;
     const device_info = body.device_info;
-    const latitude = body.latitude != null ? Number(body.latitude) : null;
-    const longitude = body.longitude != null ? Number(body.longitude) : null;
 
     const {
       data: { user },
@@ -83,41 +69,6 @@ export async function POST(request: Request) {
         { error: "Kode QR sudah kedaluwarsa", code: "TOKEN_EXPIRED" },
         { status: 400 }
       );
-    }
-
-    // 2b. Geofencing — validasi lokasi GPS (Haversine) jika dikonfigurasi
-    const storeLat = process.env.STORE_LATITUDE
-      ? Number(process.env.STORE_LATITUDE)
-      : null;
-    const storeLng = process.env.STORE_LONGITUDE
-      ? Number(process.env.STORE_LONGITUDE)
-      : null;
-    const maxRadius = Number(process.env.MAX_ATTENDANCE_RADIUS) || 50; // meter
-
-    let distanceMeters: number | null = null;
-
-    if (storeLat != null && storeLng != null && !Number.isNaN(storeLat) && !Number.isNaN(storeLng)) {
-      if (latitude == null || longitude == null || Number.isNaN(latitude) || Number.isNaN(longitude)) {
-        return NextResponse.json(
-          {
-            error:
-              "Lokasi GPS tidak terdeteksi. Pastikan izin lokasi diaktifkan dan coba lagi.",
-            code: "GPS_UNAVAILABLE",
-          },
-          { status: 400 }
-        );
-      }
-      distanceMeters = haversineMeters(latitude, longitude, storeLat, storeLng);
-      if (distanceMeters > maxRadius) {
-        return NextResponse.json(
-          {
-            error: `Anda berada di luar radius toko (jarak ${Math.round(distanceMeters)} m, maksimal ${maxRadius} m).`,
-            code: "OUTSIDE_RADIUS",
-            distance: Math.round(distanceMeters),
-          },
-          { status: 400 }
-        );
-      }
     }
 
     // 3. Check for duplicate (already checked in today)
@@ -204,8 +155,6 @@ export async function POST(request: Request) {
       status,
       telat_menit,
       device_info,
-      latitude: latitude != null && !Number.isNaN(latitude) ? latitude : null,
-      longitude: longitude != null && !Number.isNaN(longitude) ? longitude : null,
     });
 
     if (insertError) {

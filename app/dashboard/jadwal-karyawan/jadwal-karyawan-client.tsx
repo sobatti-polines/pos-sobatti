@@ -34,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   reviewLeaveRequest,
+  saveUniformNotes,
   saveWeeklySchedule,
   type LeaveRequestStatus,
   type ScheduleType,
@@ -72,6 +73,7 @@ export interface WeeklyScheduleRecord {
   kebutuhan_pagi: number;
   kebutuhan_sore: number;
   status: "DRAFT" | "TERBIT";
+  catatan_seragam?: Record<string, string> | null;
   jadwal_karyawan?: ScheduleDetailRecord[];
 }
 
@@ -191,6 +193,7 @@ function exportSchedulePDF(
   shifts: ShiftOption[],
   kebutuhanPagi: string,
   kebutuhanSore: string,
+  catatanSeragam?: Record<string, string> | null,
 ) {
   const pagiShift = shifts.find((s) => s.kode === "PAGI");
   const soreShift = shifts.find((s) => s.kode === "SORE");
@@ -256,9 +259,15 @@ function exportSchedulePDF(
     return `P:${p} S:${s} L:${l}`;
   })];
 
+  // Baris seragam
+  const hasSeragam = catatanSeragam && Object.keys(catatanSeragam).length > 0;
+  const seragamRow = hasSeragam
+    ? ["", "SERAGAM", "", ...weekDates.map((date) => catatanSeragam?.[date] || "-")]
+    : null;
+
   autoTable(doc, {
     head: [headerRow],
-    body: [...bodyRows, summaryRow],
+    body: [...bodyRows, summaryRow, ...(seragamRow ? [seragamRow] : [])],
     startY: infoY + 6,
     styles: {
       fontSize: 8,
@@ -290,6 +299,15 @@ function exportSchedulePDF(
         data.cell.styles.fontStyle = "bold";
         data.cell.styles.fillColor = [243, 244, 246];
         data.cell.styles.fontSize = 7.5;
+      }
+      // Baris seragam
+      if (seragamRow && data.row.index === bodyRows.length + 1) {
+        data.cell.styles.fontStyle = "italic";
+        data.cell.styles.fillColor = [245, 243, 255]; // violet-50
+        data.cell.styles.fontSize = 7.5;
+        if (data.column.index >= 3 && String(data.cell.raw) !== "-") {
+          data.cell.styles.textColor = [91, 33, 182]; // violet-700
+        }
       }
       // Warna cell shift
       if (data.section === "body" && data.column.index >= 3) {
@@ -336,6 +354,7 @@ function exportScheduleExcel(
   shifts: ShiftOption[],
   kebutuhanPagi: string,
   kebutuhanSore: string,
+  catatanSeragam?: Record<string, string> | null,
 ) {
   const pagiShift = shifts.find((s) => s.kode === "PAGI");
   const soreShift = shifts.find((s) => s.kode === "SORE");
@@ -362,7 +381,13 @@ function exportScheduleExcel(
     return `P:${p} S:${s} L:${l}`;
   })];
 
-  const sheetData = [headers, ...dataRows, totalRow];
+  // Baris seragam
+  const hasSeragam = catatanSeragam && Object.keys(catatanSeragam).length > 0;
+  const seragamRow = hasSeragam
+    ? ["", "SERAGAM", "", ...weekDates.map((date) => catatanSeragam?.[date] || "-")]
+    : null;
+
+  const sheetData = [headers, ...dataRows, totalRow, ...(seragamRow ? [seragamRow] : [])];
   const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
   ws["!cols"] = [
@@ -447,6 +472,9 @@ export default function JadwalKaryawanClient({
     normalizeTime(soreShift?.jam_selesai, "22:00")
   );
   const [errorMsg, setErrorMsg] = useState("");
+  const [catatanSeragam, setCatatanSeragam] = useState<Record<string, string>>(
+    () => weeklySchedule?.catatan_seragam ?? {}
+  );
   const [isPending, startTransition] = useTransition();
 
   const previousWeek = addDays(weekStart, -7);
@@ -497,9 +525,7 @@ export default function JadwalKaryawanClient({
     }));
 
     const warnings: string[] = [];
-    const missingRest = employeeStats.filter((item) => item.libur !== 1).length;
     const missingCells = employeeStats.reduce((sum, item) => sum + item.kosong, 0);
-    if (missingRest > 0) warnings.push(`${missingRest} pegawai belum memiliki tepat 1 hari libur.`);
     if (missingCells > 0) warnings.push(`${missingCells} cell jadwal masih kosong.`);
     for (const day of dailyStats) {
       if (day.pagi < Number(kebutuhanPagi)) warnings.push(`${formatDate(day.date)} shift pagi kurang.`);
@@ -627,8 +653,22 @@ export default function JadwalKaryawanClient({
         jam_sore_selesai: jamSoreSelesai,
         rows: getRows(),
         publish,
+        catatan_seragam: catatanSeragam,
       });
 
+      if (result.error) {
+        setErrorMsg(result.error);
+        return;
+      }
+
+      window.location.reload();
+    });
+  };
+
+  const handleSaveUniform = () => {
+    setErrorMsg("");
+    startTransition(async () => {
+      const result = await saveUniformNotes(weekStart, catatanSeragam);
       if (result.error) {
         setErrorMsg(result.error);
         return;
@@ -666,7 +706,8 @@ export default function JadwalKaryawanClient({
                 <DropdownMenuItem
                   onClick={() => exportSchedulePDF(
                     weekStart, weekEnd, employees, weekDates,
-                    schedule, shifts, kebutuhanPagi, kebutuhanSore
+                    schedule, shifts, kebutuhanPagi, kebutuhanSore,
+                    catatanSeragam
                   )}
                 >
                   <FileDown className="mr-2 h-4 w-4" />
@@ -675,7 +716,8 @@ export default function JadwalKaryawanClient({
                 <DropdownMenuItem
                   onClick={() => exportScheduleExcel(
                     weekStart, weekEnd, employees, weekDates,
-                    schedule, shifts, kebutuhanPagi, kebutuhanSore
+                    schedule, shifts, kebutuhanPagi, kebutuhanSore,
+                    catatanSeragam
                   )}
                 >
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
@@ -780,6 +822,57 @@ export default function JadwalKaryawanClient({
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Terbitkan
             </Button>
+          </div>
+        </div>
+
+        <div className="rounded-[14px] border border-border p-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-foreground">Catatan Seragam</h3>
+                <span className="text-[11px] text-muted-foreground">Opsional</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Dapat diperbarui kapan saja, termasuk setelah jadwal diterbitkan.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSaveUniform}
+              disabled={isPending || !weeklySchedule}
+              className="h-10 shrink-0 rounded-full"
+            >
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Simpan Seragam
+            </Button>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+            {weekDates.map((date, index) => (
+              <div key={date} className="min-w-0">
+                <label
+                  htmlFor={`seragam-${date}`}
+                  className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+                >
+                  {DAY_LABELS[index]}
+                </label>
+                <span className="mb-1.5 block truncate text-[11px] text-muted-foreground">
+                  {formatDate(date)}
+                </span>
+                <Input
+                  id={`seragam-${date}`}
+                  type="text"
+                  placeholder="Contoh: Batik"
+                  value={catatanSeragam[date] ?? ""}
+                  onChange={(e) => setCatatanSeragam((prev) => ({ ...prev, [date]: e.target.value }))}
+                  className="h-10 min-w-0 text-base sm:text-sm"
+                />
+              </div>
+            ))}
           </div>
         </div>
 
@@ -986,7 +1079,7 @@ export default function JadwalKaryawanClient({
                       <span className="truncate font-medium text-foreground">
                         {item.employee.nama || item.employee.username}
                       </span>
-                      <span className={item.libur === 1 && item.kosong === 0 ? "text-emerald-700" : "text-amber-700"}>
+                      <span className={item.kosong === 0 ? "text-emerald-700" : "text-amber-700"}>
                         L {item.libur}
                       </span>
                     </div>

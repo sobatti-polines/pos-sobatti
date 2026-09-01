@@ -27,6 +27,8 @@ export interface SaveWeeklyScheduleInput {
   jam_sore_selesai: string;
   rows: ScheduleRowInput[];
   publish?: boolean;
+  /** Catatan seragam per hari. Key = tanggal (YYYY-MM-DD), Value = jenis seragam */
+  catatan_seragam?: Record<string, string> | null;
 }
 
 async function requireOwner() {
@@ -95,6 +97,21 @@ function cleanText(value: unknown) {
   return text || null;
 }
 
+function normalizeUniformNotes(
+  value: Record<string, string> | null | undefined,
+  weekDates: string[]
+) {
+  if (!value) return null;
+
+  const notes = Object.fromEntries(
+    weekDates
+      .map((date) => [date, String(value[date] ?? "").trim()] as const)
+      .filter(([, note]) => note)
+  );
+
+  return Object.keys(notes).length > 0 ? notes : null;
+}
+
 function validateRowsForPublish(
   rows: ScheduleRowInput[],
   employeeIds: number[],
@@ -117,10 +134,7 @@ function validateRowsForPublish(
       return "Setiap pegawai wajib memiliki jadwal lengkap Senin sampai Minggu sebelum diterbitkan";
     }
 
-    const liburCount = employeeRows.filter((row) => row.tipe_jadwal === "LIBUR").length;
-    if (liburCount !== 1) {
-      return "Setiap pegawai wajib memiliki tepat 1 hari libur dalam 1 minggu";
-    }
+    // Libur opsional — boleh 0 hari (full masuk) sampai 6 hari
   }
 
   for (const date of weekDates) {
@@ -180,6 +194,8 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
   const kebutuhanPagi = toInt(input.kebutuhan_pagi, 1);
   const kebutuhanSore = toInt(input.kebutuhan_sore, 1);
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(input.minggu_mulai, index));
+
+  const finalSeragam = normalizeUniformNotes(input.catatan_seragam, weekDates);
 
   const { data: existing } = await supabase
     .from("jadwal_mingguan")
@@ -317,6 +333,7 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
     minggu_mulai: input.minggu_mulai,
     kebutuhan_pagi: kebutuhanPagi,
     kebutuhan_sore: kebutuhanSore,
+    catatan_seragam: finalSeragam,
     status: input.publish ? "TERBIT" : "DRAFT",
     created_by: existing?.created_by ?? pengguna.id,
     updated_by: pengguna.id,
@@ -364,6 +381,52 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
     }),
     data_lama: existing as Record<string, unknown> | null,
     data_baru: headerPayload as Record<string, unknown>,
+  });
+
+  revalidatePath("/dashboard/jadwal-karyawan");
+  revalidatePath("/dashboard/jadwal-saya");
+  return { success: true };
+}
+
+export async function saveUniformNotes(
+  mingguMulai: string,
+  catatanSeragam: Record<string, string> | null
+) {
+  const { supabase, pengguna, error: authError } = await requireOwner();
+  if (authError || !pengguna) return { error: authError ?? "Unauthorized" };
+  if (!isDate(mingguMulai)) return { error: "Minggu mulai tidak valid" };
+
+  const weekDates = Array.from({ length: 7 }, (_, index) => addDays(mingguMulai, index));
+  const notes = normalizeUniformNotes(catatanSeragam, weekDates);
+  const { data: existing, error: fetchError } = await supabase
+    .from("jadwal_mingguan")
+    .select("id, catatan_seragam")
+    .eq("minggu_mulai", mingguMulai)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error("Failed to fetch weekly schedule for uniform notes:", fetchError);
+    return { error: "Gagal membaca jadwal mingguan" };
+  }
+  if (!existing) return { error: "Simpan draft jadwal terlebih dahulu" };
+
+  const { error: updateError } = await supabase
+    .from("jadwal_mingguan")
+    .update({ catatan_seragam: notes, updated_by: pengguna.id })
+    .eq("id", existing.id);
+
+  if (updateError) {
+    console.error("Failed to update uniform notes:", updateError);
+    return { error: "Gagal menyimpan catatan seragam" };
+  }
+
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "jadwal_mingguan",
+    id_entitas: Number(existing.id),
+    deskripsi: "Memperbarui catatan seragam jadwal mingguan",
+    data_lama: { catatan_seragam: existing.catatan_seragam },
+    data_baru: { catatan_seragam: notes },
   });
 
   revalidatePath("/dashboard/jadwal-karyawan");

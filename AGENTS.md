@@ -219,7 +219,7 @@ Guard utama:
 ### Absensi
 
 - QR session expired sesuai env `QR_EXPIRE_SECONDS`.
-- Check-in memvalidasi QR aktif, geofence Haversine jika koordinat toko tersedia, dan menandai token terpakai.
+- Check-in memvalidasi QR aktif dan menandai token terpakai; lokasi/GPS tidak digunakan.
 - Owner tidak melakukan absensi.
 - Status telat dihitung dari QR pertama hari itu + toleransi, fallback ke `ATTENDANCE_START_TIME`.
 - Gunakan tanggal bisnis WIB saat membaca/menulis status harian.
@@ -326,9 +326,6 @@ Catatan:
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key public |
 | `SERVICE_ROLE` | Service role secret, hanya server/admin client |
-| `STORE_LATITUDE` | Latitude toko untuk geofencing |
-| `STORE_LONGITUDE` | Longitude toko untuk geofencing |
-| `MAX_ATTENDANCE_RADIUS` | Radius absensi meter |
 | `QR_EXPIRE_SECONDS` | Masa berlaku QR absensi |
 | `ATTENDANCE_START_TIME` | Fallback jam mulai kerja |
 | `ATTENDANCE_TOLERANCE_MINUTES` | Toleransi telat setelah absen dibuka |
@@ -344,4 +341,3 @@ Catatan:
 5. Untuk perubahan POS, cek `pos-client.tsx`, `pos-store.ts`, API POS, lalu RPC.
 6. Untuk perubahan finansial, cek `lib/laporan-kasir.ts`, `lib/laporan-keuangan.ts`, action terkait, dan status transaksi `berhasil`.
 7. Untuk perubahan stok, cek efek ke `produk.stok`, `produk.stok_gudang`, `riwayat_avco`, low stock, dan laporan.
-
