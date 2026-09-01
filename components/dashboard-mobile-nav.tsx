@@ -312,6 +312,13 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
                           <span>Ringkasan</span>
                           <NavLinkPending />
                         </Link>
+                        {isManagement && (
+                          <Link href="/dashboard/laporan/analisis-produk" className={subLinkClass("/dashboard/laporan/analisis-produk")} prefetch={true} onClick={() => setIsOpen(false)}>
+                            <BarChart3 className="w-4 h-4" />
+                            <span>Analisis Produk</span>
+                            <NavLinkPending />
+                          </Link>
+                        )}
                         <Link href="/dashboard/laporan/laba-rugi" className={subLinkClass("/dashboard/laporan/laba-rugi")} onClick={() => setIsOpen(false)}>
                           <TrendingUp className="w-4 h-4" />
                           <span>Laba Rugi</span>

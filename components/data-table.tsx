@@ -303,6 +303,13 @@ export default function DataTable<T, K extends string | number = string | number
     return ""
   }
 
+  const getMobileLabelVisibilityClass = () => {
+    if (bp === "md") return "md:hidden"
+    if (bp === "lg") return "lg:hidden"
+    if (bp === "xl") return "xl:hidden"
+    return ""
+  }
+
   // ==== ROW VIRTUALIZATION ====
   const parentRef = React.useRef<HTMLDivElement>(null)
   const rowVirtualizer = useVirtualizer({
@@ -591,7 +598,7 @@ export default function DataTable<T, K extends string | number = string | number
                     )}
                   >
                     {mobileCards && (
-                      <span className={`${bp}:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block`}>
+                      <span className={cn(getMobileLabelVisibilityClass(), "text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block")}>
                         No
                       </span>
                     )}
@@ -715,7 +722,7 @@ export default function DataTable<T, K extends string | number = string | number
                         )}
                       >
                         {mobileCards && (
-                          <span className={`${bp}:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block`}>
+                          <span className={cn(getMobileLabelVisibilityClass(), "text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block")}>
                             No
                           </span>
                         )}
@@ -742,7 +749,7 @@ export default function DataTable<T, K extends string | number = string | number
                         >
                           {mobileCards && col.mobileLabel && (
                             <span
-                              className={`${bp}:hidden text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block`}
+                              className={cn(getMobileLabelVisibilityClass(), "text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1 block")}
                             >
                               {col.mobileLabel}
                             </span>

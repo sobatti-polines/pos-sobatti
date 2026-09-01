@@ -258,6 +258,13 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
                   <span>Ringkasan</span>
                   <NavLinkPending />
                 </Link>
+                {isManagement && (
+                  <Link href="/dashboard/laporan/analisis-produk" className={subLinkClass("/dashboard/laporan/analisis-produk")} prefetch={true}>
+                    <BarChart3 className="w-4 h-4" />
+                    <span>Analisis Produk</span>
+                    <NavLinkPending />
+                  </Link>
+                )}
                 {isOwner && (
                   <>
                     <Link href="/dashboard/laporan/laba-rugi" className={subLinkClass("/dashboard/laporan/laba-rugi")}>
