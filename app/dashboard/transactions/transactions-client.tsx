@@ -60,11 +60,13 @@ interface TransactionDetail {
 export default function TransactionsClient({
   initialTransactions,
   paymentMethods,
-  role
+  role,
+  userName
 }: {
   initialTransactions: Transaction[];
   paymentMethods: { id: number; nama: string }[];
   role?: string;
+  userName?: string;
 }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -322,6 +324,22 @@ export default function TransactionsClient({
     const detailsMap = await fetchExportData();
     const headers = ["Transaksi", "Nama Barang", "Harga", "Qty", "Subtotal", "Total"];
     
+    // Build date range subtitle
+    const fmtDateShort = (d: string) => {
+      const date = new Date(d);
+      return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+    };
+    const dateStart = dateFilter.start ? fmtDateShort(dateFilter.start + "T00:00:00") : "-";
+    const dateEnd = dateFilter.end ? fmtDateShort(dateFilter.end + "T00:00:00") : "-";
+    const subtitle = `Tanggal Transaksi: ${dateStart} - ${dateEnd}`;
+
+    const now = new Date();
+    const generatedAt = new Intl.DateTimeFormat("id-ID", {
+      day: "2-digit", month: "long", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    }).format(now);
+    const footer = `Dibuat oleh: ${userName || "-"} | Dibuat pada: ${generatedAt}`;
+    
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any[][] = [];
     sortedForExport.forEach(t => {
@@ -344,7 +362,7 @@ export default function TransactionsClient({
       }
     });
     
-    exportToPDF("Data_Transaksi", "Laporan Riwayat Transaksi", headers, data);
+    exportToPDF("Data_Transaksi", "Laporan Riwayat Transaksi", headers, data, { subtitle, footer });
   };
 
   const filters: FilterDef[] = [

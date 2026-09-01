@@ -30,6 +30,7 @@ export default async function TransactionsPage() {
 
   const { data: { user } } = await supabase.auth.getUser();
   const role = user?.user_metadata?.role;
+  const userName = user?.user_metadata?.nama || user?.email?.split("@")[0] || "-";
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const txData = (transactions ?? []) as any[] as Transaction[];
@@ -49,6 +50,7 @@ export default async function TransactionsPage() {
         initialTransactions={txData} 
         paymentMethods={paymentMethodsRes.data ?? []} 
         role={role}
+        userName={userName}
       />
     </div>
   );

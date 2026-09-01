@@ -129,14 +129,22 @@ export const parseExcelToRows = (file: File): Promise<Record<string, string>[]> 
   });
 };
 
+export interface PDFExportOptions {
+  /** Subtitle baris kedua (default: "Generated on: <date> <time>") */
+  subtitle?: string;
+  /** Footer text di bawah tabel */
+  footer?: string;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const exportToPDF = (filename: string, title: string, headers: string[], data: any[][]) => {
+export const exportToPDF = (filename: string, title: string, headers: string[], data: any[][], options?: PDFExportOptions) => {
   const doc = new jsPDF();
   
   doc.setFontSize(14);
   doc.text(title, 14, 15);
   doc.setFontSize(10);
-  doc.text(`Generated on: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 14, 22);
+  const subtitle = options?.subtitle ?? `Generated on: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+  doc.text(subtitle, 14, 22);
 
   autoTable(doc, {
     head: [headers],
@@ -144,6 +152,14 @@ export const exportToPDF = (filename: string, title: string, headers: string[], 
     startY: 28,
     styles: { fontSize: 8 },
     headStyles: { fillColor: [41, 128, 185] },
+    didDrawPage() {
+      if (options?.footer) {
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text(options.footer, 14, pageHeight - 10);
+      }
+    },
   });
 
   doc.save(`${filename}.pdf`);

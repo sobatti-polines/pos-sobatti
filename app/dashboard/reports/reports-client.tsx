@@ -117,19 +117,19 @@ export default function ReportsClient({ transactions, details, products, isOwner
     filteredDetails.forEach(d => {
       const existing = productMap.get(d.id_produk) || { 
         name: d.produk?.nama_produk || "Produk Terhapus",
-        qty: 0, 
+        count: 0, 
         revenue: 0 
       };
       productMap.set(d.id_produk, {
         ...existing,
-        qty: existing.qty + Number(d.qty),
+        count: existing.count + 1,
         revenue: existing.revenue + Number(d.jumlah)
       });
     });
 
     return Array.from(productMap.values())
-      .sort((a, b) => b.qty - a.qty)
-      .slice(0, 5);
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
   }, [filteredTransactions, details]);
 
   const stockStats = useMemo(() => {
@@ -154,20 +154,20 @@ export default function ReportsClient({ transactions, details, products, isOwner
   }, [products]);
 
   const handleExportCSV = () => {
-    const headers = ["Produk", "Qty Terjual", "Pendapatan"];
+    const headers = ["Produk", "Jumlah Transaksi", "Pendapatan"];
     const data = topProducts.map(p => [
       p.name,
-      p.qty,
+      p.count,
       p.revenue
     ]);
     exportToCSV("Laporan_Produk_Terlaris", headers, data);
   };
 
   const handleExportPDF = () => {
-    const headers = ["Produk", "Qty Terjual", "Pendapatan"];
+    const headers = ["Produk", "Jumlah Transaksi", "Pendapatan"];
     const data = topProducts.map(p => [
       p.name,
-      p.qty,
+      p.count,
       formatIDR(p.revenue)
     ]);
     exportToPDF("Laporan_Produk_Terlaris", "Laporan Produk Terlaris", headers, data);
@@ -290,7 +290,7 @@ export default function ReportsClient({ transactions, details, products, isOwner
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-xl font-medium">Produk Terlaris</CardTitle>
-              <CardDescription>Berdasarkan jumlah barang terjual</CardDescription>
+              <CardDescription>Berdasarkan jumlah transaksi</CardDescription>
             </div>
             <BarChart3 className="w-5 h-5 text-muted-foreground" />
           </CardHeader>
@@ -299,7 +299,7 @@ export default function ReportsClient({ transactions, details, products, isOwner
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-6">Produk</TableHead>
-                  <TableHead className="text-right">Qty Terjual</TableHead>
+                  <TableHead className="text-right">Jumlah Transaksi</TableHead>
                   {isOwner && <TableHead className="text-right pr-6">Pendapatan</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -307,7 +307,7 @@ export default function ReportsClient({ transactions, details, products, isOwner
                 {topProducts.map((p, i) => (
                   <TableRow key={i}>
                     <TableCell className="pl-6">{p.name}</TableCell>
-                    <TableCell className="text-right">{formatNumber(p.qty)}</TableCell>
+                    <TableCell className="text-right">{formatNumber(p.count)}</TableCell>
                     {isOwner && <TableCell className="text-right pr-6">{formatIDR(p.revenue)}</TableCell>}
                   </TableRow>
                 ))}
