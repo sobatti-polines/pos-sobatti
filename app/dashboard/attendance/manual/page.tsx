@@ -56,13 +56,26 @@ export default async function ManualAttendancePage() {
 
   const schedules = (scheduleData ?? []) as unknown as RawScheduleRow[];
   const employeeIds = schedules.map((row) => Number(row.id_pengguna));
-  const attendanceResult = employeeIds.length
-    ? await supabase
-        .from("absensi")
-        .select("id, id_pengguna, status, jam_masuk, jam_pulang, telat_menit, sumber, catatan_manual")
-        .eq("tanggal", today)
-        .in("id_pengguna", employeeIds)
-    : { data: [], error: null };
+  const [employeeResult, attendanceResult] = employeeIds.length
+    ? await Promise.all([
+        supabase
+          .from("pengguna")
+          .select("id, username, nama, level")
+          .in("id", employeeIds),
+        supabase
+          .from("absensi")
+          .select("id, id_pengguna, status, jam_masuk, jam_pulang, telat_menit, sumber, catatan_manual")
+          .eq("tanggal", today)
+          .in("id_pengguna", employeeIds),
+      ])
+    : [
+        { data: [], error: null },
+        { data: [], error: null },
+      ];
+
+  const employeeById = new Map(
+    (employeeResult.data ?? []).map((employee) => [Number(employee.id), employee as ManualAttendanceRow["pengguna"]])
+  );
 
   const attendanceByEmployee = new Map(
     ((attendanceResult.data ?? []) as AttendanceRecord[]).map((record) => [record.id_pengguna, record])
@@ -70,7 +83,7 @@ export default async function ManualAttendancePage() {
 
   const rows: ManualAttendanceRow[] = schedules
     .map((schedule) => {
-      const pengguna = one(schedule.pengguna);
+      const pengguna = employeeById.get(Number(schedule.id_pengguna)) ?? one(schedule.pengguna);
       const shift = one(schedule.shift_kerja);
       if (!pengguna || !shift) return null;
       const attendance = attendanceByEmployee.get(schedule.id_pengguna);
@@ -91,7 +104,7 @@ export default async function ManualAttendancePage() {
     .filter((row): row is ManualAttendanceRow => row !== null)
     .sort((a, b) => (a.pengguna.nama || a.pengguna.username).localeCompare(b.pengguna.nama || b.pengguna.username, "id"));
 
-  const loadError = scheduleError || attendanceResult.error
+  const loadError = scheduleError || employeeResult.error || attendanceResult.error
     ? "Sebagian data absensi gagal dimuat. Muat ulang halaman sebelum mencatat absensi."
     : null;
 
