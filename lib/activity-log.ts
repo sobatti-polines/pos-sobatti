@@ -81,6 +81,7 @@ const ENTITY_LABELS: Record<string, string> = {
   jadwal_karyawan: "Jadwal Karyawan",
   shift_kerja: "Shift Kerja",
   permintaan_libur: "Permintaan Libur",
+  absensi: "Absensi",
 };
 
 const COLUMN_LABELS: Record<string, string> = {
@@ -164,6 +165,12 @@ const COLUMN_LABELS: Record<string, string> = {
   supplied_unit: "Satuan Suplai",
   total_cost: "Total Biaya",
   tanggal: "Tanggal",
+  status: "Status",
+  sumber: "Sumber",
+  jam_masuk: "Jam Masuk",
+  jam_pulang: "Jam Pulang",
+  telat_menit: "Menit Terlambat",
+  catatan_manual: "Catatan Manual",
   jumlah_item: "Jumlah Item",
   tgl_masuk: "Tanggal Masuk",
   no_surat: "No. Surat",
@@ -214,6 +221,7 @@ const IDENTIFIER_FIELDS: Record<string, string[]> = {
   jadwal_mingguan: ["minggu_mulai"],
   shift_kerja: ["kode", "nama"],
   permintaan_libur: ["tanggal", "status"],
+  absensi: ["tanggal", "status"],
 };
 
 function extractIdentifier(

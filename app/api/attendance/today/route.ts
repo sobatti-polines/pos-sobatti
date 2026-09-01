@@ -6,7 +6,7 @@ export async function GET() {
     const data = await getTodayAttendance();
     
     if (!data) {
-      return NextResponse.json({ error: "Unauthorized or User not found" }, { status: 401 });
+      return NextResponse.json({ error: "Sesi atau profil pengguna tidak ditemukan" }, { status: 401 });
     }
 
     return NextResponse.json(data);

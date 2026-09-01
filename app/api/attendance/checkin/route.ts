@@ -1,185 +1,89 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isAttendanceExemptRole } from "@/lib/roles";
+
+interface AttendanceRpcResult {
+  success: boolean;
+  error?: string;
+  code?: string;
+  message?: string;
+  status?: string;
+  telat_menit?: number;
+}
+
+function errorStatus(code?: string) {
+  return code === "MANUAL_ATTENDANCE_LOCKED" || code === "ALREADY_CHECKED_IN"
+    ? 409
+    : 400;
+}
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-
     const body = await request.json().catch(() => ({}));
-    const token = body.token;
-    const device_info = body.device_info;
+    const token = typeof body.token === "string" ? body.token.trim() : "";
+    const deviceInfo = typeof body.device_info === "string"
+      ? body.device_info.slice(0, 500)
+      : null;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+    if (!token) {
       return NextResponse.json(
-        { error: "Tidak terautentikasi" },
-        { status: 401 }
+        { error: "Kode QR wajib diisi", code: "INVALID_TOKEN" },
+        { status: 400 }
       );
     }
 
-    // 1. Get current user details
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
+    }
+
     const { data: pengguna } = await supabase
       .from("pengguna")
-      .select("id, level")
+      .select("id, level, aktif")
       .eq("username", user.email?.split("@")[0])
-      .single();
+      .maybeSingle();
 
-    if (!pengguna) {
+    if (!pengguna?.aktif) {
       return NextResponse.json(
-        { error: "Profil pengguna tidak ditemukan" },
+        { error: "Profil pengguna tidak ditemukan atau tidak aktif" },
         { status: 404 }
       );
     }
-
     if (isAttendanceExemptRole(pengguna.level)) {
-      return NextResponse.json(
-        { error: "Owner tidak dapat melakukan absensi" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Owner tidak dapat melakukan absensi" }, { status: 403 });
     }
 
-    // 2. Validate QR Token
-    const { data: qrSession } = await supabase
-      .from("qr_session")
-      .select("*")
-      .eq("token", token)
-      .eq("is_active", true)
-      .single();
+    const parsedTolerance = Number.parseInt(process.env.ATTENDANCE_TOLERANCE_MINUTES || "10", 10);
+    const tolerance = Number.isFinite(parsedTolerance) ? Math.max(parsedTolerance, 0) : 10;
+    const envStart = process.env.ATTENDANCE_START_TIME || "09:00";
+    const fallbackStart = /^([01]\d|2[0-3]):[0-5]\d$/.test(envStart) ? envStart : "09:00";
 
-    if (!qrSession) {
-      return NextResponse.json(
-        { error: "Kode QR tidak valid atau sudah digunakan", code: "INVALID_TOKEN" },
-        { status: 400 }
-      );
-    }
-
-    // Ensure expired_at is interpreted as UTC even if the column is `timestamp without time zone`
-    const expiredAtStr =
-      typeof qrSession.expired_at === "string"
-        ? qrSession.expired_at.endsWith("Z")
-          ? qrSession.expired_at
-          : qrSession.expired_at + "Z"
-        : null;
-    if (!expiredAtStr || new Date(expiredAtStr) < new Date()) {
-      return NextResponse.json(
-        { error: "Kode QR sudah kedaluwarsa", code: "TOKEN_EXPIRED" },
-        { status: 400 }
-      );
-    }
-
-    // 3. Check for duplicate (already checked in today)
-    // Use WIB (UTC+7) for the "today" date so it matches Indonesian business day
-    const nowUtc = new Date();
-    const wibOffset = 7 * 60 * 60 * 1000; // UTC+7 in ms
-    const nowWIB = new Date(nowUtc.getTime() + wibOffset);
-    const today = nowWIB.toISOString().split("T")[0];
-    const { data: existingAttendance } = await supabase
-      .from("absensi")
-      .select("id")
-      .eq("id_pengguna", pengguna.id)
-      .eq("tanggal", today)
-      .maybeSingle();
-
-    if (existingAttendance) {
-      return NextResponse.json(
-        { error: "Anda sudah melakukan check-in hari ini", code: "ALREADY_CHECKED_IN" },
-        { status: 400 }
-      );
-    }
-
-    // 4. Calculate Lateness using WIB hours
-    // Store as ISO but ensure it represents the correct point in time
-    const jam_masuk = nowWIB.toISOString().slice(0, 19);
-
-    // Get current hour/minute in WIB (UTC+7) for lateness check
-    const wibHours = nowWIB.getUTCHours();
-    const wibMinutes = nowWIB.getUTCMinutes();
-    const wibTotalMinutes = wibHours * 60 + wibMinutes;
-
-    // Batas telat: karyawan dianggap TELAT jika check-in lebih dari 10 menit
-    // setelah absen dibuka ("absen dibuka" = QR absensi pertama yang dibuat owner hari itu).
-    const envTolerance = parseInt(process.env.ATTENDANCE_TOLERANCE_MINUTES || "10", 10);
-    const LATE_GRACE_MINUTES = Number.isNaN(envTolerance) ? 10 : envTolerance;
-
-    // Cari QR absensi pertama (paling awal) yang dibuat hari ini (WIB).
-    // Kolom `created_at` bertipe `timestamp without time zone` yang menyimpan waktu UTC wall-clock.
-    const startOfTodayWIB = `${today}T00:00:00`;
-    const endOfTodayWIB = `${today}T23:59:59`;
-
-    const { data: firstQrSession } = await supabase
-      .from("qr_session")
-      .select("created_at")
-      .gte("created_at", startOfTodayWIB)
-      .lte("created_at", endOfTodayWIB)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    let openingMinutesWIB: number;
-
-    if (firstQrSession?.created_at) {
-      // Waktu absen dibuka dalam menit WIB (karena DB timezone Asia/Jakarta, created_at menyimpan waktu WIB secara literal)
-      // Contoh: "2026-08-21T08:15:00"
-      const timePart = firstQrSession.created_at.split("T")[1] || "09:00:00";
-      const [hh, mm] = timePart.split(":");
-      openingMinutesWIB = parseInt(hh, 10) * 60 + parseInt(mm, 10);
-    } else {
-      // Fallback: jika belum ada QR hari ini, gunakan jam mulai kerja (ATTENDANCE_START_TIME)
-      const envStartTime = process.env.ATTENDANCE_START_TIME || "09:00";
-      const [startHourStr, startMinStr] = envStartTime.split(":");
-      const startHour = parseInt(startHourStr, 10) || 9;
-      const startMinute = parseInt(startMinStr, 10) || 0;
-      openingMinutesWIB = startHour * 60 + startMinute;
-    }
-
-    const lateThresholdMinutes = openingMinutesWIB + LATE_GRACE_MINUTES;
-
-    let status = "HADIR";
-    let telat_menit = 0;
-
-    if (wibTotalMinutes > lateThresholdMinutes) {
-      status = "TELAT";
-      // Menit keterlambatan dihitung sejak absen dibuka (konsisten dengan perilaku sebelumnya)
-      telat_menit = wibTotalMinutes - openingMinutesWIB;
-    }
-
-    // 5. Record Attendance
-    const { error: insertError } = await supabase.from("absensi").insert({
-      id_pengguna: pengguna.id,
-      tanggal: today,
-      jam_masuk,
-      status,
-      telat_menit,
-      device_info,
+    const { data, error } = await supabaseAdmin.rpc("process_attendance_checkin", {
+      p_token: token,
+      p_id_pengguna: pengguna.id,
+      p_device_info: deviceInfo,
+      p_tolerance_minutes: tolerance,
+      p_fallback_start: fallbackStart,
     });
 
-    if (insertError) {
-      console.error("Check-in insert error:", insertError);
+    if (error) {
+      console.error("Check-in RPC error:", error);
+      return NextResponse.json({ error: "Gagal mencatat check-in" }, { status: 500 });
+    }
+
+    const result = data as AttendanceRpcResult;
+    if (!result?.success) {
       return NextResponse.json(
-        { error: "Gagal mencatat check-in" },
-        { status: 500 }
+        { error: result?.error || "Gagal mencatat check-in", code: result?.code },
+        { status: errorStatus(result?.code) }
       );
     }
 
-    // 6. Mark QR token as used to prevent replay
-    await supabase
-      .from("qr_session")
-      .update({ is_active: false })
-      .eq("token", token);
-
-    return NextResponse.json({
-      success: true,
-      message: "Check-in berhasil",
-      status,
-      telat_menit,
-    });
+    return NextResponse.json(result);
   } catch (err: unknown) {
     console.error("Error in checkin:", err);
-    const message = err instanceof Error ? err.message : "Terjadi kesalahan internal";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Terjadi kesalahan internal" }, { status: 500 });
   }
 }

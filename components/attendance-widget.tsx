@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera, CheckCircle2, Clock, LogIn, LogOut } from "lucide-react";
+import { Camera, CheckCircle2, Clock, LogIn, LogOut, UserX } from "lucide-react";
 import Link from "next/link";
 import { isAttendanceExemptRole } from "@/lib/roles";
+import { formatAttendanceTime } from "@/lib/attendance-display";
 
 interface AttendanceData {
   attendance: {
@@ -13,6 +14,7 @@ interface AttendanceData {
     jam_pulang: string | null;
     status: string;
     telat_menit: number;
+    sumber?: "QR" | "MANUAL";
   } | null;
   user: {
     level: string;
@@ -42,15 +44,6 @@ export function AttendanceWidget({ initialData }: { initialData?: AttendanceData
 
   const { attendance } = data;
 
-  const formatTime = (isoString: string | null) => {
-    if (!isoString) return "--:--";
-    return new Date(isoString).toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Asia/Jakarta"
-    });
-  };
-
   const todayStr = new Date().toLocaleDateString("id-ID", {
     weekday: "short",
     year: "numeric",
@@ -62,6 +55,7 @@ export function AttendanceWidget({ initialData }: { initialData?: AttendanceData
     if (!attendance) return { label: "BELUM ABSEN", color: "text-zinc-600", bg: "bg-zinc-100", border: "border-zinc-300", icon: <Clock className="w-6 h-6" /> };
     if (attendance.status === "HADIR" || attendance.status === "ON TIME") return { label: "HADIR", color: "text-emerald-700", bg: "bg-emerald-100/80", border: "border-emerald-400", icon: <CheckCircle2 className="w-6 h-6" /> };
     if (attendance.status === "TELAT") return { label: "TERLAMBAT", color: "text-amber-700", bg: "bg-amber-100/80", border: "border-amber-400", icon: <Clock className="w-6 h-6" /> };
+    if (attendance.status === "TIDAK_HADIR" || attendance.status === "ALPHA") return { label: "TIDAK HADIR", color: "text-rose-700", bg: "bg-rose-100/80", border: "border-rose-400", icon: <UserX className="w-6 h-6" /> };
     return { label: attendance.status, color: "text-blue-700", bg: "bg-blue-100/80", border: "border-blue-400", icon: <CheckCircle2 className="w-6 h-6" /> };
   };
 
@@ -110,7 +104,7 @@ export function AttendanceWidget({ initialData }: { initialData?: AttendanceData
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Masuk</span>
             </div>
             <span className="text-sm md:text-base font-bold text-zinc-800 tabular-nums">
-              {formatTime(attendance?.jam_masuk || null)}
+              {formatAttendanceTime(attendance?.jam_masuk || null)}
             </span>
           </div>
 
@@ -120,12 +114,12 @@ export function AttendanceWidget({ initialData }: { initialData?: AttendanceData
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Pulang</span>
             </div>
             <span className="text-sm md:text-base font-bold text-zinc-800 tabular-nums">
-              {formatTime(attendance?.jam_pulang || null)}
+              {formatAttendanceTime(attendance?.jam_pulang || null)}
             </span>
           </div>
 
           {/* Action Button */}
-          {!attendance?.jam_pulang && (
+          {!attendance?.jam_pulang && attendance?.sumber !== "MANUAL" && (
             <Button asChild size="sm" className="w-full md:w-auto rounded-full h-[52px] md:h-11 px-6 text-sm font-semibold shadow-md shadow-primary/10 bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02] shrink-0 mt-1 md:mt-0">
               <Link href="/dashboard/attendance/scan">
                 <Camera className="w-4 h-4 mr-2" />

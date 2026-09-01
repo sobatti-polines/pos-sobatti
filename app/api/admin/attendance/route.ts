@@ -8,26 +8,32 @@ export async function GET(request: Request) {
 
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "50");
+  const rawPage = Number.parseInt(searchParams.get("page") || "1", 10);
+  const rawLimit = Number.parseInt(searchParams.get("limit") || "50", 10);
+  const page = Number.isFinite(rawPage) ? Math.max(rawPage, 1) : 1;
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
+
+  if ((startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) || (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate))) {
+    return NextResponse.json({ error: "Format tanggal tidak valid" }, { status: 400 });
+  }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
   }
 
   // Verify Admin/Owner role
   const { data: pengguna } = await supabase
     .from("pengguna")
-    .select("level")
+    .select("level, aktif")
     .eq("username", user.email?.split("@")[0])
     .single();
 
-  if (!pengguna || !isAdminOrOwnerLike(pengguna.level)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!pengguna?.aktif || !isAdminOrOwnerLike(pengguna.level)) {
+    return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
   }
 
   let query = supabase

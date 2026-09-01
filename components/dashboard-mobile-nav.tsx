@@ -40,6 +40,7 @@ import {
   ArrowLeftRight,
   Coins,
   DollarSign,
+  ClipboardCheck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -435,6 +436,11 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
                       <Link href="/dashboard/attendance/generate-qr" className={linkClass("/dashboard/attendance/generate-qr")} prefetch={true}>
                         <QrCode className="w-5 h-5" />
                         <span>Generate QR</span>
+                        <NavLinkPending />
+                      </Link>
+                      <Link href="/dashboard/attendance/manual" className={linkClass("/dashboard/attendance/manual")} prefetch={true}>
+                        <ClipboardCheck className="w-5 h-5" />
+                        <span>Absen Manual</span>
                         <NavLinkPending />
                       </Link>
                       <Link href="/dashboard/attendance/report" className={linkClass("/dashboard/attendance/report")} prefetch={true}>

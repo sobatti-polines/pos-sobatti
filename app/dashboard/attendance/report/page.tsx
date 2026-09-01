@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { ReportClient } from "./report-client";
 import { isOwnerLike } from "@/lib/roles";
+import { getTodayWIB } from "@/lib/utils";
 
 export default async function AdminAttendanceReportPage() {
   const supabase = await createClient();
@@ -16,17 +17,16 @@ export default async function AdminAttendanceReportPage() {
 
   const { data: pengguna } = await supabase
     .from("pengguna")
-    .select("level")
+    .select("level, aktif")
     .eq("username", user.email?.split("@")[0])
     .single();
 
-  if (!isOwnerLike(pengguna?.level)) {
+  if (!pengguna?.aktif || !isOwnerLike(pengguna.level)) {
     return <div>Akses ditolak. Hanya Owner yang dapat melihat laporan ini.</div>;
   }
 
-  // Get current month's initial data
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  const today = getTodayWIB();
+  const firstDay = `${today.slice(0, 7)}-01`;
   
   const report = await fetchAllRows(supabase, (db, from, to) =>
     db
@@ -38,7 +38,6 @@ export default async function AdminAttendanceReportPage() {
           level
         )
       `)
-      .gte("tanggal", firstDay)
       .order("tanggal", { ascending: false })
       .range(from, to)
   ).catch((error) => {
@@ -59,7 +58,7 @@ export default async function AdminAttendanceReportPage() {
         </div>
       </header>
 
-      <ReportClient initialData={report ?? []} />
+      <ReportClient initialData={report ?? []} initialStart={firstDay} initialEnd={today} />
     </div>
   );
 }

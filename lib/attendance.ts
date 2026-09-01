@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getTodayWIB } from "@/lib/utils";
 
 export async function getTodayAttendance() {
   const supabase = await createClient();
@@ -11,17 +13,13 @@ export async function getTodayAttendance() {
 
   const { data: pengguna } = await supabase
     .from("pengguna")
-    .select("id, level")
+    .select("id, level, aktif")
     .eq("username", user.email?.split("@")[0])
     .single();
 
-  if (!pengguna) return null;
+  if (!pengguna?.aktif) return null;
 
-  // Use WIB (UTC+7) for the "today" date
-  const nowUtc = new Date();
-  const wibOffset = 7 * 60 * 60 * 1000;
-  const nowWIB = new Date(nowUtc.getTime() + wibOffset);
-  const today = nowWIB.toISOString().split("T")[0];
+  const today = getTodayWIB();
 
   const { data: attendance } = await supabase
     .from("absensi")
@@ -50,40 +48,36 @@ export async function getMonthlyAttendanceStats() {
 
   const { data: pengguna } = await supabase
     .from("pengguna")
-    .select("id, level")
+    .select("id, level, aktif")
     .eq("username", user.email?.split("@")[0])
     .single();
 
-  if (!pengguna) return null;
+  if (!pengguna?.aktif) return null;
 
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  const today = getTodayWIB();
+  const firstDay = `${today.slice(0, 7)}-01`;
 
   const { data: records } = await supabase
     .from("absensi")
     .select("status, jam_masuk")
     .eq("id_pengguna", pengguna.id)
-    .gte("tanggal", firstDay);
+    .gte("tanggal", firstDay)
+    .lte("tanggal", today);
 
-  const total = records?.length ?? 0;
-  const hadir = records?.filter((r) => r.status === "HADIR").length ?? 0;
+  const hadir = records?.filter((r) => r.status === "HADIR" || r.status === "ON TIME").length ?? 0;
   const telat = records?.filter((r) => r.status === "TELAT").length ?? 0;
+  const total = hadir + telat;
 
   return { total, hadir, telat };
 }
 
-/**
- * Bersihkan session QR yang sudah expired atau sudah tidak aktif.
- * Panggil secara periodik (misal saat generate QR baru) untuk menjaga
- * tabel qr_session tetap rampit.
- */
+/** Simpan sesi dua hari agar QR pertama hari ini tetap menjadi acuan telat. */
 export async function cleanupExpiredQRSessions() {
-  const supabase = await createClient();
-
-  const { error } = await supabase
+  const retentionLimit = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await supabaseAdmin
     .from("qr_session")
     .delete()
-    .or("is_active.eq.false,expired_at.lt." + new Date().toISOString());
+    .lt("created_at", retentionLimit);
 
   if (error) {
     console.error("Gagal membersihkan QR session expired:", error);

@@ -7,17 +7,13 @@ import DataTable, { type Column, type FilterDef } from "@/components/data-table"
 import { Badge } from "@/components/ui/badge";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
-
-function formatTime(isoString: string | null) {
-  if (!isoString) return "--:--";
-  // jam_masuk/jam_pulang disimpan sebagai literal WIB ("2026-08-31T09:30:00")
-  // tanpa suffix timezone. Ekstrak langsung dari string agar tidak bergantung
-  // pada timezone browser/server.
-  const timePart = isoString.includes("T") ? isoString.split("T")[1] : isoString;
-  const [hh, mm] = timePart.split(":");
-  if (hh == null || mm == null) return "--:--";
-  return `${hh}:${mm}`;
-}
+import {
+  attendanceDescription,
+  attendanceStatusBadgeClass,
+  attendanceStatusLabel,
+  formatAttendanceTime,
+} from "@/lib/attendance-display";
+import { getTodayWIB } from "@/lib/utils";
 
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
@@ -25,6 +21,7 @@ function formatDate(dateStr: string) {
     day: "2-digit",
     month: "long",
     year: "numeric",
+    timeZone: "UTC",
   }).format(date);
 }
 
@@ -36,6 +33,8 @@ interface AttendanceRecord {
   status: string;
   telat_menit: number;
   device_info: string | null;
+  sumber?: "QR" | "MANUAL";
+  catatan_manual?: string | null;
 }
 
 export function HistoryClient({ initialData }: { initialData: AttendanceRecord[] }) {
@@ -55,38 +54,41 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
   }, [initialData, dateFilter]);
 
   const stats = useMemo(() => {
-    const total = filteredData.length;
+    const total = filteredData.filter((d) => d.status === "HADIR" || d.status === "ON TIME" || d.status === "TELAT").length;
     const telat = filteredData.filter(d => d.status === "TELAT").length;
+    const tidakHadir = filteredData.filter(d => d.status === "TIDAK_HADIR" || d.status === "ALPHA").length;
     const totalTelatMenit = filteredData.reduce((sum, d) => sum + (d.telat_menit || 0), 0);
-    return { total, telat, totalTelatMenit };
+    return { total, telat, tidakHadir, totalTelatMenit };
   }, [filteredData]);
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 15 });
 
   const handleExportCSV = () => {
-    const headers = ["Tanggal", "Status", "Jam Masuk", "Jam Pulang", "Keterangan", "Informasi Perangkat"];
+    const headers = ["Tanggal", "Status", "Jam Masuk", "Jam Pulang", "Keterangan", "Sumber", "Informasi Perangkat"];
     const rows = filteredData.map(d => [
       formatDate(d.tanggal),
-      d.status,
-      formatTime(d.jam_masuk),
-      formatTime(d.jam_pulang),
-      d.telat_menit > 0 ? `Telat ${d.telat_menit} menit` : "Tepat Waktu",
+      attendanceStatusLabel(d.status),
+      formatAttendanceTime(d.jam_masuk),
+      formatAttendanceTime(d.jam_pulang),
+      attendanceDescription(d),
+      d.sumber === "MANUAL" ? "Manual" : "QR",
       d.device_info || "-"
     ]);
-    exportToCSV(`Riwayat_Absensi_${new Date().toISOString().split("T")[0]}`, headers, rows);
+    exportToCSV(`Riwayat_Absensi_${getTodayWIB()}`, headers, rows);
   };
 
   const handleExportPDF = () => {
-    const headers = ["Tanggal", "Status", "Jam Masuk", "Jam Pulang", "Keterangan", "Informasi Perangkat"];
+    const headers = ["Tanggal", "Status", "Jam Masuk", "Jam Pulang", "Keterangan", "Sumber", "Informasi Perangkat"];
     const rows = filteredData.map(d => [
       formatDate(d.tanggal),
-      d.status,
-      formatTime(d.jam_masuk),
-      formatTime(d.jam_pulang),
-      d.telat_menit > 0 ? `Telat ${d.telat_menit} menit` : "Tepat Waktu",
+      attendanceStatusLabel(d.status),
+      formatAttendanceTime(d.jam_masuk),
+      formatAttendanceTime(d.jam_pulang),
+      attendanceDescription(d),
+      d.sumber === "MANUAL" ? "Manual" : "QR",
       d.device_info || "-"
     ]);
-    exportToPDF(`Riwayat_Absensi_${new Date().toISOString().split("T")[0]}`, "Riwayat Absensi", headers, rows);
+    exportToPDF(`Riwayat_Absensi_${getTodayWIB()}`, "Riwayat Absensi", headers, rows);
   };
 
   const filters: FilterDef[] = [
@@ -104,22 +106,20 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
     {
       key: "status", header: "Status", sortable: true, headerClassName: "w-[150px]",
       render: (d) => (
-        <Badge variant="secondary" className={`font-normal border-none rounded-full px-3 py-1 text-[11px] uppercase tracking-wider ${
-          d.status === "HADIR" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"
-        }`}>
-          {d.status}
+        <Badge variant="secondary" className={`border-none rounded-full px-3 py-1 text-[11px] ${attendanceStatusBadgeClass(d.status)}`}>
+          {attendanceStatusLabel(d.status)}
         </Badge>
       ),
     },
-    { key: "jam_masuk", header: "Jam Masuk", sortable: true, headerClassName: "w-[150px]", render: (d) => <span className="tabular-nums font-medium text-foreground">{formatTime(d.jam_masuk)}</span> },
-    { key: "jam_pulang", header: "Jam Pulang", sortable: true, headerClassName: "w-[150px]", render: (d) => <span className="tabular-nums text-muted-foreground">{formatTime(d.jam_pulang)}</span> },
+    { key: "jam_masuk", header: "Jam Masuk", sortable: true, headerClassName: "w-[150px]", render: (d) => <span className="tabular-nums font-medium text-foreground">{formatAttendanceTime(d.jam_masuk)}</span> },
+    { key: "jam_pulang", header: "Jam Pulang", sortable: true, headerClassName: "w-[150px]", render: (d) => <span className="tabular-nums text-muted-foreground">{formatAttendanceTime(d.jam_pulang)}</span> },
     {
       key: "keterangan", header: "Keterangan", sortable: true, sortKey: "telat_menit", headerClassName: "w-[150px]",
-      render: (d) => d.telat_menit > 0 ? (
-        <span className="text-xs text-warning font-medium">Telat {d.telat_menit} menit</span>
-      ) : (
-        <span className="text-xs text-success font-medium">Tepat Waktu</span>
-      ),
+      render: (d) => <span className="text-xs text-muted-foreground">{attendanceDescription(d)}</span>,
+    },
+    {
+      key: "sumber", header: "Sumber", sortable: true, headerClassName: "w-[100px]",
+      render: (d) => <span className="text-xs text-muted-foreground">{d.sumber === "MANUAL" ? "Manual" : "QR"}</span>,
     },
     {
       key: "device_info", header: "Informasi Perangkat", sortable: true, className: "pr-6",
@@ -154,7 +154,7 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
         },
       ]}
       topContent={
-        <div className="flex flex-col sm:flex-row gap-8 md:gap-16 pb-2">
+        <div className="flex flex-wrap gap-x-10 gap-y-6 pb-2 md:gap-x-16">
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-1">Total Hadir</p>
             <div className="flex items-baseline gap-2">
@@ -176,6 +176,13 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
               <span className="text-sm text-muted-foreground">menit</span>
             </div>
           </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Tidak Hadir</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-light tracking-tight text-foreground tabular-nums">{stats.tidakHadir}</span>
+              <span className="text-sm text-muted-foreground">hari</span>
+            </div>
+          </div>
         </div>
       }
       emptyState={{
@@ -183,6 +190,8 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
         title: "Tidak ada riwayat ditemukan",
         description: "Coba sesuaikan filter tanggal Anda.",
       }}
+      mobileCards
+      mobileBreakpoint="lg"
     />
   );
 }

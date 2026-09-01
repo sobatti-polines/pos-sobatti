@@ -13,6 +13,7 @@ import { AttendanceWidget } from "@/components/attendance-widget";
 import { createClient } from "@/lib/supabase/server";
 import { getTodayAttendance, getMonthlyAttendanceStats } from "@/lib/attendance";
 import { isOwnerLike, KARYAWAN_ROLE } from "@/lib/roles";
+import { getTodayWIB } from "@/lib/utils";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -44,7 +45,11 @@ export default async function DashboardPage() {
 
   if (isKaryawan) {
     const stats = await getMonthlyAttendanceStats();
-    const monthName = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+    const monthName = new Date(`${getTodayWIB()}T00:00:00.000Z`).toLocaleDateString("id-ID", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
 
     return (
       <div className="flex-1 p-4 md:p-8 lg:p-12 w-full flex flex-col gap-6 md:gap-8 mx-auto">

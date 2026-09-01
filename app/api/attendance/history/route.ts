@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function GET(request: Request) {
+export async function GET() {
   const supabase = await createClient();
 
   const {
@@ -10,18 +9,18 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
   }
 
   // Get current user details
   const { data: pengguna } = await supabase
     .from("pengguna")
-    .select("id")
+    .select("id, aktif")
     .eq("username", user.email?.split("@")[0])
     .single();
 
-  if (!pengguna) {
-    return NextResponse.json({ error: "User profile not found" }, { status: 404 });
+  if (!pengguna?.aktif) {
+    return NextResponse.json({ error: "Profil pengguna tidak ditemukan" }, { status: 404 });
   }
 
   const { data: history, error } = await supabase

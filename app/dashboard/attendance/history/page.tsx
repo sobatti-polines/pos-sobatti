@@ -13,11 +13,11 @@ export default async function AttendanceHistoryPage() {
   // Get current user details
   const { data: pengguna } = await supabase
     .from("pengguna")
-    .select("id")
+    .select("id, aktif")
     .eq("username", user.email?.split("@")[0])
     .single();
 
-  if (!pengguna) return <div>Profil pengguna tidak ditemukan.</div>;
+  if (!pengguna?.aktif) return <div>Profil pengguna tidak ditemukan atau tidak aktif.</div>;
 
   const { data: history, error } = await supabase
     .from("absensi")

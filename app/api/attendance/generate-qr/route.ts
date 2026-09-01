@@ -3,9 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
 import { isOwnerLike } from "@/lib/roles";
 import { cleanupExpiredQRSessions } from "@/lib/attendance";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function POST(_request: Request) {
+export async function POST() {
   try {
     const supabase = await createClient();
 
@@ -14,31 +14,33 @@ export async function POST(_request: Request) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
     }
 
     // Get current user details from pengguna table
     const { data: pengguna } = await supabase
       .from("pengguna")
-      .select("id, level")
+      .select("id, level, aktif")
       .eq("username", user.email?.split("@")[0])
       .single();
 
-    if (!pengguna || !isOwnerLike(pengguna.level)) {
-      return NextResponse.json({ error: "Forbidden: Owner only" }, { status: 403 });
+    if (!pengguna?.aktif || !isOwnerLike(pengguna.level)) {
+      return NextResponse.json({ error: "Hanya owner yang dapat membuat QR absensi" }, { status: 403 });
     }
 
-    // Bersihkan session QR expired sebelum membuat baru (fire-and-forget)
-    cleanupExpiredQRSessions().catch(() => {});
+    await cleanupExpiredQRSessions();
 
     const token = randomUUID();
-    const expireSeconds = parseInt(process.env.QR_EXPIRE_SECONDS || "60");
+    const parsedExpireSeconds = Number.parseInt(process.env.QR_EXPIRE_SECONDS || "60", 10);
+    const expireSeconds = Number.isFinite(parsedExpireSeconds)
+      ? Math.min(Math.max(parsedExpireSeconds, 10), 3600)
+      : 60;
     // Use ISO string with explicit UTC timezone — works with both `timestamp` and `timestamptz` columns
     const now = new Date();
     const expiryDate = new Date(now.getTime() + expireSeconds * 1000);
     const expired_at = expiryDate.toISOString();
 
-    const { data: qrSession, error } = await supabase
+    const { data: qrSession, error } = await supabaseAdmin
       .from("qr_session")
       .insert({
         token,
@@ -61,7 +63,6 @@ export async function POST(_request: Request) {
     });
   } catch (err: unknown) {
     console.error("Error generating QR:", err);
-    const message = err instanceof Error ? err.message : "Internal Server Error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Terjadi kesalahan internal" }, { status: 500 });
   }
 }
