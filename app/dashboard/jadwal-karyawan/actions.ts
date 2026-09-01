@@ -207,26 +207,30 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
     return { error: "Jadwal yang sudah terbit tidak bisa diedit" };
   }
 
-  const employeeQuery = existing
-    ? supabase
-        .from("jadwal_karyawan")
-        .select("id_pengguna")
-        .eq("id_jadwal_mingguan", existing.id)
-    : supabase
-        .from("pengguna")
-        .select("id")
-        .eq("aktif", true)
-        .in("level", ["ADMIN", "KASIR", "KARYAWAN"]);
-  const { data: employees, error: employeeError } = await employeeQuery;
+  const [scheduledResult, activeResult] = await Promise.all([
+    existing
+      ? supabase
+          .from("jadwal_karyawan")
+          .select("id_pengguna")
+          .eq("id_jadwal_mingguan", existing.id)
+      : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("pengguna")
+      .select("id")
+      .eq("aktif", true)
+      .in("level", ["ADMIN", "KASIR", "KARYAWAN"]),
+  ]);
 
-  if (employeeError) {
-    console.error("Failed to fetch employees for schedule:", employeeError);
+  if (scheduledResult.error || activeResult.error) {
+    console.error("Failed to fetch employees for schedule:", scheduledResult.error || activeResult.error);
     return { error: "Gagal membaca data pegawai" };
   }
 
-  const employeeIds = [...new Set(
-    (employees ?? []).map((employee) => Number("id_pengguna" in employee ? employee.id_pengguna : employee.id))
-  )];
+  // Gabungkan pegawai dari jadwal lama dengan pegawai aktif baru, termasuk KASIR.
+  const employeeIds = [...new Set([
+    ...(scheduledResult.data ?? []).map((employee) => Number(employee.id_pengguna)),
+    ...(activeResult.data ?? []).map((employee) => Number(employee.id)),
+  ])];
   if (employeeIds.length === 0) return { error: "Belum ada pegawai aktif untuk dijadwalkan" };
 
   const normalizedRows = (input.rows ?? [])

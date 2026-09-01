@@ -119,16 +119,14 @@ export default async function JadwalKaryawanPage({
       }),
   ]);
 
-  const scheduledEmployees = weeklySchedule
-    ? Array.from(
-        new Map(
-          (weeklySchedule.jadwal_karyawan ?? [])
-            .map((row) => row.pengguna)
-            .filter((employee): employee is EmployeeOption => Boolean(employee))
-            .map((employee) => [employee.id, employee])
-        ).values()
-      ).sort((a, b) => (a.nama || a.username).localeCompare(b.nama || b.username, "id"))
-    : activeEmployees;
+  const scheduledEmployees = Array.from(
+    new Map([
+      ...activeEmployees,
+      ...(weeklySchedule?.jadwal_karyawan ?? [])
+        .map((row) => row.pengguna)
+        .filter((employee): employee is EmployeeOption => Boolean(employee)),
+    ].map((employee) => [employee.id, employee])).values()
+  ).sort((a, b) => (a.nama || a.username).localeCompare(b.nama || b.username, "id"));
 
   let leaveRequests: LeaveRequestRecord[] = [];
   if (weeklySchedule) {
