@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
-import { isAdminOrOwnerLike } from "@/lib/roles";
+import { isAdminOrOwnerLike, isOwnerLike } from "@/lib/roles";
 
 async function requireAuth() {
   const supabase = await createClient();
@@ -17,6 +17,125 @@ async function requireAuth() {
     .eq("username", user.email?.split("@")[0])
     .single();
   return isAdminOrOwnerLike(pengguna?.level);
+}
+
+async function requireOwner() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, supabase };
+
+  const { data: pengguna } = await supabase
+    .from("pengguna")
+    .select("level")
+    .eq("username", user.email?.split("@")[0])
+    .single();
+
+  return { ok: isOwnerLike(pengguna?.level), supabase };
+}
+
+export type BulkPriceProductType = "ALL" | "MASTER" | "PAKET";
+export type BulkPriceDirection = "NAIK" | "TURUN";
+
+export interface BulkPriceAdjustmentInput {
+  id_merk: number;
+  jenis_barang: BulkPriceProductType;
+  direction: BulkPriceDirection;
+  percentage: number;
+  rounding: number;
+  update_retail: boolean;
+  update_grosir: boolean;
+  update_promo: boolean;
+  update_big_retail: boolean;
+  update_big_grosir: boolean;
+  update_big_promo: boolean;
+}
+
+export interface BulkPriceAdjustmentResult {
+  affected_count: number;
+  updated_count: number;
+  sample: Array<{
+    id: number;
+    nama_produk: string;
+    sku: string | null;
+    old_retail: number | null;
+    new_retail: number | null;
+    old_grosir: number | null;
+    new_grosir: number | null;
+    old_promo: number | null;
+    new_promo: number | null;
+    old_big_retail: number | null;
+    new_big_retail: number | null;
+    old_big_grosir: number | null;
+    new_big_grosir: number | null;
+    old_big_promo: number | null;
+    new_big_promo: number | null;
+  }>;
+}
+
+function validateBulkPriceInput(input: BulkPriceAdjustmentInput): string | null {
+  if (!input.id_merk || input.id_merk <= 0) return "Merk wajib dipilih";
+  if (!["ALL", "MASTER", "PAKET"].includes(input.jenis_barang)) return "Jenis barang tidak valid";
+  if (!["NAIK", "TURUN"].includes(input.direction)) return "Arah perubahan harga tidak valid";
+  if (!Number.isFinite(input.percentage) || input.percentage < 0) return "Persentase harus 0 atau lebih";
+  if (!Number.isFinite(input.rounding) || input.rounding <= 0) return "Pembulatan harus lebih dari 0";
+  if (!(
+    input.update_retail || input.update_grosir || input.update_promo ||
+    input.update_big_retail || input.update_big_grosir || input.update_big_promo
+  )) return "Pilih minimal satu harga yang ingin diubah";
+  return null;
+}
+
+async function runBulkPriceAdjustment(input: BulkPriceAdjustmentInput, apply: boolean) {
+  const guard = await requireOwner();
+  if (!guard.ok) return { error: "Unauthorized" };
+
+  const validationError = validateBulkPriceInput(input);
+  if (validationError) return { error: validationError };
+
+  const { data, error } = await guard.supabase.rpc("bulk_adjust_product_prices", {
+    p_id_merk: input.id_merk,
+    p_jenis_barang: input.jenis_barang,
+    p_direction: input.direction,
+    p_percentage: input.percentage,
+    p_rounding: input.rounding,
+    p_update_retail: input.update_retail,
+    p_update_grosir: input.update_grosir,
+    p_update_promo: input.update_promo,
+    p_update_big_retail: input.update_big_retail,
+    p_update_big_grosir: input.update_big_grosir,
+    p_update_big_promo: input.update_big_promo,
+    p_apply: apply,
+  });
+
+  if (error) {
+    console.error("Bulk price adjustment failed:", error);
+    return { error: error.message || "Gagal memproses perubahan harga massal" };
+  }
+
+  return { success: true, data: data as BulkPriceAdjustmentResult };
+}
+
+export async function previewBulkPriceAdjustment(input: BulkPriceAdjustmentInput) {
+  return runBulkPriceAdjustment(input, false);
+}
+
+export async function applyBulkPriceAdjustment(input: BulkPriceAdjustmentInput) {
+  const res = await runBulkPriceAdjustment(input, true);
+  if (!res.success || !res.data) return res;
+
+  const guard = await requireOwner();
+  if (guard.ok) {
+    await logActivity(guard.supabase, {
+      aksi: "UPDATE",
+      entitas: "produk",
+      deskripsi: `Ubah harga massal: ${res.data.updated_count} produk, merk ID ${input.id_merk}, ${input.direction.toLowerCase()} ${input.percentage}%`,
+      data_baru: { ...input, affected_count: res.data.affected_count, updated_count: res.data.updated_count },
+    });
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/laporan/pergerakan-harga");
+  return res;
 }
 
 interface ProductData {
