@@ -53,7 +53,7 @@ export interface BulkPriceAdjustmentInput {
 export interface BulkPriceAdjustmentResult {
   affected_count: number;
   updated_count: number;
-  sample: Array<{
+  products: Array<{
     id: number;
     nama_produk: string;
     sku: string | null;
@@ -85,12 +85,17 @@ function validateBulkPriceInput(input: BulkPriceAdjustmentInput): string | null 
   return null;
 }
 
-async function runBulkPriceAdjustment(input: BulkPriceAdjustmentInput, apply: boolean) {
+async function runBulkPriceAdjustment(input: BulkPriceAdjustmentInput, apply: boolean, selectedProductIds: number[] = []) {
   const guard = await requireOwner();
-  if (!guard.ok) return { error: "Unauthorized" };
+  if (!guard.ok) return { error: "Tidak memiliki akses" };
 
   const validationError = validateBulkPriceInput(input);
   if (validationError) return { error: validationError };
+  if (!Array.isArray(selectedProductIds)) return { error: "Pilihan produk tidak valid" };
+  if (apply && selectedProductIds.length === 0) return { error: "Pilih minimal 1 produk" };
+  if (selectedProductIds.some((id) => !Number.isInteger(id) || id <= 0)) return { error: "Pilihan produk tidak valid" };
+
+  const productIds = [...new Set(selectedProductIds)];
 
   const { data, error } = await guard.supabase.rpc("bulk_adjust_product_prices", {
     p_id_merk: input.id_merk,
@@ -105,6 +110,7 @@ async function runBulkPriceAdjustment(input: BulkPriceAdjustmentInput, apply: bo
     p_update_big_grosir: input.update_big_grosir,
     p_update_big_promo: input.update_big_promo,
     p_apply: apply,
+    p_selected_product_ids: apply ? productIds : null,
   });
 
   if (error) {
@@ -114,10 +120,10 @@ async function runBulkPriceAdjustment(input: BulkPriceAdjustmentInput, apply: bo
       error.message?.toLowerCase().includes("schema cache")
     ) {
       return {
-        error: "Fitur ubah harga massal belum aktif di database. Jalankan migration 20260922100000_bulk_adjust_product_prices.sql di Supabase, lalu reload schema cache.",
+        error: "Fitur ubah harga massal belum aktif di database. Jalankan migration terbaru, lalu muat ulang schema cache.",
       };
     }
-    return { error: error.message || "Gagal memproses perubahan harga massal" };
+    return { error: "Gagal memproses perubahan harga massal" };
   }
 
   return { success: true, data: data as BulkPriceAdjustmentResult };
@@ -127,8 +133,8 @@ export async function previewBulkPriceAdjustment(input: BulkPriceAdjustmentInput
   return runBulkPriceAdjustment(input, false);
 }
 
-export async function applyBulkPriceAdjustment(input: BulkPriceAdjustmentInput) {
-  const res = await runBulkPriceAdjustment(input, true);
+export async function applyBulkPriceAdjustment(input: BulkPriceAdjustmentInput, selectedProductIds: number[]) {
+  const res = await runBulkPriceAdjustment(input, true, selectedProductIds);
   if (!res.success || !res.data) return res;
 
   const guard = await requireOwner();

@@ -231,8 +231,8 @@ const bulkPriceFields: Array<{ key: keyof Pick<BulkPriceAdjustmentInput, "update
 const bulkPricePreviewColumns: Array<{
   flag: (typeof bulkPriceFields)[number]["key"];
   label: string;
-  oldKey: keyof BulkPriceAdjustmentResult["sample"][number];
-  newKey: keyof BulkPriceAdjustmentResult["sample"][number];
+  oldKey: keyof BulkPriceAdjustmentResult["products"][number];
+  newKey: keyof BulkPriceAdjustmentResult["products"][number];
 }> = [
   { flag: "update_retail", label: "Retail", oldKey: "old_retail", newKey: "new_retail" },
   { flag: "update_grosir", label: "Grosir", oldKey: "old_grosir", newKey: "new_grosir" },
@@ -299,6 +299,8 @@ export default function InventoryClient({
   const [bulkPriceError, setBulkPriceError] = useState("");
   const [bulkPriceSuccess, setBulkPriceSuccess] = useState("");
   const [bulkPricePreview, setBulkPricePreview] = useState<BulkPriceAdjustmentResult | null>(null);
+  const [bulkPriceSearch, setBulkPriceSearch] = useState("");
+  const [bulkPriceSelectedIds, setBulkPriceSelectedIds] = useState<Set<number>>(new Set());
   const [bulkPriceForm, setBulkPriceForm] = useState<BulkPriceAdjustmentInput>({
     id_merk: 0,
     jenis_barang: "ALL",
@@ -312,6 +314,19 @@ export default function InventoryClient({
     update_big_grosir: false,
     update_big_promo: false,
   });
+
+  const bulkPriceFilteredProducts = useMemo(() => {
+    const products = bulkPricePreview?.products ?? [];
+    const q = bulkPriceSearch.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((product) =>
+      product.nama_produk.toLowerCase().includes(q) || (product.sku ?? "").toLowerCase().includes(q)
+    );
+  }, [bulkPricePreview, bulkPriceSearch]);
+
+  const bulkPriceAllVisibleSelected = bulkPriceFilteredProducts.length > 0
+    && bulkPriceFilteredProducts.every((product) => bulkPriceSelectedIds.has(product.id));
+  const bulkPriceSomeVisibleSelected = bulkPriceFilteredProducts.some((product) => bulkPriceSelectedIds.has(product.id));
 
   const filteredData = useMemo(() => {
     let result = [...initialProducts];
@@ -385,6 +400,8 @@ export default function InventoryClient({
       jenis_barang: typeFilter === "master" ? "MASTER" : typeFilter === "paket" ? "PAKET" : "ALL",
     }));
     setBulkPricePreview(null);
+    setBulkPriceSearch("");
+    setBulkPriceSelectedIds(new Set());
     setBulkPriceError("");
     setBulkPriceSuccess("");
     setBulkPriceOpen(true);
@@ -394,12 +411,15 @@ export default function InventoryClient({
     setBulkPriceError("");
     setBulkPriceSuccess("");
     setBulkPricePreview(null);
+    setBulkPriceSearch("");
+    setBulkPriceSelectedIds(new Set());
     startTransition(async () => {
       const res = await previewBulkPriceAdjustment(bulkPriceForm);
       if (res?.error) {
         setBulkPriceError(res.error);
       } else {
         setBulkPricePreview(res.data ?? null);
+        setBulkPriceSelectedIds(new Set(res.data?.products.map((product) => product.id) ?? []));
       }
     });
   };
@@ -407,15 +427,32 @@ export default function InventoryClient({
   const handleBulkPriceApply = () => {
     setBulkPriceError("");
     setBulkPriceSuccess("");
+    if (bulkPriceSelectedIds.size === 0) {
+      setBulkPriceError("Pilih minimal 1 produk");
+      return;
+    }
     startTransition(async () => {
-      const res = await applyBulkPriceAdjustment(bulkPriceForm);
+      const res = await applyBulkPriceAdjustment(bulkPriceForm, [...bulkPriceSelectedIds]);
       if (res?.error) {
         setBulkPriceError(res.error);
       } else {
+        const updated = res.data?.updated_count ?? 0;
+        const skipped = Math.max(0, (res.data?.affected_count ?? 0) - updated);
         setBulkPricePreview(null);
-        setBulkPriceSuccess(`Harga berhasil diubah untuk ${res.data?.updated_count ?? 0} produk.`);
+        setBulkPriceSearch("");
+        setBulkPriceSelectedIds(new Set());
+        setBulkPriceSuccess(`Harga berhasil diubah untuk ${updated} produk. ${skipped} produk dilewati.`);
         router.refresh();
       }
+    });
+  };
+
+  const toggleAllVisibleBulkPriceProducts = () => {
+    setBulkPriceSelectedIds((current) => {
+      const next = new Set(current);
+      const allSelected = bulkPriceFilteredProducts.every((product) => next.has(product.id));
+      bulkPriceFilteredProducts.forEach((product) => allSelected ? next.delete(product.id) : next.add(product.id));
+      return next;
     });
   };
 
@@ -1015,15 +1052,15 @@ export default function InventoryClient({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-5">
+          <fieldset disabled={isPending} className="grid min-w-0 gap-5 border-0 p-0">
             {bulkPriceError && (
-              <div className="text-sm text-destructive flex items-center gap-2 bg-destructive/10 border border-destructive/20 p-3 rounded-xl">
+              <div role="alert" className="text-sm text-destructive flex items-center gap-2 bg-destructive/10 border border-destructive/20 p-3 rounded-xl">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {bulkPriceError}
               </div>
             )}
             {bulkPriceSuccess && (
-              <div className="text-sm text-emerald-700 flex items-center gap-2 bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
+              <div role="status" className="text-sm text-emerald-700 flex items-center gap-2 bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
                 <Check className="w-4 h-4 shrink-0" />
                 {bulkPriceSuccess}
               </div>
@@ -1132,18 +1169,43 @@ export default function InventoryClient({
 
             {bulkPricePreview && (
               <div className="rounded-2xl border border-border/70 overflow-hidden">
-                <div className="px-4 py-3 bg-muted/30 flex items-center justify-between gap-3">
-                  <div>
+                <div className="px-4 py-3 bg-muted/30 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="min-w-0">
                     <div className="text-sm font-semibold">Preview perubahan</div>
-                    <div className="text-xs text-muted-foreground">
-                      {bulkPricePreview.affected_count} produk cocok. Contoh maksimal 10 produk.
+                    <div className="text-xs text-muted-foreground tabular-nums" aria-live="polite">
+                      {bulkPriceSelectedIds.size} dipilih dari {bulkPricePreview.affected_count} produk
                     </div>
                   </div>
+                  <div className="relative w-full sm:max-w-xs">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={bulkPriceSearch}
+                      onChange={(event) => setBulkPriceSearch(event.target.value)}
+                      placeholder="Cari nama produk atau SKU"
+                      aria-label="Cari produk di preview"
+                      className="pl-9"
+                    />
+                  </div>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="max-h-[45vh] overflow-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-muted/20 text-xs text-muted-foreground">
+                    <thead className="sticky top-0 z-10 bg-muted text-xs text-muted-foreground">
                       <tr>
+                        <th className="w-12 p-0 text-center">
+                          <label className="flex size-10 cursor-pointer items-center justify-center mx-auto">
+                            <input
+                              type="checkbox"
+                              checked={bulkPriceAllVisibleSelected}
+                              ref={(element) => {
+                                if (element) element.indeterminate = bulkPriceSomeVisibleSelected && !bulkPriceAllVisibleSelected;
+                              }}
+                              onChange={toggleAllVisibleBulkPriceProducts}
+                              disabled={bulkPriceFilteredProducts.length === 0}
+                              className="size-4 cursor-pointer accent-primary disabled:cursor-not-allowed"
+                            />
+                            <span className="sr-only">Pilih semua produk yang terlihat</span>
+                          </label>
+                        </th>
                         <th className="text-left p-3 min-w-[220px]">Produk</th>
                         {bulkPricePreviewColumns
                           .filter((col) => bulkPriceForm[col.flag])
@@ -1153,11 +1215,27 @@ export default function InventoryClient({
                       </tr>
                     </thead>
                     <tbody>
-                      {bulkPricePreview.sample.map((item) => (
+                      {bulkPriceFilteredProducts.map((item) => (
                         <tr key={item.id} className="border-t border-border/60">
-                          <td className="p-3">
-                            <div className="font-medium">{item.nama_produk}</div>
-                            <div className="text-xs text-muted-foreground">{item.sku || "Tanpa SKU"}</div>
+                          <td className="w-12 p-0 text-center">
+                            <label className="flex size-10 cursor-pointer items-center justify-center mx-auto">
+                              <input
+                                type="checkbox"
+                                checked={bulkPriceSelectedIds.has(item.id)}
+                                onChange={(event) => setBulkPriceSelectedIds((current) => {
+                                  const next = new Set(current);
+                                  if (event.target.checked) next.add(item.id);
+                                  else next.delete(item.id);
+                                  return next;
+                                })}
+                                className="size-4 cursor-pointer accent-primary"
+                              />
+                              <span className="sr-only">Pilih {item.nama_produk}</span>
+                            </label>
+                          </td>
+                          <td className="p-3 min-w-0">
+                            <div className="font-medium break-words">{item.nama_produk}</div>
+                            <div className="text-xs text-muted-foreground break-all">{item.sku || "Tanpa SKU"}</div>
                           </td>
                           {bulkPricePreviewColumns
                             .filter((col) => bulkPriceForm[col.flag])
@@ -1174,9 +1252,16 @@ export default function InventoryClient({
                             ))}
                         </tr>
                       ))}
-                      {bulkPricePreview.sample.length === 0 && (
+                      {bulkPriceFilteredProducts.length === 0 && (
                         <tr>
-                          <td className="p-4 text-muted-foreground" colSpan={7}>Tidak ada produk yang cocok.</td>
+                          <td
+                            className="p-6 text-center text-muted-foreground"
+                            colSpan={bulkPricePreviewColumns.filter((column) => bulkPriceForm[column.flag]).length + 2}
+                          >
+                            {bulkPricePreview.products.length === 0
+                              ? "Tidak ada produk yang cocok."
+                              : "Tidak ada produk yang cocok dengan pencarian."}
+                          </td>
                         </tr>
                       )}
                     </tbody>
@@ -1184,7 +1269,7 @@ export default function InventoryClient({
                 </div>
               </div>
             )}
-          </div>
+          </fieldset>
 
           <DialogFooter className="gap-2 sm:gap-3">
             <Button type="button" variant="outline" onClick={() => setBulkPriceOpen(false)} disabled={isPending}>
@@ -1194,7 +1279,7 @@ export default function InventoryClient({
               {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               Cek Preview
             </Button>
-            <Button type="button" onClick={handleBulkPriceApply} disabled={isPending || !bulkPricePreview || bulkPricePreview.affected_count === 0}>
+            <Button type="button" onClick={handleBulkPriceApply} disabled={isPending || !bulkPricePreview || bulkPriceSelectedIds.size === 0}>
               Terapkan Perubahan
             </Button>
           </DialogFooter>
