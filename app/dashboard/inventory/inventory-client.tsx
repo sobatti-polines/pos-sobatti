@@ -297,6 +297,7 @@ export default function InventoryClient({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [bulkPriceOpen, setBulkPriceOpen] = useState(false);
   const [bulkPriceError, setBulkPriceError] = useState("");
+  const [bulkPriceSuccess, setBulkPriceSuccess] = useState("");
   const [bulkPricePreview, setBulkPricePreview] = useState<BulkPriceAdjustmentResult | null>(null);
   const [bulkPriceForm, setBulkPriceForm] = useState<BulkPriceAdjustmentInput>({
     id_merk: 0,
@@ -385,11 +386,13 @@ export default function InventoryClient({
     }));
     setBulkPricePreview(null);
     setBulkPriceError("");
+    setBulkPriceSuccess("");
     setBulkPriceOpen(true);
   };
 
   const handleBulkPricePreview = () => {
     setBulkPriceError("");
+    setBulkPriceSuccess("");
     setBulkPricePreview(null);
     startTransition(async () => {
       const res = await previewBulkPriceAdjustment(bulkPriceForm);
@@ -403,13 +406,14 @@ export default function InventoryClient({
 
   const handleBulkPriceApply = () => {
     setBulkPriceError("");
+    setBulkPriceSuccess("");
     startTransition(async () => {
       const res = await applyBulkPriceAdjustment(bulkPriceForm);
       if (res?.error) {
         setBulkPriceError(res.error);
       } else {
-        setBulkPriceOpen(false);
         setBulkPricePreview(null);
+        setBulkPriceSuccess(`Harga berhasil diubah untuk ${res.data?.updated_count ?? 0} produk.`);
         router.refresh();
       }
     });
@@ -1016,6 +1020,12 @@ export default function InventoryClient({
               <div className="text-sm text-destructive flex items-center gap-2 bg-destructive/10 border border-destructive/20 p-3 rounded-xl">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {bulkPriceError}
+              </div>
+            )}
+            {bulkPriceSuccess && (
+              <div className="text-sm text-emerald-700 flex items-center gap-2 bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
+                <Check className="w-4 h-4 shrink-0" />
+                {bulkPriceSuccess}
               </div>
             )}
 
