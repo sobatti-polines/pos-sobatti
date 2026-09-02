@@ -194,3 +194,5 @@ $$;
 GRANT EXECUTE ON FUNCTION public.bulk_adjust_product_prices(
   integer, text, text, numeric, numeric, boolean, boolean, boolean, boolean, boolean, boolean, boolean
 ) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';

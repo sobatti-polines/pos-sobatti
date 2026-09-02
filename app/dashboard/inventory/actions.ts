@@ -109,6 +109,14 @@ async function runBulkPriceAdjustment(input: BulkPriceAdjustmentInput, apply: bo
 
   if (error) {
     console.error("Bulk price adjustment failed:", error);
+    if (
+      error.message?.includes("bulk_adjust_product_prices") ||
+      error.message?.toLowerCase().includes("schema cache")
+    ) {
+      return {
+        error: "Fitur ubah harga massal belum aktif di database. Jalankan migration 20260922100000_bulk_adjust_product_prices.sql di Supabase, lalu reload schema cache.",
+      };
+    }
     return { error: error.message || "Gagal memproses perubahan harga massal" };
   }
 
