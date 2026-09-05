@@ -45,21 +45,28 @@ function toDateString(date: Date) {
 }
 
 function addDays(date: string, days: number) {
-  const d = new Date(`${date}T00:00:00.000Z`);
+  const d = new Date(`${date}T00:00:00+07:00`);
   d.setUTCDate(d.getUTCDate() + days);
   return toDateString(d);
 }
 
-function startOfWeekMonday(input = new Date()) {
-  const base = new Date(Date.UTC(input.getFullYear(), input.getMonth(), input.getDate()));
-  const day = base.getUTCDay();
+function startOfWeekMonday(input?: string) {
+  // Jika input tanggal diberikan, gunakan langsung sebagai minggu mulai.
+  if (input && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    return input;
+  }
+
+  // Hitung minggu ini (Senin) berdasarkan waktu lokal server (WIB).
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun..6=Sat (lokal WIB)
   const diff = day === 0 ? -6 : 1 - day;
-  base.setUTCDate(base.getUTCDate() + diff);
-  return toDateString(base);
+  const base = new Date(now);
+  base.setDate(base.getDate() + diff);
+  return base.toISOString().slice(0, 10);
 }
 
 function formatDate(date: string) {
-  return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("id-ID", {
+  return new Date(`${date}T00:00:00+07:00`).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -97,7 +104,8 @@ export default async function JadwalSayaPage() {
   if (isOwnerLike(pengguna.level)) redirect("/dashboard/jadwal-karyawan");
 
   const today = getTodayWIB();
-  const weekStart = startOfWeekMonday(new Date(`${today}T00:00:00.000Z`));
+  // Gunakan today langsung sebagai parameter; fungsi akan menghitung Senin terdekat.
+  const weekStart = startOfWeekMonday(today);
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const weekEnd = addDays(weekStart, 6);
   const nextWeekStart = addDays(weekStart, 7);

@@ -14,19 +14,25 @@ function toDateString(date: Date) {
 }
 
 function startOfWeekMonday(input?: string) {
-  const base = input && /^\d{4}-\d{2}-\d{2}$/.test(input)
-    ? new Date(`${input}T00:00:00.000Z`)
-    : new Date();
-  const day = base.getUTCDay();
+  // Jika input tanggal diberikan, gunakan langsung sebagai minggu mulai.
+  // Ini sesuai harapan user: ?week=2026-09-07 berarti minggu 7 Sep — 13 Sep 2026.
+  if (input && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    return input;
+  }
+
+  // Fallback: hitung minggu ini (Senin) berdasarkan waktu lokal server (WIB).
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun..6=Sat (lokal WIB)
   const diff = day === 0 ? -6 : 1 - day;
-  base.setUTCDate(base.getUTCDate() + diff);
-  return toDateString(base);
+  const base = new Date(now);
+  base.setDate(base.getDate() + diff);
+  return base.toISOString().slice(0, 10);
 }
 
 function addDays(date: string, days: number) {
-  const d = new Date(`${date}T00:00:00.000Z`);
+  const d = new Date(`${date}T00:00:00+07:00`);
   d.setUTCDate(d.getUTCDate() + days);
-  return toDateString(d);
+  return d.toISOString().slice(0, 10);
 }
 
 export default async function JadwalKaryawanPage({
