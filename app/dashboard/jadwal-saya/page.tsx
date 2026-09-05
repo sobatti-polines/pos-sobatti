@@ -10,6 +10,7 @@ import BookingLiburClient, {
 
 // Paksa render dinamis — jadwal karyawan bergantung pada data database yang sering berubah
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
 type ScheduleType = "PAGI" | "SORE" | "LIBUR";
@@ -44,29 +45,32 @@ interface RawMyScheduleRow {
 
 const DAY_LABELS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 
-function toDateString(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
 function addDays(date: string, days: number) {
-  const d = new Date(`${date}T00:00:00+07:00`);
+  const d = new Date(`${date}T00:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() + days);
-  return toDateString(d);
+  return d.toISOString().slice(0, 10);
 }
 
 function startOfWeekMonday(input?: string) {
-  // Jika input tanggal diberikan, gunakan langsung sebagai minggu mulai.
-  if (input && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
-    return input;
+  let baseDateStr = input;
+  if (!baseDateStr || !/^\d{4}-\d{2}-\d{2}$/.test(baseDateStr)) {
+    baseDateStr = getTodayWIB();
   }
 
-  // Hitung minggu ini (Senin) berdasarkan waktu lokal server (WIB).
-  const now = new Date();
-  const day = now.getDay(); // 0=Sun..6=Sat (lokal WIB)
+  const d = new Date(`${baseDateStr}T00:00:00.000Z`);
+  if (isNaN(d.getTime())) {
+    baseDateStr = getTodayWIB();
+    const fallback = new Date(`${baseDateStr}T00:00:00.000Z`);
+    const day = fallback.getUTCDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    fallback.setUTCDate(fallback.getUTCDate() + diff);
+    return fallback.toISOString().slice(0, 10);
+  }
+
+  const day = d.getUTCDay(); // 0=Sun..6=Sat
   const diff = day === 0 ? -6 : 1 - day;
-  const base = new Date(now);
-  base.setDate(base.getDate() + diff);
-  return base.toISOString().slice(0, 10);
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d.toISOString().slice(0, 10);
 }
 
 function formatDate(date: string) {
@@ -203,6 +207,7 @@ export default async function JadwalSayaPage() {
 
       <main className="min-h-0 flex-1 overflow-y-auto rounded-[16px] border border-border bg-card p-4 md:p-6">
         <BookingLiburClient
+          key={`${nextWeekStart}-${draftSchedule?.id ?? "none"}`}
           scheduleId={draftSchedule?.id ?? null}
           weekStart={nextWeekStart}
           weekEnd={nextWeekEnd}

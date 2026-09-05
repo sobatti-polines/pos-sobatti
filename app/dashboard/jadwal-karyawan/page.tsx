@@ -8,34 +8,38 @@ import JadwalKaryawanClient, {
   type WeeklyScheduleRecord,
 } from "./jadwal-karyawan-client";
 import { isOwnerLike } from "@/lib/roles";
+import { getTodayWIB } from "@/lib/utils";
 
 // Paksa render dinamis setiap request — jadwal bergantung pada URL parameter minggu
 // dan perubahan data di database tidak boleh dikirim dari cache.
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-function toDateString(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
 function startOfWeekMonday(input?: string) {
-  // Jika input tanggal diberikan, gunakan langsung sebagai minggu mulai.
-  // Ini sesuai harapan user: ?week=2026-09-07 berarti minggu 7 Sep — 13 Sep 2026.
-  if (input && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
-    return input;
+  let baseDateStr = input;
+  if (!baseDateStr || !/^\d{4}-\d{2}-\d{2}$/.test(baseDateStr)) {
+    baseDateStr = getTodayWIB();
   }
 
-  // Fallback: hitung minggu ini (Senin) berdasarkan waktu lokal server (WIB).
-  const now = new Date();
-  const day = now.getDay(); // 0=Sun..6=Sat (lokal WIB)
+  const d = new Date(`${baseDateStr}T00:00:00.000Z`);
+  if (isNaN(d.getTime())) {
+    baseDateStr = getTodayWIB();
+    const fallback = new Date(`${baseDateStr}T00:00:00.000Z`);
+    const day = fallback.getUTCDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    fallback.setUTCDate(fallback.getUTCDate() + diff);
+    return fallback.toISOString().slice(0, 10);
+  }
+
+  const day = d.getUTCDay(); // 0=Sun..6=Sat
   const diff = day === 0 ? -6 : 1 - day;
-  const base = new Date(now);
-  base.setDate(base.getDate() + diff);
-  return base.toISOString().slice(0, 10);
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d.toISOString().slice(0, 10);
 }
 
 function addDays(date: string, days: number) {
-  const d = new Date(`${date}T00:00:00+07:00`);
+  const d = new Date(`${date}T00:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
@@ -168,6 +172,7 @@ export default async function JadwalKaryawanPage({
       </header>
 
       <JadwalKaryawanClient
+        key={`${weekStart}-${weeklySchedule?.id ?? "new"}-${weeklySchedule?.status ?? "none"}`}
         weekStart={weekStart}
         weekEnd={weekEnd}
         employees={scheduledEmployees}

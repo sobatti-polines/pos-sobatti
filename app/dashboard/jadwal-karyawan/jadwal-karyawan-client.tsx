@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -476,6 +476,13 @@ export default function JadwalKaryawanClient({
     () => weeklySchedule?.catatan_seragam ?? {}
   );
   const [isPending, startTransition] = useTransition();
+  const [isNavigating, setIsNavigating] = useState(false);
+  const router = useRouter();
+
+  const handleNavigateWeek = (targetWeek: string) => {
+    setIsNavigating(true);
+    router.push(`/dashboard/jadwal-karyawan?week=${targetWeek}`);
+  };
 
   const previousWeek = addDays(weekStart, -7);
   const nextWeek = addDays(weekStart, 7);
@@ -688,6 +695,7 @@ export default function JadwalKaryawanClient({
               <span className="text-sm text-muted-foreground">
                 {formatLongDate(weekStart)} - {formatLongDate(weekEnd)}
               </span>
+              {(isPending || isNavigating) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             </div>
             <h2 className="text-2xl font-light leading-tight tracking-tight text-foreground">
               Jadwal Mingguan
@@ -726,17 +734,23 @@ export default function JadwalKaryawanClient({
               </DropdownMenuContent>
             </DropdownMenu>
             <div className="hidden sm:block w-px h-5 bg-border" />
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/jadwal-karyawan?week=${previousWeek}`}>
-                <ChevronLeft className="h-4 w-4" />
-                <span className="hidden md:inline">Minggu Sebelumnya</span>
-              </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isPending || isNavigating}
+              onClick={() => handleNavigateWeek(previousWeek)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="hidden md:inline">Minggu Sebelumnya</span>
             </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/jadwal-karyawan?week=${nextWeek}`}>
-                <span className="hidden md:inline">Minggu Berikutnya</span>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isPending || isNavigating}
+              onClick={() => handleNavigateWeek(nextWeek)}
+            >
+              <span className="hidden md:inline">Minggu Berikutnya</span>
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -800,7 +814,7 @@ export default function JadwalKaryawanClient({
               type="button"
               variant="outline"
               onClick={handleSuggest}
-              disabled={isPending || isPublished || employees.length === 0}
+              disabled={isPending || isNavigating || isPublished || employees.length === 0}
             >
               <Sparkles className="mr-2 h-4 w-4" />
               Sarankan Shift
@@ -809,7 +823,7 @@ export default function JadwalKaryawanClient({
               type="button"
               variant="outline"
               onClick={() => handleSave(false)}
-              disabled={isPending || isPublished}
+              disabled={isPending || isNavigating || isPublished}
             >
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Simpan Draft
@@ -817,7 +831,7 @@ export default function JadwalKaryawanClient({
             <Button
               type="button"
               onClick={() => handleSave(true)}
-              disabled={isPending || isPublished || waitingRequests.length > 0}
+              disabled={isPending || isNavigating || isPublished || waitingRequests.length > 0}
             >
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Terbitkan
@@ -840,7 +854,7 @@ export default function JadwalKaryawanClient({
               type="button"
               variant="outline"
               onClick={handleSaveUniform}
-              disabled={isPending || !weeklySchedule}
+              disabled={isPending || isNavigating || !weeklySchedule}
               className="h-10 shrink-0 rounded-full"
             >
               {isPending ? (
