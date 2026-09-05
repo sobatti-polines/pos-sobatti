@@ -8,6 +8,10 @@ import BookingLiburClient, {
   type LeaveBookingRequest,
 } from "./booking-libur-client";
 
+// Paksa render dinamis — jadwal karyawan bergantung pada data database yang sering berubah
+export const dynamic = "force-dynamic";
+export const fetchCache = "no-store";
+
 type ScheduleType = "PAGI" | "SORE" | "LIBUR";
 
 interface MyScheduleRow {

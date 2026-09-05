@@ -22,6 +22,18 @@ export async function createClient() {
           }
         },
       },
+
+      // Pastikan setiap request ke Supabase selalu fresh (no-cache)
+      // Ini penting untuk halaman yang bergantung pada data real-time seperti jadwal
+      global: {
+        fetch: (url, options) => {
+          const defaultOptions = {
+            ...options,
+            cache: "no-store" as const,
+          };
+          return fetch(url, defaultOptions);
+        },
+      },
     }
   );
 }

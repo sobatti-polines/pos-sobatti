@@ -9,6 +9,11 @@ import JadwalKaryawanClient, {
 } from "./jadwal-karyawan-client";
 import { isOwnerLike } from "@/lib/roles";
 
+// Paksa render dinamis setiap request — jadwal bergantung pada URL parameter minggu
+// dan perubahan data di database tidak boleh dikirim dari cache.
+export const dynamic = "force-dynamic";
+export const fetchCache = "no-store";
+
 function toDateString(date: Date) {
   return date.toISOString().slice(0, 10);
 }
