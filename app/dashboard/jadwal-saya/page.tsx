@@ -10,7 +10,7 @@ import BookingLiburClient, {
 
 // Paksa render dinamis — jadwal karyawan bergantung pada data database yang sering berubah
 export const dynamic = "force-dynamic";
-export const fetchCache = "no-store";
+export const fetchCache = "force-no-store";
 
 type ScheduleType = "PAGI" | "SORE" | "LIBUR";
 
