@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarCheck, Loader2, MoveRight, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ export default function BookingLiburClient({
   ownLatestRequest: LeaveBookingRequest | null;
   bookingOpen: boolean;
 }) {
+  const router = useRouter();
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const dates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
@@ -71,7 +73,7 @@ export default function BookingLiburClient({
         setError(result.error);
         return;
       }
-      window.location.reload();
+      router.refresh();
     });
   };
 

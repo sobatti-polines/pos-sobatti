@@ -185,15 +185,22 @@ export default function JadwalSayaClient({
 
         <div className="mb-5 grid gap-4 md:grid-cols-[1fr_320px]">
           <div className="rounded-[14px] border border-border p-4">
-            <p className="text-sm text-muted-foreground">Periode Minggu</p>
+            <p className="text-sm text-muted-foreground">
+              {isCurrentWeek ? "Periode Minggu Ini" : "Periode Minggu yang Dilihat"}
+            </p>
             <p className="mt-1 text-xl font-light tracking-tight text-foreground">
               {formatDate(weekStart)} - {formatDate(weekEnd)}
             </p>
+            {!isCurrentWeek && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Klik &quot;Minggu Berikutnya&quot; untuk kembali ke minggu ini.
+              </p>
+            )}
           </div>
           <div className="rounded-[14px] border border-border p-4">
             <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
               <Clock className="h-4 w-4 text-primary" />
-              Shift Hari Ini
+              {isCurrentWeek ? "Shift Hari Ini" : "Shift Hari Ini (Minggu Ini)"}
             </div>
             {todaySchedule ? (
               <div className="flex items-center justify-between gap-3">
@@ -206,7 +213,7 @@ export default function JadwalSayaClient({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                {isCurrentWeek ? "Belum ada jadwal hari ini." : "Hari ini bukan bagian dari minggu yang dilihat."}
+                {isCurrentWeek ? "Belum ada jadwal hari ini." : "Data shift hanya tersedia untuk minggu ini."}
               </p>
             )}
           </div>
