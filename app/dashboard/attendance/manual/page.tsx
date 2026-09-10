@@ -7,7 +7,7 @@ import ManualAttendanceClient, { type ManualAttendanceRow } from "./manual-atten
 
 interface RawScheduleRow {
   id_pengguna: number;
-  tipe_jadwal: "PAGI" | "SORE";
+  tipe_jadwal: "PAGI" | "SORE" | "FULL";
   pengguna: ManualAttendanceRow["pengguna"] | ManualAttendanceRow["pengguna"][] | null;
   shift_kerja: ManualAttendanceRow["shift"] | ManualAttendanceRow["shift"][] | null;
 }
@@ -52,7 +52,7 @@ export default async function ManualAttendancePage() {
     `)
     .eq("tanggal", today)
     .eq("jadwal_mingguan.status", "TERBIT")
-    .in("tipe_jadwal", ["PAGI", "SORE"]);
+    .in("tipe_jadwal", ["PAGI", "SORE", "FULL"]);
 
   const schedules = (scheduleData ?? []) as unknown as RawScheduleRow[];
   const employeeIds = schedules.map((row) => Number(row.id_pengguna));

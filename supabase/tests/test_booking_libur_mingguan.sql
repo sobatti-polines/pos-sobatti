@@ -27,7 +27,7 @@ SELECT
   jm.id,
   jm.minggu_mulai + hari.nomor,
   p.id,
-  'PAGI',
+  CASE WHEN p.username = 'test_booking_2' THEN 'FULL' ELSE 'PAGI' END,
   sk.id
 FROM public.jadwal_mingguan jm
 CROSS JOIN generate_series(0, 6) AS hari(nomor)
@@ -35,7 +35,7 @@ CROSS JOIN public.pengguna p
 CROSS JOIN public.shift_kerja sk
 WHERE jm.minggu_mulai = date_trunc('week', CURRENT_DATE)::date + 14
   AND p.username LIKE 'test_booking_%'
-  AND sk.kode = 'PAGI';
+  AND sk.kode = CASE WHEN p.username = 'test_booking_2' THEN 'FULL' ELSE 'PAGI' END;
 
 SET LOCAL ROLE authenticated;
 
@@ -122,10 +122,10 @@ BEGIN
     JOIN public.shift_kerja sk ON sk.id = jk.id_shift
     WHERE p.username = 'test_booking_2'
       AND jk.tanggal = date_trunc('week', CURRENT_DATE)::date + 14
-      AND jk.tipe_jadwal = 'PAGI'
-      AND sk.kode = 'PAGI'
+      AND jk.tipe_jadwal = 'FULL'
+      AND sk.kode = 'FULL'
   ) THEN
-    RAISE EXCEPTION 'Batalkan ACC tidak mengembalikan shift awal';
+    RAISE EXCEPTION 'Batalkan ACC tidak mengembalikan shift FULL';
   END IF;
 END;
 $$;

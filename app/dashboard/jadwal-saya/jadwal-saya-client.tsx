@@ -8,7 +8,7 @@ import BookingLiburClient, {
   type LeaveBookingRequest,
 } from "./booking-libur-client";
 
-export type ScheduleType = "PAGI" | "SORE" | "LIBUR";
+export type ScheduleType = "PAGI" | "SORE" | "FULL" | "LIBUR";
 
 export interface MyScheduleRow {
   id: number;
@@ -74,6 +74,7 @@ function shiftBadge(type: ScheduleType) {
   const cls: Record<ScheduleType, string> = {
     PAGI: "bg-sky-100 text-sky-700",
     SORE: "bg-indigo-100 text-indigo-700",
+    FULL: "bg-amber-100 text-amber-800",
     LIBUR: "bg-rose-100 text-rose-700",
   };
   return <Badge className={`rounded-full border-none ${cls[type]}`}>{type}</Badge>;

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { buildDeskripsi, logActivity } from "@/lib/activity-log";
 import { isOperationalEmployeeRole, isOwnerLike } from "@/lib/roles";
 
-export type ScheduleType = "PAGI" | "SORE" | "LIBUR";
+export type ScheduleType = "PAGI" | "SORE" | "FULL" | "LIBUR";
 export type WeeklyScheduleStatus = "DRAFT" | "TERBIT";
 export type LeaveRequestStatus = "MENUNGGU" | "DISETUJUI" | "DITOLAK" | "DIBATALKAN";
 export type LeaveReviewDecision = "SETUJUI" | "TOLAK" | "BATALKAN_PERSETUJUAN";
@@ -83,7 +83,7 @@ function isDate(value: string) {
 }
 
 function isTime(value: string) {
-  return /^\d{2}:\d{2}$/.test(value);
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
 function addDays(date: string, days: number) {
@@ -190,6 +190,15 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
   if (!isTime(input.jam_sore_mulai) || !isTime(input.jam_sore_selesai)) {
     return { error: "Jam shift sore tidak valid" };
   }
+  if (input.jam_pagi_mulai >= input.jam_pagi_selesai) {
+    return { error: "Jam selesai shift pagi harus setelah jam mulai" };
+  }
+  if (input.jam_sore_mulai >= input.jam_sore_selesai) {
+    return { error: "Jam selesai shift sore harus setelah jam mulai" };
+  }
+  if (input.jam_pagi_mulai >= input.jam_sore_selesai) {
+    return { error: "Jam selesai shift full harus setelah jam mulai" };
+  }
 
   const kebutuhanPagi = toInt(input.kebutuhan_pagi, 1);
   const kebutuhanSore = toInt(input.kebutuhan_sore, 1);
@@ -233,15 +242,18 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
   ])];
   if (employeeIds.length === 0) return { error: "Belum ada pegawai aktif untuk dijadwalkan" };
 
-  const normalizedRows = (input.rows ?? [])
+  const relevantRows = (input.rows ?? [])
     .filter((row) => employeeIds.includes(Number(row.id_pengguna)))
-    .filter((row) => weekDates.includes(row.tanggal))
+    .filter((row) => weekDates.includes(row.tanggal));
+  if (relevantRows.some((row) => !["PAGI", "SORE", "FULL", "LIBUR"].includes(row.tipe_jadwal))) {
+    return { error: "Tipe jadwal tidak valid" };
+  }
+
+  const normalizedRows = relevantRows
     .map((row) => ({
       tanggal: row.tanggal,
       id_pengguna: Number(row.id_pengguna),
-      tipe_jadwal: (["PAGI", "SORE", "LIBUR"].includes(row.tipe_jadwal)
-        ? row.tipe_jadwal
-        : "PAGI") as ScheduleType,
+      tipe_jadwal: row.tipe_jadwal as ScheduleType,
       catatan: cleanText(row.catatan),
     }));
 
@@ -318,10 +330,25 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
     return { error: "Gagal menyimpan jam shift sore" };
   }
 
+  const { error: shiftFullError } = await supabase
+    .from("shift_kerja")
+    .update({
+      jam_mulai: input.jam_pagi_mulai,
+      jam_selesai: input.jam_sore_selesai,
+      aktif: true,
+      urutan: 3,
+    })
+    .eq("kode", "FULL");
+
+  if (shiftFullError) {
+    console.error("Failed to update shift full:", shiftFullError);
+    return { error: "Gagal menyimpan jam shift full" };
+  }
+
   const { data: shifts, error: shiftError } = await supabase
     .from("shift_kerja")
     .select("id, kode")
-    .in("kode", ["PAGI", "SORE"]);
+    .in("kode", ["PAGI", "SORE", "FULL"]);
 
   if (shiftError) {
     console.error("Failed to fetch shifts:", shiftError);
@@ -331,7 +358,8 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
   const shiftByCode = new Map((shifts ?? []).map((shift) => [shift.kode, Number(shift.id)]));
   const pagiId = shiftByCode.get("PAGI");
   const soreId = shiftByCode.get("SORE");
-  if (!pagiId || !soreId) return { error: "Data shift pagi/sore belum lengkap" };
+  const fullId = shiftByCode.get("FULL");
+  if (!pagiId || !soreId || !fullId) return { error: "Data shift pagi, sore, dan full belum lengkap" };
 
   const headerPayload = {
     minggu_mulai: input.minggu_mulai,
@@ -359,8 +387,7 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
     tanggal: row.tanggal,
     id_pengguna: row.id_pengguna,
     tipe_jadwal: row.tipe_jadwal,
-    id_shift:
-      row.tipe_jadwal === "PAGI" ? pagiId : row.tipe_jadwal === "SORE" ? soreId : null,
+    id_shift: row.tipe_jadwal === "LIBUR" ? null : shiftByCode.get(row.tipe_jadwal),
     catatan: row.catatan,
   }));
 

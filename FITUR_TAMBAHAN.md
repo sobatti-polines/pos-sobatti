@@ -40,7 +40,7 @@
 
 | # | Fitur | Deskripsi | Lokasi | ✓ |
 |---|-------|-----------|--------|---|
-| 1 | Jadwal Mingguan Grid | Grid interaktif 7 hari × N karyawan. Setiap cell: PAGI / SORE / LIBUR (klik untuk ganti siklus). Status: DRAFT / TERBIT. Navigasi minggu sebelumnya/berikutnya. | `jadwal-karyawan-client.tsx`, `page.tsx` | [x] |
+| 1 | Jadwal Mingguan Grid | Grid interaktif 7 hari × N karyawan. Setiap cell: PAGI / SORE / FULL / LIBUR (klik untuk ganti siklus). Status: DRAFT / TERBIT. Navigasi minggu sebelumnya/berikutnya. | `jadwal-karyawan-client.tsx`, `page.tsx` | [x] |
 | 2 | Konfigurasi Shift | Setting jam mulai/selesai untuk shift PAGI dan SORE. Kebutuhan minimum pegawai per shift (pagi & sore). | `jadwal-karyawan-client.tsx` (input jam pagi/sore, kebutuhan) | [x] |
 | 3 | Auto-Suggest Shift | Tombol "Sarankan Shift" mengisi jadwal secara otomatis dengan algoritma: seimbangkan jumlah PAGI/SORE per karyawan berdasarkan riwayat 4 minggu terakhir, penuhi kebutuhan minimum per hari. | `jadwal-karyawan-client.tsx` (`handleSuggest`) | [x] |
 | 4 | Catatan Seragam | Input catatan per hari (contoh: "Batik", "Seragam Biru"). Disimpan sebagai JSONB `catatan_seragam` di `jadwal_mingguan`. Bisa diupdate kapan saja termasuk setelah jadwal diterbitkan. | `jadwal-karyawan-client.tsx` (section "Catatan Seragam"), `actions.ts` (`saveUniformNotes`) | [x] |
@@ -55,7 +55,7 @@
 |-------|--------------|
 | `shift_kerja` | `id`, `kode` (PAGI/SORE), `nama`, `jam_mulai`, `jam_selesai`, `aktif`, `urutan` |
 | `jadwal_mingguan` | `id`, `minggu_mulai`, `kebutuhan_pagi`, `kebutuhan_sore`, `status` (DRAFT/TERBIT), `catatan_seragam` (JSONB) |
-| `jadwal_karyawan` | `id`, `id_pengguna`, `id_jadwal_mingguan`, `tanggal`, `tipe_jadwal` (PAGI/SORE/LIBUR), `catatan` |
+| `jadwal_karyawan` | `id`, `id_pengguna`, `id_jadwal_mingguan`, `tanggal`, `tipe_jadwal` (PAGI/SORE/FULL/LIBUR), `catatan` |
 | `permintaan_libur` | `id`, `id_jadwal_mingguan`, `id_pengguna`, `tanggal`, `status` (MENUNGGU/DISETUJUI/DITOLAK), `created_at`, `ditinjau_pada` |
 
 ### Server Actions Jadwal
@@ -74,7 +74,7 @@
 
 | # | Fitur | Deskripsi | Lokasi | ✓ |
 |---|-------|-----------|--------|---|
-| 1 | Lihat Jadwal Mingguan | Tampilan 7 hari: tanggal, badge shift (PAGI/SORE/LIBUR), jam kerja, catatan seragam. Highlight hari ini. Period: "Minggu Ini". | `page.tsx` (Server Component) | [x] |
+| 1 | Lihat Jadwal Mingguan | Tampilan 7 hari: tanggal, badge shift (PAGI/SORE/FULL/LIBUR), jam kerja, catatan seragam. Highlight hari ini. Period: "Minggu Ini". | `page.tsx` (Server Component) | [x] |
 | 2 | Shift Hari Ini | Kartu ringkas: badge shift hari ini + jam mulai-selesai. Jika "Belum ada jadwal" → teks placeholder. | `page.tsx` (grid info) | [x] |
 | 3 | Booking Libur Minggu Depan | Karyawan bisa booking 1 hari libur di minggu depan (jika draft sudah tersedia). Kapasitas per hari = `ceil(total_karyawan / 7)`. Tampil daftar request aktif (Menunggu/Disetujui) per hari. Tombol "Pilih"/"Pindahkan"/"Batalkan". | `booking-libur-client.tsx` | [x] |
 | 4 | Status Booking | Badge: "Terbuka" (draft minggu depan ada + belum lewat) / "Belum tersedia". Info jika ditolak: "Permintaan [tanggal] ditolak. Pilih hari lain yang masih tersedia." | `booking-libur-client.tsx` | [x] |

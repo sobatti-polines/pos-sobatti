@@ -13,9 +13,8 @@ interface AttendanceRpcResult {
 }
 
 function errorStatus(code?: string) {
-  return code === "MANUAL_ATTENDANCE_LOCKED" || code === "ALREADY_CHECKED_IN"
-    ? 409
-    : 400;
+  if (code === "MANUAL_ATTENDANCE_LOCKED" || code === "ALREADY_CHECKED_IN") return 409;
+  return code === "NO_WORK_SCHEDULE" ? 403 : 400;
 }
 
 export async function POST(request: Request) {

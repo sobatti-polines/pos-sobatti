@@ -49,7 +49,7 @@ export interface EmployeeOption {
 
 export interface ShiftOption {
   id: number;
-  kode: "PAGI" | "SORE";
+  kode: "PAGI" | "SORE" | "FULL";
   nama: string;
   jam_mulai: string;
   jam_selesai: string;
@@ -162,6 +162,7 @@ function roleBadge(level: string) {
 function shiftClass(value: CellValue) {
   if (value === "PAGI") return "bg-sky-50 text-sky-700 ring-sky-200";
   if (value === "SORE") return "bg-indigo-50 text-indigo-700 ring-indigo-200";
+  if (value === "FULL") return "bg-amber-50 text-amber-800 ring-amber-200";
   if (value === "LIBUR") return "bg-rose-50 text-rose-700 ring-rose-200";
   return "bg-background text-muted-foreground ring-border";
 }
@@ -169,7 +170,8 @@ function shiftClass(value: CellValue) {
 function nextValue(current: CellValue): CellValue {
   if (!current) return "PAGI";
   if (current === "PAGI") return "SORE";
-  if (current === "SORE") return "LIBUR";
+  if (current === "SORE") return "FULL";
+  if (current === "FULL") return "LIBUR";
   return "";
 }
 
@@ -180,6 +182,7 @@ function nextValue(current: CellValue): CellValue {
 function shiftLabel(value: CellValue): string {
   if (value === "PAGI") return "Pagi";
   if (value === "SORE") return "Sore";
+  if (value === "FULL") return "Full";
   if (value === "LIBUR") return "Libur";
   return "-";
 }
@@ -197,6 +200,7 @@ function exportSchedulePDF(
 ) {
   const pagiShift = shifts.find((s) => s.kode === "PAGI");
   const soreShift = shifts.find((s) => s.kode === "SORE");
+  const fullShift = shifts.find((s) => s.kode === "FULL");
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
@@ -219,7 +223,7 @@ function exportSchedulePDF(
   const infoY = 29;
   doc.setFontSize(9);
   doc.setTextColor(80, 80, 80);
-  const shiftInfo = `Pagi: ${pagiShift?.jam_mulai ?? "08:00"}-${pagiShift?.jam_selesai ?? "15:00"} (min ${kebutuhanPagi}) · Sore: ${soreShift?.jam_mulai ?? "15:00"}-${soreShift?.jam_selesai ?? "22:00"} (min ${kebutuhanSore})`;
+  const shiftInfo = `Pagi: ${pagiShift?.jam_mulai ?? "08:00"}-${pagiShift?.jam_selesai ?? "15:00"} (min ${kebutuhanPagi}) · Sore: ${soreShift?.jam_mulai ?? "15:00"}-${soreShift?.jam_selesai ?? "22:00"} (min ${kebutuhanSore}) · Full: ${fullShift?.jam_mulai ?? "08:00"}-${fullShift?.jam_selesai ?? "22:00"}`;
   doc.text(shiftInfo, mx, infoY);
   doc.text(`Dicetak: ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`, pw - mx, infoY, { align: "right" });
 
@@ -249,14 +253,15 @@ function exportSchedulePDF(
 
   // Baris total
   const summaryRow = ["", "TOTAL", "", ...weekDates.map((date) => {
-    let p = 0, s = 0, l = 0;
+    let p = 0, s = 0, f = 0, l = 0;
     for (const emp of employees) {
       const v = schedule[cellKey(emp.id, date)] as CellValue;
       if (v === "PAGI") p++;
       else if (v === "SORE") s++;
+      else if (v === "FULL") f++;
       else if (v === "LIBUR") l++;
     }
-    return `P:${p} S:${s} L:${l}`;
+    return `P:${p} S:${s} F:${f} L:${l}`;
   })];
 
   // Baris seragam
@@ -316,6 +321,8 @@ function exportSchedulePDF(
           data.cell.styles.textColor = [3, 105, 161];
         } else if (val === "Sore") {
           data.cell.styles.textColor = [55, 48, 163];
+        } else if (val === "Full") {
+          data.cell.styles.textColor = [180, 83, 9];
         } else if (val === "Libur") {
           data.cell.styles.textColor = [190, 18, 60];
           data.cell.styles.fontStyle = "bold";
@@ -358,6 +365,7 @@ function exportScheduleExcel(
 ) {
   const pagiShift = shifts.find((s) => s.kode === "PAGI");
   const soreShift = shifts.find((s) => s.kode === "SORE");
+  const fullShift = shifts.find((s) => s.kode === "FULL");
 
   const wb = XLSX.utils.book_new();
 
@@ -371,14 +379,15 @@ function exportScheduleExcel(
 
   // Baris total
   const totalRow = ["", "TOTAL", "", ...weekDates.map((date) => {
-    let p = 0, s = 0, l = 0;
+    let p = 0, s = 0, f = 0, l = 0;
     for (const emp of employees) {
       const v = schedule[cellKey(emp.id, date)] as CellValue;
       if (v === "PAGI") p++;
       else if (v === "SORE") s++;
+      else if (v === "FULL") f++;
       else if (v === "LIBUR") l++;
     }
-    return `P:${p} S:${s} L:${l}`;
+    return `P:${p} S:${s} F:${f} L:${l}`;
   })];
 
   // Baris seragam
@@ -413,6 +422,7 @@ function exportScheduleExcel(
     ["Periode", dateRange],
     ["Pagi", `${pagiShift?.jam_mulai ?? "08:00"}-${pagiShift?.jam_selesai ?? "15:00"} (min ${kebutuhanPagi} orang)`],
     ["Sore", `${soreShift?.jam_mulai ?? "15:00"}-${soreShift?.jam_selesai ?? "22:00"} (min ${kebutuhanSore} orang)`],
+    ["Full", `${fullShift?.jam_mulai ?? "08:00"}-${fullShift?.jam_selesai ?? "22:00"}`],
     ["Jumlah Pegawai", String(employees.length)],
     ["Dicetak", new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })],
   ];
@@ -507,6 +517,11 @@ export default function JadwalKaryawanClient({
         const id = Number(row.id_pengguna);
         if (!counts[id]) counts[id] = { PAGI: 0, SORE: 0 };
         counts[id][row.tipe_jadwal] += 1;
+      } else if (row.tipe_jadwal === "FULL") {
+        const id = Number(row.id_pengguna);
+        if (!counts[id]) counts[id] = { PAGI: 0, SORE: 0 };
+        counts[id].PAGI += 1;
+        counts[id].SORE += 1;
       }
     }
     return counts;
@@ -519,17 +534,22 @@ export default function JadwalKaryawanClient({
         employee,
         pagi: values.filter((value) => value === "PAGI").length,
         sore: values.filter((value) => value === "SORE").length,
+        full: values.filter((value) => value === "FULL").length,
         libur: values.filter((value) => value === "LIBUR").length,
         kosong: values.filter((value) => !value).length,
       };
     });
 
-    const dailyStats = weekDates.map((date) => ({
-      date,
-      pagi: employees.filter((employee) => schedule[cellKey(employee.id, date)] === "PAGI").length,
-      sore: employees.filter((employee) => schedule[cellKey(employee.id, date)] === "SORE").length,
-      libur: employees.filter((employee) => schedule[cellKey(employee.id, date)] === "LIBUR").length,
-    }));
+    const dailyStats = weekDates.map((date) => {
+      const full = employees.filter((employee) => schedule[cellKey(employee.id, date)] === "FULL").length;
+      return {
+        date,
+        pagi: employees.filter((employee) => schedule[cellKey(employee.id, date)] === "PAGI").length + full,
+        sore: employees.filter((employee) => schedule[cellKey(employee.id, date)] === "SORE").length + full,
+        full,
+        libur: employees.filter((employee) => schedule[cellKey(employee.id, date)] === "LIBUR").length,
+      };
+    });
 
     const warnings: string[] = [];
     const missingCells = employeeStats.reduce((sum, item) => sum + item.kosong, 0);
@@ -576,7 +596,12 @@ export default function JadwalKaryawanClient({
         runningCounts[employee.id] = { PAGI: 0, SORE: 0 };
         for (const date of weekDates) {
           const value = next[cellKey(employee.id, date)];
-          if (value !== "LIBUR") next[cellKey(employee.id, date)] = "";
+          if (value === "FULL") {
+            runningCounts[employee.id].PAGI += 1;
+            runningCounts[employee.id].SORE += 1;
+          } else if (value !== "LIBUR") {
+            next[cellKey(employee.id, date)] = "";
+          }
         }
       }
 
@@ -591,7 +616,11 @@ export default function JadwalKaryawanClient({
       };
 
       for (const date of weekDates) {
-        let available = employees.filter((employee) => next[cellKey(employee.id, date)] !== "LIBUR");
+        const fullCount = employees.filter((employee) => next[cellKey(employee.id, date)] === "FULL").length;
+        let available = employees.filter((employee) => {
+          const value = next[cellKey(employee.id, date)];
+          return value !== "LIBUR" && value !== "FULL";
+        });
 
         const pick = (shift: "PAGI" | "SORE", count: number) => {
           const selected = [...available]
@@ -608,8 +637,8 @@ export default function JadwalKaryawanClient({
           available = available.filter((employee) => !selectedIds.has(employee.id));
         };
 
-        pick("PAGI", targetPagi);
-        pick("SORE", targetSore);
+        pick("PAGI", Math.max(0, targetPagi - fullCount));
+        pick("SORE", Math.max(0, targetSore - fullCount));
 
         for (const employee of available) {
           const key = cellKey(employee.id, date);
@@ -643,7 +672,7 @@ export default function JadwalKaryawanClient({
           tipe_jadwal: schedule[cellKey(employee.id, date)],
         }))
         .filter((row): row is { tanggal: string; id_pengguna: number; tipe_jadwal: ScheduleType } =>
-          row.tipe_jadwal === "PAGI" || row.tipe_jadwal === "SORE" || row.tipe_jadwal === "LIBUR"
+          row.tipe_jadwal === "PAGI" || row.tipe_jadwal === "SORE" || row.tipe_jadwal === "FULL" || row.tipe_jadwal === "LIBUR"
         )
     );
 
@@ -1026,7 +1055,7 @@ export default function JadwalKaryawanClient({
                               title={isApprovedLeave ? "Libur sudah disetujui. Batalkan ACC untuk mengubahnya." : undefined}
                               className={`mx-auto flex h-10 min-w-24 items-center justify-center rounded-full px-3 text-xs font-medium ring-1 transition-colors disabled:cursor-not-allowed disabled:opacity-80 ${shiftClass(value)}`}
                             >
-                              {value || "Kosong"}
+                              {value ? shiftLabel(value) : "Kosong"}
                             </button>
                           </td>
                         );
@@ -1061,20 +1090,24 @@ export default function JadwalKaryawanClient({
                   <span className="text-muted-foreground">Sore</span>
                   <span className="tabular-nums">{jamSoreMulai} - {jamSoreSelesai}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Full</span>
+                  <span className="tabular-nums">{jamPagiMulai} - {jamSoreSelesai}</span>
+                </div>
               </div>
             </div>
 
             <div className="rounded-[14px] border border-border p-4">
               <div className="mb-3 flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-primary" />
-                <p className="text-sm font-medium text-foreground">Coverage Harian</p>
+                <p className="text-sm font-medium text-foreground">Cakupan Harian</p>
               </div>
               <div className="grid gap-2">
                 {stats.dailyStats.map((day, index) => (
                   <div key={day.date} className="grid grid-cols-[1fr_auto] gap-2 text-sm">
                     <span className="text-muted-foreground">{DAY_LABELS[index]}</span>
                     <span className="tabular-nums">
-                      P {day.pagi}/{kebutuhanPagi} · S {day.sore}/{kebutuhanSore}
+                      P {day.pagi}/{kebutuhanPagi} · S {day.sore}/{kebutuhanSore} · F {day.full}
                     </span>
                   </div>
                 ))}
@@ -1097,9 +1130,10 @@ export default function JadwalKaryawanClient({
                         L {item.libur}
                       </span>
                     </div>
-                    <div className="flex justify-between text-muted-foreground">
+                    <div className="grid grid-cols-2 gap-1 text-muted-foreground">
                       <span>Pagi {item.pagi}</span>
                       <span>Sore {item.sore}</span>
+                      <span>Full {item.full}</span>
                       <span>Kosong {item.kosong}</span>
                     </div>
                   </div>
@@ -1125,8 +1159,8 @@ export default function JadwalKaryawanClient({
         </div>
 
         <div className="rounded-[12px] border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
-          Klik cell untuk mengganti urutan: Kosong → Pagi → Sore → Libur. Pilih libur dulu, lalu gunakan
-          “Sarankan Shift” agar sistem membagi Pagi/Sore tanpa mengubah libur.
+          Klik sel untuk mengganti urutan: Kosong → Pagi → Sore → Full → Libur. Tentukan Full dan Libur
+          terlebih dahulu, lalu gunakan “Sarankan Shift” agar sistem membagi Pagi/Sore tanpa mengubah keduanya.
         </div>
       </div>
     </div>

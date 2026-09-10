@@ -18,7 +18,7 @@ export interface ManualAttendanceRow {
   id_pengguna: number;
   pengguna: { id: number; username: string; nama: string | null; level: string };
   shift: { id: number; kode: string; nama: string; jam_mulai: string; jam_selesai: string };
-  tipe_jadwal: "PAGI" | "SORE";
+  tipe_jadwal: "PAGI" | "SORE" | "FULL";
   attendance_id: number | null;
   sumber: "QR" | "MANUAL" | null;
   status: AttendanceStatus | "";

@@ -167,7 +167,7 @@ export default async function JadwalKaryawanPage({
           Jadwal Karyawan
         </h1>
         <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-          Susun jadwal mingguan shift pagi dan sore dengan pembagian yang seimbang.
+          Susun jadwal mingguan shift pagi, sore, dan full dengan pembagian yang seimbang.
         </p>
       </header>
 

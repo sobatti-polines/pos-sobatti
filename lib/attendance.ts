@@ -71,7 +71,7 @@ export async function getMonthlyAttendanceStats() {
   return { total, hadir, telat };
 }
 
-/** Simpan sesi dua hari agar QR pertama hari ini tetap menjadi acuan telat. */
+/** Simpan sesi dua hari untuk kebutuhan audit dan diagnosis QR absensi. */
 export async function cleanupExpiredQRSessions() {
   const retentionLimit = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
   const { error } = await supabaseAdmin
