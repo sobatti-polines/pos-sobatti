@@ -12,7 +12,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { AttendanceWidget } from "@/components/attendance-widget";
 import { createClient } from "@/lib/supabase/server";
 import { getTodayAttendance, getMonthlyAttendanceStats } from "@/lib/attendance";
-import { isOwnerLike, KARYAWAN_ROLE } from "@/lib/roles";
+import { isAttendanceOnlyRole, isOwnerLike } from "@/lib/roles";
 import { getTodayWIB } from "@/lib/utils";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +41,7 @@ export default async function DashboardPage() {
 
   const role = user?.user_metadata?.role;
   const isOwner = isOwnerLike(role);
-  const isKaryawan = role === KARYAWAN_ROLE;
+  const isKaryawan = isAttendanceOnlyRole(role);
 
   if (isKaryawan) {
     const stats = await getMonthlyAttendanceStats();

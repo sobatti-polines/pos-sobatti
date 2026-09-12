@@ -13,7 +13,7 @@ import { createUser, updateUser, deleteUser, importUsers } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
 import { ExportDropdown } from "@/components/export-dropdown";
-import { DEV_ROLE, USER_MANAGED_ROLES } from "@/lib/roles";
+import { CONTRACT_ROLE, DEV_ROLE, ROLE_LABELS, USER_MANAGED_ROLES } from "@/lib/roles";
 
 type User = {
   id: number;
@@ -169,10 +169,11 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
           u.level === "OWNER" ? "bg-purple-100 text-purple-700" :
           u.level === DEV_ROLE ? "bg-zinc-900 text-white" :
           u.level === "ADMIN" ? "bg-blue-100 text-blue-700" :
+          u.level === CONTRACT_ROLE ? "bg-amber-100 text-amber-800" :
           u.level === "KARYAWAN" ? "bg-slate-100 text-slate-700" :
           "bg-emerald-100 text-emerald-700"
         }`}>
-          {u.level}
+          {ROLE_LABELS[u.level] ?? u.level}
         </span>
       ),
     },
@@ -266,7 +267,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
               <div className="flex items-center gap-2">
                 <Select aria-label="Level" value={editForm.level || "KASIR"} onChange={(e) => setEditForm(prev => ({ ...prev, level: e.target.value }))} className="h-8 min-w-[100px] text-xs">
                   {roleOptions.map(role => (
-                    <option key={role} value={role}>{role}</option>
+                    <option key={role} value={role}>{ROLE_LABELS[role]}</option>
                   ))}
                 </Select>
                 <Input aria-label={isNew ? "Password" : "Password Baru (Kosongkan jika tidak diubah)"} type="password" placeholder="Password..."
@@ -330,7 +331,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
       open={isImportOpen}
       onOpenChange={setIsImportOpen}
       title="Import Data Pengguna / Kasir"
-      description="Unggah file CSV dengan kolom Username, Password, Nama Lengkap, Level (ADMIN/KASIR/OWNER/KARYAWAN), dan Status (aktif/nonaktif)."
+      description="Unggah file CSV dengan kolom Username, Password, Nama Lengkap, Level (ADMIN/KASIR/OWNER/KARYAWAN/KONTRAK), dan Status (aktif/nonaktif)."
       templateFilename="Template_Import_Pengguna"
       templateHeaders={["Username", "Password", "Nama Lengkap", "Level", "Status"]}
       sampleRows={[

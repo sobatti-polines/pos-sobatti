@@ -7,7 +7,7 @@ import JadwalKaryawanClient, {
   type ShiftOption,
   type WeeklyScheduleRecord,
 } from "./jadwal-karyawan-client";
-import { isOwnerLike } from "@/lib/roles";
+import { isOwnerLike, OPERATIONAL_EMPLOYEE_ROLES } from "@/lib/roles";
 import { getTodayWIB } from "@/lib/utils";
 
 // Paksa render dinamis setiap request — jadwal bergantung pada URL parameter minggu
@@ -74,7 +74,7 @@ export default async function JadwalKaryawanPage({
       .from("pengguna")
       .select("id, username, nama, level")
       .eq("aktif", true)
-      .in("level", ["ADMIN", "KASIR", "KARYAWAN"])
+      .in("level", [...OPERATIONAL_EMPLOYEE_ROLES])
       .order("nama", { ascending: true })
       .then(({ data, error }) => {
         if (error) {

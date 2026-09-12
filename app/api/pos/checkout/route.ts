@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isAttendanceOnlyRole } from "@/lib/roles";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (pengguna.level === "KARYAWAN") {
+  if (isAttendanceOnlyRole(pengguna.level)) {
     return NextResponse.json(
       { error: "Anda tidak memiliki izin untuk melakukan transaksi" },
       { status: 403 }

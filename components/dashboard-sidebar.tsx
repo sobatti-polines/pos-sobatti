@@ -44,7 +44,7 @@ import { useRouter } from "next/navigation";
 import { NavLinkPending } from "@/components/nav-link-pending";
 import { UserProfileCard } from "@/components/user-profile-card";
 import logoPerusahaan from "@/public/login-logo.jpeg";
-import { isOwnerLike, isStaffRole, isManagementRole, KASIR_ROLE, KARYAWAN_ROLE } from "@/lib/roles";
+import { isAttendanceOnlyRole, isOwnerLike, isStaffRole, isManagementRole, KASIR_ROLE } from "@/lib/roles";
 
 const bottomLinks = [
   { href: "/dashboard/settings", label: "Pengaturan", icon: Settings },
@@ -62,6 +62,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
   const isOwner = isOwnerLike(role);
   const isStaff = isStaffRole(role);
   const isManagement = isManagementRole(role);
+  const isAttendanceOnly = isAttendanceOnlyRole(role);
 
   const lowStockItems = useLowStockRealtime();
   const lowStockCount = isManagement ? lowStockItems.length : 0;
@@ -425,7 +426,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
         )}
 
         <div className="flex flex-col gap-2">
-          {role !== KASIR_ROLE && role !== KARYAWAN_ROLE && bottomLinks
+          {!isAttendanceOnly && role !== KASIR_ROLE && bottomLinks
             .filter((link) => isOwner || link.href !== "/dashboard/settings/keuangan")
             .map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href} className={linkClass(href)} prefetch={true}>

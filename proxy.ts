@@ -1,8 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isAttendanceOnlyRole } from "@/lib/roles";
 
 const KASIR_ALLOWED = ["/pos", "/dashboard/transactions", "/dashboard/tutup-kasir", "/dashboard/buka-kasir", "/dashboard/attendance/scan", "/dashboard/attendance/history", "/dashboard/jadwal-saya"];
-const KARYAWAN_ALLOWED = ["/dashboard", "/dashboard/attendance/scan", "/dashboard/attendance/history", "/dashboard/jadwal-saya"];
+const ATTENDANCE_ONLY_ALLOWED = ["/dashboard", "/dashboard/attendance/scan", "/dashboard/attendance/history", "/dashboard/jadwal-saya"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
@@ -55,8 +56,8 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (role === "KARYAWAN") {
-    if (!KARYAWAN_ALLOWED.includes(pathname)) {
+  if (isAttendanceOnlyRole(role)) {
+    if (!ATTENDANCE_ONLY_ALLOWED.includes(pathname)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }

@@ -39,6 +39,7 @@ import {
   type LeaveRequestStatus,
   type ScheduleType,
 } from "./actions";
+import { CONTRACT_ROLE, ROLE_LABELS } from "@/lib/roles";
 
 export interface EmployeeOption {
   id: number;
@@ -156,7 +157,7 @@ function roleBadge(level: string) {
       : level === "KASIR"
         ? "bg-emerald-100 text-emerald-700"
         : "bg-slate-100 text-slate-700";
-  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>{level}</span>;
+  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>{ROLE_LABELS[level] ?? level}</span>;
 }
 
 function shiftClass(value: CellValue) {
@@ -497,7 +498,11 @@ export default function JadwalKaryawanClient({
   const previousWeek = addDays(weekStart, -7);
   const nextWeek = addDays(weekStart, 7);
   const status = weeklySchedule?.status ?? "BELUM_ADA";
-  const leaveCapacity = Math.max(1, Math.ceil(employees.length / 7));
+  const leaveQuotaEmployeeIds = useMemo(
+    () => new Set(employees.filter((employee) => employee.level !== CONTRACT_ROLE).map((employee) => employee.id)),
+    [employees]
+  );
+  const leaveCapacity = Math.max(1, Math.ceil(leaveQuotaEmployeeIds.size / 7));
   const waitingRequests = leaveRequests.filter((request) => request.status === "MENUNGGU");
   const approvedCellKeys = useMemo(
     () =>
@@ -547,7 +552,11 @@ export default function JadwalKaryawanClient({
         pagi: employees.filter((employee) => schedule[cellKey(employee.id, date)] === "PAGI").length + full,
         sore: employees.filter((employee) => schedule[cellKey(employee.id, date)] === "SORE").length + full,
         full,
-        libur: employees.filter((employee) => schedule[cellKey(employee.id, date)] === "LIBUR").length,
+        libur: employees.filter(
+          (employee) =>
+            leaveQuotaEmployeeIds.has(employee.id) &&
+            schedule[cellKey(employee.id, date)] === "LIBUR"
+        ).length,
       };
     });
 
@@ -563,7 +572,7 @@ export default function JadwalKaryawanClient({
     }
 
     return { employeeStats, dailyStats, warnings };
-  }, [employees, weekDates, schedule, kebutuhanPagi, kebutuhanSore, leaveCapacity]);
+  }, [employees, weekDates, schedule, kebutuhanPagi, kebutuhanSore, leaveCapacity, leaveQuotaEmployeeIds]);
 
   const setCell = (employeeId: number, date: string, value: CellValue) => {
     if (approvedCellKeys.has(cellKey(employeeId, date))) return;
@@ -931,7 +940,7 @@ export default function JadwalKaryawanClient({
                 )}
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Maksimal {leaveCapacity} pegawai libur pada hari yang sama.
+                Maksimal {leaveCapacity} karyawan biasa libur pada hari yang sama. Libur pegawai kontrak tidak memakai kuota.
               </p>
             </div>
           </div>
@@ -1070,7 +1079,7 @@ export default function JadwalKaryawanClient({
               <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center text-muted-foreground">
                 <UserCheck className="h-8 w-8" />
                 <p className="font-medium text-foreground">Belum ada pegawai aktif</p>
-                <p className="text-sm">Tambahkan pengguna aktif dengan role ADMIN, KASIR, atau KARYAWAN.</p>
+                <p className="text-sm">Tambahkan pengguna aktif dengan role ADMIN, KASIR, KARYAWAN, atau KONTRAK.</p>
               </div>
             )}
           </div>

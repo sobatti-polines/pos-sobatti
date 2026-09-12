@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { buildDeskripsi, logActivity } from "@/lib/activity-log";
-import { isOperationalEmployeeRole, isOwnerLike } from "@/lib/roles";
+import {
+  canBookLeaveForRole,
+  CONTRACT_ROLE,
+  isOwnerLike,
+  OPERATIONAL_EMPLOYEE_ROLES,
+} from "@/lib/roles";
 
 export type ScheduleType = "PAGI" | "SORE" | "FULL" | "LIBUR";
 export type WeeklyScheduleStatus = "DRAFT" | "TERBIT";
@@ -66,7 +71,10 @@ async function requireEmployee() {
     .eq("username", user.email?.split("@")[0])
     .maybeSingle();
 
-  if (!pengguna?.aktif || !isOperationalEmployeeRole(pengguna.level)) {
+  if (pengguna?.level === CONTRACT_ROLE) {
+    return { supabase, pengguna: null, error: "Pegawai kontrak tidak dapat booking libur; libur diatur oleh owner" };
+  }
+  if (!pengguna?.aktif || !canBookLeaveForRole(pengguna.level)) {
     return { supabase, pengguna: null, error: "Hanya pegawai aktif yang dapat booking libur" };
   }
 
@@ -115,6 +123,7 @@ function normalizeUniformNotes(
 function validateRowsForPublish(
   rows: ScheduleRowInput[],
   employeeIds: number[],
+  leaveQuotaEmployeeIds: number[],
   weekDates: string[],
   capacity: number
 ) {
@@ -139,7 +148,10 @@ function validateRowsForPublish(
 
   for (const date of weekDates) {
     const liburCount = rows.filter(
-      (row) => row.tanggal === date && row.tipe_jadwal === "LIBUR"
+      (row) =>
+        row.tanggal === date &&
+        row.tipe_jadwal === "LIBUR" &&
+        leaveQuotaEmployeeIds.includes(row.id_pengguna)
     ).length;
     if (liburCount > capacity) {
       return `Jumlah pegawai libur pada ${date} melebihi batas ${capacity} orang`;
@@ -225,9 +237,9 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
       : Promise.resolve({ data: [], error: null }),
     supabase
       .from("pengguna")
-      .select("id")
+      .select("id, level")
       .eq("aktif", true)
-      .in("level", ["ADMIN", "KASIR", "KARYAWAN"]),
+      .in("level", [...OPERATIONAL_EMPLOYEE_ROLES]),
   ]);
 
   if (scheduledResult.error || activeResult.error) {
@@ -241,6 +253,21 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
     ...(activeResult.data ?? []).map((employee) => Number(employee.id)),
   ])];
   if (employeeIds.length === 0) return { error: "Belum ada pegawai aktif untuk dijadwalkan" };
+
+  const { data: employeeRoles, error: employeeRolesError } = await supabase
+    .from("pengguna")
+    .select("id, level")
+    .in("id", employeeIds);
+  if (employeeRolesError) {
+    console.error("Failed to fetch employee roles for leave capacity:", employeeRolesError);
+    return { error: "Gagal membaca role pegawai" };
+  }
+  const roleByEmployee = new Map(
+    (employeeRoles ?? []).map((employee) => [Number(employee.id), employee.level])
+  );
+  const leaveQuotaEmployeeIds = employeeIds.filter(
+    (id) => roleByEmployee.get(id) !== CONTRACT_ROLE
+  );
 
   const relevantRows = (input.rows ?? [])
     .filter((row) => employeeIds.includes(Number(row.id_pengguna)))
@@ -260,7 +287,7 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
   const completeRowsError = validateCompleteRows(normalizedRows, employeeIds, weekDates);
   if (completeRowsError) return { error: completeRowsError };
 
-  const capacity = Math.max(1, Math.ceil(employeeIds.length / 7));
+  const capacity = Math.max(1, Math.ceil(leaveQuotaEmployeeIds.length / 7));
   const { data: leaveRequests, error: leaveRequestError } = existing
     ? await supabase
         .from("permintaan_libur")
@@ -294,6 +321,7 @@ export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
     const validationError = validateRowsForPublish(
       normalizedRows,
       employeeIds,
+      leaveQuotaEmployeeIds,
       weekDates,
       capacity
     );

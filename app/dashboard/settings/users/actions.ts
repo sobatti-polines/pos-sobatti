@@ -116,11 +116,15 @@ export async function updateUser(
     return { error: "Level pengguna tidak valid" };
   }
 
-  const { data: oldUser } = await supabase
+  const { data: oldUser, error: oldUserError } = await supabase
     .from("pengguna")
     .select("username, level, aktif, nama")
     .eq("id", id)
     .single();
+
+  if (oldUserError || !oldUser) {
+    return { error: "Pengguna tidak ditemukan" };
+  }
 
   if (oldUser?.level === DEV_ROLE && !canManageDevRole(currentRole)) {
     return { error: "Akses ditolak" };
@@ -131,21 +135,29 @@ export async function updateUser(
   const newEmail = getAuthEmail(username);
   
   const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-  
-  if (!listError && usersData?.users) {
-    const authUser = usersData.users.find(u => u.email === oldEmail);
-    if (authUser) {
-      // Update Auth User
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const updatePayload: any = {
-        email: newEmail,
-        user_metadata: { role: level, username },
-      };
-      if (password) {
-        updatePayload.password = password;
-      }
-      await supabaseAdmin.auth.admin.updateUserById(authUser.id, updatePayload);
-    }
+  if (listError) {
+    return { error: "Gagal membaca akun Auth: " + listError.message };
+  }
+
+  const authUser = usersData.users.find(u => u.email === oldEmail);
+  if (!authUser) {
+    return { error: "Akun Auth pengguna tidak ditemukan" };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updatePayload: any = {
+    email: newEmail,
+    user_metadata: { role: level, username },
+  };
+  if (password) {
+    updatePayload.password = password;
+  }
+  const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+    authUser.id,
+    updatePayload
+  );
+  if (authUpdateError) {
+    return { error: "Gagal memperbarui akun Auth: " + authUpdateError.message };
   }
 
   // 3. Update pengguna table
@@ -160,6 +172,10 @@ export async function updateUser(
     .eq("id", id);
 
   if (dbError) {
+    await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
+      email: oldEmail,
+      user_metadata: { role: oldUser.level, username: oldUser.username },
+    });
     return { error: "Gagal memperbarui pengguna: " + dbError.message };
   }
 

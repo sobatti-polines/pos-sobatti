@@ -72,7 +72,7 @@ export default async function SettingsPage() {
                   <div>
                     <h3 className="text-[16px] font-medium text-foreground">Pengaturan Hak Akses</h3>
                     <p className="text-[14px] font-light text-muted-foreground mt-1 max-w-md">
-                      Tambah, edit, atau hapus pengguna aplikasi. Atur peran sebagai KASIR, ADMIN, atau OWNER.
+                      Tambah, edit, atau hapus pengguna aplikasi. Atur peran sebagai KARYAWAN, PEGAWAI KONTRAK, KASIR, ADMIN, atau OWNER.
                     </p>
                   </div>
                   <Link 

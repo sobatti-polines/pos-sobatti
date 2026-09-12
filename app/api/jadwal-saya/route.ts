@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isOwnerLike } from "@/lib/roles";
+import { canBookLeaveForRole, CONTRACT_ROLE, isOwnerLike } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -80,11 +80,12 @@ export async function GET(request: Request) {
     let draftSchedule = null;
     let leaveRequests: unknown[] = [];
     let ownLatestRequest = null;
+    const canBookLeave = canBookLeaveForRole(pengguna.level);
 
-    if (isCurrentWeek) {
+    if (isCurrentWeek && canBookLeave) {
       const { data: draft } = await supabase
         .from("jadwal_mingguan")
-        .select("id, minggu_mulai, status, jadwal_karyawan(id_pengguna)")
+        .select("id, minggu_mulai, status, jadwal_karyawan(id_pengguna, pengguna(level))")
         .eq("minggu_mulai", nextWeekStart)
         .eq("status", "DRAFT")
         .maybeSingle();
@@ -96,10 +97,11 @@ export async function GET(request: Request) {
           supabase
             .from("permintaan_libur")
             .select(
-              "id, id_pengguna, tanggal, status, pengguna:pengguna!permintaan_libur_id_pengguna_fkey(id, username, nama)"
+              "id, id_pengguna, tanggal, status, pengguna:pengguna!permintaan_libur_id_pengguna_fkey!inner(id, username, nama, level)"
             )
             .eq("id_jadwal_mingguan", draftSchedule.id)
             .in("status", ["MENUNGGU", "DISETUJUI"])
+            .neq("pengguna.level", CONTRACT_ROLE)
             .order("created_at", { ascending: true }),
           supabase
             .from("permintaan_libur")
@@ -135,10 +137,20 @@ export async function GET(request: Request) {
       (scheduleRows[0] as Record<string, unknown> & { jadwal_mingguan?: { catatan_seragam?: Record<string, string> | null } })
         ?.jadwal_mingguan?.catatan_seragam ?? null;
 
-    const participantIds = (draftSchedule?.jadwal_karyawan ?? []).map(
-      (row: { id_pengguna: number }) => Number(row.id_pengguna)
+    const participantRows = (draftSchedule?.jadwal_karyawan ?? []) as Array<{
+      id_pengguna: number;
+      pengguna: { level?: string } | Array<{ level?: string }> | null;
+    }>;
+    const participantIds = [...new Set(participantRows.map((row) => Number(row.id_pengguna)))];
+    const leaveQuotaParticipantIds = new Set(
+      participantRows
+        .filter((row) => {
+          const participant = Array.isArray(row.pengguna) ? row.pengguna[0] : row.pengguna;
+          return participant?.level !== CONTRACT_ROLE;
+        })
+        .map((row) => Number(row.id_pengguna))
     );
-    const leaveCapacity = Math.max(1, Math.ceil(participantIds.length / 7));
+    const leaveCapacity = Math.max(1, Math.ceil(leaveQuotaParticipantIds.size / 7));
 
     const res = NextResponse.json({
       weekStart,
@@ -156,6 +168,7 @@ export async function GET(request: Request) {
       leaveCapacity,
       leaveRequests,
       ownLatestRequest,
+      canBookLeave,
       bookingOpen: Boolean(draftSchedule) && today < nextWeekStart,
     });
     res.headers.set("Cache-Control", "no-store");

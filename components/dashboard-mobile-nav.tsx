@@ -47,7 +47,7 @@ import { useRouter } from "next/navigation";
 import { NavLinkPending } from "@/components/nav-link-pending";
 import { UserProfileCard } from "@/components/user-profile-card";
 import { Button } from "@/components/ui/button";
-import { isManagementRole, isOwnerLike, isStaffRole, KASIR_ROLE, KARYAWAN_ROLE } from "@/lib/roles";
+import { isAttendanceOnlyRole, isManagementRole, isOwnerLike, isStaffRole, KASIR_ROLE } from "@/lib/roles";
 
 const bottomLinks = [
   { href: "/dashboard/settings", label: "Pengaturan", icon: Settings },
@@ -112,6 +112,7 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
   const isOwner = isOwnerLike(role);
   const isStaff = isStaffRole(role);
   const isManagement = isManagementRole(role);
+  const isAttendanceOnly = isAttendanceOnlyRole(role);
 
   return (
     <>
@@ -466,7 +467,7 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
               </nav>
 
               <div className="flex flex-col gap-2 mt-8 pt-6 border-t border-border">
-                {role !== KASIR_ROLE && role !== KARYAWAN_ROLE && bottomLinks.map(({ href, label, icon: Icon }) => (
+                {!isAttendanceOnly && role !== KASIR_ROLE && bottomLinks.map(({ href, label, icon: Icon }) => (
                   <Link key={href} href={href} className={linkClass(href)} prefetch={true}>
                     <Icon className="w-5 h-5" />
                     <span>{label}</span>

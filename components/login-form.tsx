@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isAttendanceOnlyRole } from "@/lib/roles";
 
 type FieldErrors = {
   identifier?: string;
@@ -69,7 +70,7 @@ export function LoginForm() {
         router.refresh();
         if (role === "KASIR") {
           router.push("/pos");
-        } else if (role === "KARYAWAN") {
+        } else if (isAttendanceOnlyRole(role)) {
           router.push("/dashboard/attendance/scan");
         } else {
           router.push("/dashboard");

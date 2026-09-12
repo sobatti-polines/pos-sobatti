@@ -42,6 +42,7 @@ interface ScheduleResponse {
   leaveCapacity: number;
   leaveRequests: LeaveBookingRequest[];
   ownLatestRequest: LeaveBookingRequest | null;
+  canBookLeave: boolean;
   bookingOpen: boolean;
 }
 
@@ -246,7 +247,7 @@ export default function JadwalSayaClient({
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto rounded-[16px] border border-border bg-card p-4 md:p-6">
-        {data.isCurrentWeek && (
+        {data.isCurrentWeek && data.canBookLeave && (
           <BookingLiburClient
             key={`${data.nextWeekStart}-${data.scheduleId ?? "none"}`}
             scheduleId={data.scheduleId}
