@@ -36,6 +36,7 @@ import {
   reviewLeaveRequest,
   saveUniformNotes,
   saveWeeklySchedule,
+  unpublishWeeklySchedule,
   type LeaveRequestStatus,
   type ScheduleType,
 } from "./actions";
@@ -723,6 +724,26 @@ export default function JadwalKaryawanClient({
     });
   };
 
+  const handleUnpublish = () => {
+    if (!weeklySchedule) return;
+    if (
+      !window.confirm(
+        "Batalkan penerbitan jadwal ini? Jadwal dan absensi terkait sementara tidak tersedia sampai jadwal diterbitkan ulang."
+      )
+    ) return;
+
+    setErrorMsg("");
+    startTransition(async () => {
+      const result = await unpublishWeeklySchedule(weeklySchedule.id);
+      if (result.error) {
+        setErrorMsg(result.error);
+        return;
+      }
+
+      window.location.reload();
+    });
+  };
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto rounded-[16px] border border-border bg-card">
       <div className="sticky top-0 z-20 border-b border-border bg-card/95 px-4 py-5 backdrop-blur md:px-6 md:py-6">
@@ -848,6 +869,17 @@ export default function JadwalKaryawanClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+            {isPublished && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleUnpublish}
+                disabled={isPending || isNavigating}
+              >
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                Batalkan Penerbitan
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"

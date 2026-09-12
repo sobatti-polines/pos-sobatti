@@ -42,7 +42,7 @@ async function requireOwner() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { supabase, pengguna: null, error: "Unauthorized" };
+  if (!user) return { supabase, pengguna: null, error: "Sesi login tidak ditemukan" };
 
   const { data: pengguna } = await supabase
     .from("pengguna")
@@ -193,7 +193,7 @@ function databaseMessage(error: { message?: string } | null, fallback: string) {
 
 export async function saveWeeklySchedule(input: SaveWeeklyScheduleInput) {
   const { supabase, pengguna, error: authError } = await requireOwner();
-  if (authError || !pengguna) return { error: authError ?? "Unauthorized" };
+  if (authError || !pengguna) return { error: authError ?? "Sesi login tidak ditemukan" };
 
   if (!isDate(input.minggu_mulai)) return { error: "Minggu mulai tidak valid" };
   if (!isTime(input.jam_pagi_mulai) || !isTime(input.jam_pagi_selesai)) {
@@ -452,7 +452,7 @@ export async function saveUniformNotes(
   catatanSeragam: Record<string, string> | null
 ) {
   const { supabase, pengguna, error: authError } = await requireOwner();
-  if (authError || !pengguna) return { error: authError ?? "Unauthorized" };
+  if (authError || !pengguna) return { error: authError ?? "Sesi login tidak ditemukan" };
   if (!isDate(mingguMulai)) return { error: "Minggu mulai tidak valid" };
 
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(mingguMulai, index));
@@ -486,6 +486,39 @@ export async function saveUniformNotes(
     deskripsi: "Memperbarui catatan seragam jadwal mingguan",
     data_lama: { catatan_seragam: existing.catatan_seragam },
     data_baru: { catatan_seragam: notes },
+  });
+
+  revalidatePath("/dashboard/jadwal-karyawan");
+  revalidatePath("/dashboard/jadwal-saya");
+  return { success: true };
+}
+
+export async function unpublishWeeklySchedule(idSchedule: number) {
+  const { supabase, pengguna, error: authError } = await requireOwner();
+  if (authError || !pengguna) return { error: authError ?? "Sesi login tidak ditemukan" };
+  if (!Number.isInteger(idSchedule) || idSchedule <= 0) {
+    return { error: "Jadwal tidak valid" };
+  }
+
+  const { data, error } = await supabase
+    .from("jadwal_mingguan")
+    .update({ status: "DRAFT", updated_by: pengguna.id })
+    .eq("id", idSchedule)
+    .eq("status", "TERBIT")
+    .select("id, minggu_mulai")
+    .maybeSingle();
+
+  if (error || !data) {
+    return { error: databaseMessage(error, "Jadwal sudah dibatalkan atau tidak ditemukan") };
+  }
+
+  await logActivity(supabase, {
+    aksi: "UPDATE",
+    entitas: "jadwal_mingguan",
+    id_entitas: Number(data.id),
+    deskripsi: `Membatalkan penerbitan jadwal minggu ${data.minggu_mulai}`,
+    data_lama: { status: "TERBIT" },
+    data_baru: { status: "DRAFT" },
   });
 
   revalidatePath("/dashboard/jadwal-karyawan");
