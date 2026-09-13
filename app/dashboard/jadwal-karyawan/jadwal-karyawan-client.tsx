@@ -869,17 +869,6 @@ export default function JadwalKaryawanClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            {isPublished && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleUnpublish}
-                disabled={isPending || isNavigating}
-              >
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
-                Batalkan Penerbitan
-              </Button>
-            )}
             <Button
               type="button"
               variant="outline"
@@ -900,11 +889,18 @@ export default function JadwalKaryawanClient({
             </Button>
             <Button
               type="button"
-              onClick={() => handleSave(true)}
-              disabled={isPending || isNavigating || isPublished || waitingRequests.length > 0}
+              variant={isPublished ? "outline" : "default"}
+              onClick={isPublished ? handleUnpublish : () => handleSave(true)}
+              disabled={isPending || isNavigating || (!isPublished && waitingRequests.length > 0)}
             >
-              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-              Terbitkan
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : isPublished ? (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              {isPublished ? "Batalkan Penerbitan" : "Terbitkan"}
             </Button>
           </div>
         </div>
