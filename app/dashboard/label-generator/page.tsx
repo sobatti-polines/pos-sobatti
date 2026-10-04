@@ -5,9 +5,10 @@ import { PriceTag } from '@/components/price-tag';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SlidersHorizontal, Tag, ChevronLeft, ChevronRight, Download, Loader2, Printer, Plus, Trash2, ListChecks } from 'lucide-react';
-import { toPng } from 'html-to-image';
-import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
+// `html-to-image`, `jszip`, dan `file-saver` hanya dipakai saat tombol unduh
+// ZIP ditekan, jadi ketiganya dimuat dinamis di dalam handler (bukan statis di
+// tingkat modul) supaya halaman ini tidak mengunduh puluhan KB yang belum
+// tentu dipakai saat hanya melihat pratinjau atau mencetak label.
 import { ProductSelectorModal, PrintProduct } from '../product-label/product-selector-modal';
 
 export default function LabelGeneratorPage() {
@@ -51,6 +52,12 @@ export default function LabelGeneratorPage() {
     if (!data.length) return;
     setIsGenerating(true);
     setProgress(0);
+
+    const [JSZip, { toPng }, { saveAs }] = await Promise.all([
+      import("jszip").then((m) => m.default),
+      import("html-to-image"),
+      import("file-saver"),
+    ]);
 
     const zip = new JSZip();
 

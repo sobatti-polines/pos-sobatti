@@ -81,7 +81,7 @@ export function ReportClient({
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 15 });
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     const headers = ["Tanggal", "Username", "Level", "Jam Masuk", "Jam Pulang", "Status", "Telat (Menit)", "Sumber", "Catatan", "Perangkat"];
     const rows = filteredData.map(d => [
       d.tanggal,
@@ -95,10 +95,10 @@ export function ReportClient({
       d.catatan_manual || "-",
       d.device_info || "-"
     ]);
-    exportToCSV(`Laporan_Absensi_${getTodayWIB()}`, headers, rows);
+    await exportToCSV(`Laporan_Absensi_${getTodayWIB()}`, headers, rows);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const headers = ["Tanggal", "Username", "Level", "Jam Masuk", "Jam Pulang", "Status", "Telat (Menit)", "Sumber", "Catatan", "Perangkat"];
     const rows = filteredData.map(d => [
       d.tanggal,
@@ -112,7 +112,7 @@ export function ReportClient({
       d.catatan_manual || "-",
       d.device_info || "-"
     ]);
-    exportToPDF(`Laporan_Absensi_${getTodayWIB()}`, "Laporan Absensi", headers, rows);
+    await exportToPDF(`Laporan_Absensi_${getTodayWIB()}`, "Laporan Absensi", headers, rows);
   };
 
   const filters: FilterDef[] = [

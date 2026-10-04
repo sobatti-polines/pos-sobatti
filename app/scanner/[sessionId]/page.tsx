@@ -2,8 +2,16 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { BrowserMultiFormatReader } from "@zxing/browser";
-import { NotFoundException, DecodeHintType, BarcodeFormat } from "@zxing/library";
+// PENTING — jangan ubah menjadi static import.
+//
+// Halaman ini adalah scanner HP yang dibuka lewat scan QR dari POS, sering dari
+// perangkat mobile di jaringan seluler. @zxing/browser + @zxing/library ≈ 468 KB
+// (terukur dari build: chunk 5289-*.js) dan hanya perlu SETELAH tombol
+// "Mulai Scan" ditekan. Static import memaksa seluruh decoder terunduh sebelum
+// halaman bisa dipakai.
+//
+// `import type` tidak menambah bundel — dihapus saat kompilasi, hanya untuk tipe.
+import type { BrowserMultiFormatReader } from "@zxing/browser";
 
 type ScanState = "idle" | "starting" | "scanning" | "found" | "error";
 
@@ -13,6 +21,9 @@ export default function ScannerPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Modul @zxing/browser yang sudah dimuat dinamis — dipakai untuk static
+  // `releaseAllStreams()` saat unmount.
+  const zxingBrowserRef = useRef<typeof import("@zxing/browser") | null>(null);
   const cooldownRef = useRef<string | null>(null);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -80,30 +91,37 @@ export default function ScannerPage() {
       video.srcObject = stream;
       await video.play();
 
-      // 3. Configure ZXing with TRY_HARDER and common barcode formats
+      // 3. Muat decoder ZXing secara dinamis — hanya saat kamera mulai dipakai.
+      const [zxingBrowser, zxingLibrary] = await Promise.all([
+        import("@zxing/browser"),
+        import("@zxing/library"),
+      ]);
+      zxingBrowserRef.current = zxingBrowser;
+
+      // 4. Configure ZXing with TRY_HARDER and common barcode formats
       const hints = new Map();
-      hints.set(DecodeHintType.TRY_HARDER, true);
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-        BarcodeFormat.CODE_128,
-        BarcodeFormat.CODE_39,
-        BarcodeFormat.CODE_93,
-        BarcodeFormat.EAN_13,
-        BarcodeFormat.EAN_8,
-        BarcodeFormat.UPC_A,
-        BarcodeFormat.UPC_E,
-        BarcodeFormat.DATA_MATRIX,
-        BarcodeFormat.QR_CODE,
-        BarcodeFormat.ITF,
+      hints.set(zxingLibrary.DecodeHintType.TRY_HARDER, true);
+      hints.set(zxingLibrary.DecodeHintType.POSSIBLE_FORMATS, [
+        zxingLibrary.BarcodeFormat.CODE_128,
+        zxingLibrary.BarcodeFormat.CODE_39,
+        zxingLibrary.BarcodeFormat.CODE_93,
+        zxingLibrary.BarcodeFormat.EAN_13,
+        zxingLibrary.BarcodeFormat.EAN_8,
+        zxingLibrary.BarcodeFormat.UPC_A,
+        zxingLibrary.BarcodeFormat.UPC_E,
+        zxingLibrary.BarcodeFormat.DATA_MATRIX,
+        zxingLibrary.BarcodeFormat.QR_CODE,
+        zxingLibrary.BarcodeFormat.ITF,
       ]);
 
-      const reader = new BrowserMultiFormatReader(hints);
+      const reader = new zxingBrowser.BrowserMultiFormatReader(hints);
       readerRef.current = reader;
 
-      // 4. decodeFromStream decodes continuously from the already-playing stream
+      // 5. decodeFromStream decodes continuously from the already-playing stream
       reader.decodeFromStream(stream, video, (result, err) => {
         if (result) {
           onDecode(result.getText());
-        } else if (err && !(err instanceof NotFoundException)) {
+        } else if (err && !(err instanceof zxingLibrary.NotFoundException)) {
           // NotFoundException fires every frame when no barcode visible — ignore
           console.warn("[scanner]", err);
         }
@@ -121,7 +139,8 @@ export default function ScannerPage() {
   // Cleanup reader on unmount
   useEffect(() => {
     return () => {
-      BrowserMultiFormatReader.releaseAllStreams();
+      // Aman dipanggil walau modul belum pernah dimuat (opsional chaining).
+      zxingBrowserRef.current?.BrowserMultiFormatReader.releaseAllStreams();
       streamRef.current?.getTracks().forEach((t) => t.stop());
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
     };

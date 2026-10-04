@@ -76,7 +76,7 @@ export default function ArusKasClient({
     setLoading(false);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!data) return;
     const headers = ["Kategori", "Item", "Jumlah"];
     const rows: Array<[string, string, number | null]> = [
@@ -94,7 +94,7 @@ export default function ArusKasClient({
       ["KONSISTENSI", "Saldo Akhir Sistem (Tutup Kasir)", data.konsistensi?.saldo_akhir_sistem ?? null],
       ["KONSISTENSI", "Selisih Arus Kas", data.konsistensi?.selisih_arus_kas ?? null],
     ];
-    exportToCSV(`arus-kas-${start}-to-${end}`, headers, rows);
+    await exportToCSV(`arus-kas-${start}-to-${end}`, headers, rows);
   };
 
   return (

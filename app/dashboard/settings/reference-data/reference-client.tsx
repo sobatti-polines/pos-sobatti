@@ -173,7 +173,7 @@ export function ReferenceClient({
     return "Metode Pembayaran";
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     // Header SAMA dengan template import data referensi agar bisa round-trip.
     // Merk → [Kode, Nama Merk]; lainnya → [Nama <label>].
     const isMerk = activeTab === "merk";
@@ -181,13 +181,13 @@ export function ReferenceClient({
     const data = filteredData.map((item) =>
       isMerk ? [item.kode || "", item.nama] : [item.nama]
     );
-    exportToCSV(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, headers, data);
+    await exportToCSV(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, headers, data);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const headers = activeTab === "merk" ? ["No", "Kode", "Nama"] : ["No", "Nama"];
     const data = filteredData.map((item, idx) => activeTab === "merk" ? [String(idx + 1), item.kode || "-", item.nama] : [String(idx + 1), item.nama]);
-    exportToPDF(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, `Laporan ${getTabLabel(activeTab)}`, headers, data);
+    await exportToPDF(`Data_${getTabLabel(activeTab).replace(" ", "_")}`, `Laporan ${getTabLabel(activeTab)}`, headers, data);
   };
 
   const columns: Column<ReferenceItem>[] = [

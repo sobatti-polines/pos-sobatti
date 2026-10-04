@@ -340,7 +340,7 @@ export default function OpnameHistoryClient({
     return result;
   }, [initialSesi, deferredSearchQuery, dateFilter, statusFilter]);
 
-  const handleExportAllCSV = () => {
+  const handleExportAllCSV = async () => {
     const headers = [
       "No Sesi",
       "Tanggal",
@@ -361,14 +361,14 @@ export default function OpnameHistoryClient({
       s.total_nilai,
       s.keterangan || "-",
     ]);
-    exportToCSV(
+    await exportToCSV(
       `Riwayat_Stok_Opname_${new Date().toISOString().split("T")[0]}`,
       headers,
       rows
     );
   };
 
-  const handleExportAllPDF = () => {
+  const handleExportAllPDF = async () => {
     const headers = [
       "No Sesi",
       "Tanggal",
@@ -387,7 +387,7 @@ export default function OpnameHistoryClient({
       s.total_selisih,
       s.total_nilai,
     ]);
-    exportToPDF(
+    await exportToPDF(
       `Riwayat_Stok_Opname_${new Date().toISOString().split("T")[0]}`,
       "Riwayat Stok Opname",
       headers,
@@ -395,7 +395,7 @@ export default function OpnameHistoryClient({
     );
   };
 
-  const handleExportSesiCSV = (sesi: SesiRecord) => {
+  const handleExportSesiCSV = async (sesi: SesiRecord) => {
     const headers = ["#", "Produk", "Stok Sistem", "Stok Fisik", "Selisih", "Klasifikasi", "Keterangan"];
     const rows = (sesi.stok_opname ?? []).map((item, idx) => [
       idx + 1,
@@ -406,10 +406,10 @@ export default function OpnameHistoryClient({
       item.klasifikasi || "-",
       item.keterangan || "-",
     ]);
-    exportToCSV(`Stok_Opname_${sesi.no_sesi}`, headers, rows);
+    await exportToCSV(`Stok_Opname_${sesi.no_sesi}`, headers, rows);
   };
 
-  const handleExportSesiPDF = (sesi: SesiRecord) => {
+  const handleExportSesiPDF = async (sesi: SesiRecord) => {
     const headers = ["#", "Produk", "Stok Sistem", "Stok Fisik", "Selisih", "Klasifikasi"];
     const rows = (sesi.stok_opname ?? []).map((item, idx) => [
       idx + 1,
@@ -419,7 +419,7 @@ export default function OpnameHistoryClient({
       item.selisih,
       item.klasifikasi || "-",
     ]);
-    exportToPDF(
+    await exportToPDF(
       `Stok_Opname_${sesi.no_sesi}`,
       `Stok Opname ${sesi.no_sesi}`,
       headers,

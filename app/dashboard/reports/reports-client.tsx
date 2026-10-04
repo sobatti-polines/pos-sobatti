@@ -153,24 +153,24 @@ export default function ReportsClient({ transactions, details, products, isOwner
     };
   }, [products]);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     const headers = ["Produk", "Jumlah Transaksi", "Pendapatan"];
     const data = topProducts.map(p => [
       p.name,
       p.count,
       p.revenue
     ]);
-    exportToCSV("Laporan_Produk_Terlaris", headers, data);
+    await exportToCSV("Laporan_Produk_Terlaris", headers, data);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const headers = ["Produk", "Jumlah Transaksi", "Pendapatan"];
     const data = topProducts.map(p => [
       p.name,
       p.count,
       formatIDR(p.revenue)
     ]);
-    exportToPDF("Laporan_Produk_Terlaris", "Laporan Produk Terlaris", headers, data);
+    await exportToPDF("Laporan_Produk_Terlaris", "Laporan Produk Terlaris", headers, data);
   };
 
   return (

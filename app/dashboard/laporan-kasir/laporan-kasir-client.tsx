@@ -150,7 +150,7 @@ export default function LaporanKasirClient({
     router.refresh();
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const headers = ["Tanggal", "Uang Awal", "Total Masuk", "Penambahan", "Saldo Sistem", "Uang Aktual", "Selisih", "Kasir"];
     const rows = filtered.map(r => [
       format(new Date(r.tanggal), "yyyy-MM-dd"),
@@ -162,7 +162,7 @@ export default function LaporanKasirClient({
       r.selisih,
       r.pengguna?.nama || r.pengguna?.username || "-"
     ]);
-    exportToCSV(`laporan-kasir-${format(new Date(), "yyyyMMdd")}`, headers, rows);
+    await exportToCSV(`laporan-kasir-${format(new Date(), "yyyyMMdd")}`, headers, rows);
   };
 
   return (

@@ -113,7 +113,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     setErrorMsg("");
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     // Header SAMA dengan template import pelanggan (urutan: Nama, Alamat, No. HP,
     // Email, Keterangan) agar bisa round-trip; kolom Poin diletakkan di akhir
     // (tidak dibaca import, hanya informasi tambahan).
@@ -126,10 +126,10 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
       c.keterangan || "",
       String(c.point ?? 0)
     ]);
-    exportToCSV("Data_Pelanggan", headers, data);
+    await exportToCSV("Data_Pelanggan", headers, data);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const headers = ["Nama Pelanggan", "No. HP", "Email", "Alamat", "Keterangan", "Poin"];
     const data = filteredData.map(c => [
       c.nama_pelanggan,
@@ -139,7 +139,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
       c.keterangan || "-",
       String(c.point ?? 0)
     ]);
-    exportToPDF("Data_Pelanggan", "Laporan Data Pelanggan", headers, data);
+    await exportToPDF("Data_Pelanggan", "Laporan Data Pelanggan", headers, data);
   };
 
   const editInput = (field: keyof Customer, placeholder: string, opts?: { tabular?: boolean }) => (

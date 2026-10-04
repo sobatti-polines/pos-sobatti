@@ -79,8 +79,8 @@ export default function AnalisisProdukClient({ initialReport, initialError, init
     });
   }, [filteredRows, table.sortConfig]);
   const exportData = exportRows.map((row) => [row.nama_produk, row.sku ?? "-", formatUnits(row.qty_per_satuan), row.frekuensi_transaksi, row.omzet_item, row.pendapatan_neto]);
-  const exportCsv = () => exportToCSV("Analisis_Produk", ["Produk", "SKU", "Qty Terjual", "Frekuensi Transaksi", "Omzet Item", "Pendapatan Neto"], exportData);
-  const exportPdf = () => exportToPDF("Analisis_Produk", "Analisis Produk", ["Produk", "SKU", "Qty Terjual", "Frekuensi", "Omzet", "Neto"], exportRows.map((row) => [row.nama_produk, row.sku ?? "-", formatUnits(row.qty_per_satuan), row.frekuensi_transaksi, idr.format(row.omzet_item), idr.format(row.pendapatan_neto)]));
+  const exportCsv = async () => exportToCSV("Analisis_Produk", ["Produk", "SKU", "Qty Terjual", "Frekuensi Transaksi", "Omzet Item", "Pendapatan Neto"], exportData);
+  const exportPdf = async () => exportToPDF("Analisis_Produk", "Analisis Produk", ["Produk", "SKU", "Qty Terjual", "Frekuensi", "Omzet", "Neto"], exportRows.map((row) => [row.nama_produk, row.sku ?? "-", formatUnits(row.qty_per_satuan), row.frekuensi_transaksi, idr.format(row.omzet_item), idr.format(row.pendapatan_neto)]));
 
   const columns: Column<ProductSalesRow>[] = [
     { key: "nama_produk", header: "Produk", sortable: true, render: (row) => <div><p className="font-medium text-foreground">{row.nama_produk}</p>{(row.sku || row.barcode) && <p className="mt-0.5 text-xs text-muted-foreground">{[row.sku, row.barcode].filter(Boolean).join(" · ")}</p>}</div> },

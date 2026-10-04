@@ -1206,3 +1206,86 @@ export async function generateAllSkuBarcode() {
     message: `Berhasil generate SKU & Barcode: ${updated} produk${errors > 0 ? `, ${errors} gagal` : ""}.`,
   };
 }
+
+/**
+ * Generate SKU & Barcode untuk SATU produk — dipakai tombol "Generate Kode"
+ * di form Identitas Produk (input barang baru / edit produk).
+ *
+ * Aturan format sama dengan skrip SQL massal & action generateAllSkuBarcode:
+ *   M(1) + kode merk(2) + 3 huruf pertama nama(3) + counter(2) = 8 karakter.
+ *
+ * Keunikan DIJAMIN server-side: counter hanya diterima bila kode belum dipakai
+ * oleh SKU maupun barcode produk mana pun — jadi hasilnya tidak mungkin duplikat
+ * meskipun form dibuka berkali-kali.
+ *
+ * Sengaja TIDAK menulis ke database: nilainya hanya mengisi kolom form, dan
+ * tetap melewati validasi/audit addProduct/updateProduct saat disimpan.
+ */
+export async function generateSkuBarcode(input: {
+  nama_produk: string;
+  id_merk: number | null;
+}): Promise<{ sku?: string; barcode?: string; error?: string }> {
+  const ok = await requireAuth();
+  if (!ok) return { error: "Unauthorized" };
+
+  const nama = input?.nama_produk?.trim() ?? "";
+  if (!nama) {
+    return { error: "Isi nama produk terlebih dahulu sebelum generate kode." };
+  }
+
+  const supabase = supabaseAdmin;
+
+  // Kode & nama merk — dipakai untuk blok M + Merk(2).
+  let merkKode = "NO";
+  let merkNama = "";
+  if (input.id_merk) {
+    const { data: merk } = await supabase
+      .from("merk")
+      .select("nama, kode")
+      .eq("id", input.id_merk)
+      .maybeSingle();
+    const kodeBersih = (merk?.kode ?? "")
+      .replace(/[^A-Za-z0-9]/g, "")
+      .toUpperCase();
+    merkKode = (kodeBersih.slice(0, 2) || "NO").padEnd(2, "X");
+    merkNama = merk?.nama ?? "";
+  }
+
+  // 3 huruf pertama dari nama produk (uppercase, nama merk dihapus dulu).
+  let cleaned = nama.toUpperCase();
+  if (merkNama) {
+    cleaned = cleaned.split(merkNama.toUpperCase()).join("");
+  }
+  const letters = cleaned.replace(/[^A-Z]/g, "").slice(0, 3).padEnd(3, "X");
+  const base = `M${merkKode}${letters}`;
+
+  // Kumpulkan SEMUA kode terpakai (SKU + barcode, seluruh produk) supaya kode
+  // baru dijamin unik secara global — sama seperti skrip SQL massal. Nilai
+  // falsy data lama ("-", "--", "n/a", spasi, dsb.) diabaikan.
+  const used = new Set<string>();
+  const { data: rows, error } = await supabase.from("produk").select("sku, barcode");
+  if (error) {
+    return { error: "Gagal memeriksa kode yang sudah dipakai: " + error.message };
+  }
+  for (const r of rows ?? []) {
+    for (const v of [r.sku, r.barcode]) {
+      const t = typeof v === "string" ? v.trim().toUpperCase() : "";
+      if (t && !/^[-\u2013\u2014_]+$/.test(t)) used.add(t);
+    }
+  }
+
+  // Cari counter 01..99 yang belum terpakai.
+  for (let counter = 1; counter <= 99; counter++) {
+    const kode = `${base}${String(counter).padStart(2, "0")}`;
+    if (!used.has(kode)) {
+      // SKU dan Barcode diisi nilai yang sama (konvensi format M — barcode = SKU),
+      // persis seperti hasil skrip SQL massal.
+      return { sku: kode, barcode: kode };
+    }
+  }
+
+  return {
+    error:
+      "Semua kombinasi kode untuk merk & nama ini sudah terpakai (01\u201399). Ubah nama produk/merk atau isi kode manual.",
+  };
+}

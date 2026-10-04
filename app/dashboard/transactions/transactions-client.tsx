@@ -282,7 +282,7 @@ export default function TransactionsClient({
       }
     });
     
-    exportToCSV("Data_Transaksi", headers, data);
+    await exportToCSV("Data_Transaksi", headers, data);
   };
 
   const handleExportExcel = async () => {
@@ -317,7 +317,7 @@ export default function TransactionsClient({
       }
     });
     
-    exportToExcel("Laporan_Transaksi", headers, data);
+    await exportToExcel("Laporan_Transaksi", headers, data);
   };
 
   const handleExportPDF = async () => {
@@ -362,7 +362,7 @@ export default function TransactionsClient({
       }
     });
     
-    exportToPDF("Data_Transaksi", "Laporan Riwayat Transaksi", headers, data, { subtitle, footer });
+    await exportToPDF("Data_Transaksi", "Laporan Riwayat Transaksi", headers, data, { subtitle, footer });
   };
 
   const filters: FilterDef[] = [

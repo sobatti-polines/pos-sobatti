@@ -1,5 +1,6 @@
-import { getDashboardData } from "@/lib/dashboard";
+import { getDashboardData, getDashboardFinanceSummary } from "@/lib/dashboard";
 import { getLowStockItems } from "@/lib/low-stock";
+import { Suspense } from "react";
 import { TrendingUp, TrendingDown, CheckCircle2, Clock, CalendarDays } from "lucide-react";
 import { DashboardLowStock } from "@/components/dashboard-low-stock";
 import { DashboardRecentActivity } from "@/components/dashboard-recent-activity";
@@ -10,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { LogoutButton } from "@/components/logout-button";
 import { AttendanceWidget } from "@/components/attendance-widget";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
 import { getTodayAttendance, getMonthlyAttendanceStats } from "@/lib/attendance";
 import { isAttendanceOnlyRole, isOwnerLike } from "@/lib/roles";
 import { getTodayWIB } from "@/lib/utils";
@@ -34,10 +35,58 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
+/**
+ * Section ringkasan keuangan bulan berjalan (khusus OWNER).
+ *
+ * Dipisah ke Server Component sendiri supaya bisa di-stream di dalam
+ * `<Suspense>`: perhitungan laba rugi memanggil rantai query + RPC yang
+ * panjang, dan tidak boleh menahan konten utama dashboard.
+ */
+async function DashboardFinanceSection() {
+  const { labaBersih, bebanOperasional } =
+    await getDashboardFinanceSummary();
+  return (
+    <DashboardFinanceSummary
+      labaBersih={labaBersih}
+      bebanOperasional={bebanOperasional}
+    />
+  );
+}
+
+/** Skeleton dimensi-matching agar tidak ada layout shift saat data menyusul. */
+function DashboardFinanceSummarySkeleton() {
+  return (
+    <section
+      role="status"
+      aria-label="Memuat ringkasan keuangan bulan ini"
+    >
+      <h3 className="text-sm font-medium text-muted-foreground mb-4 md:mb-6 uppercase tracking-widest">
+        Ringkasan Keuangan Bulan Ini
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
+        {[0, 1].map((i) => (
+          <div
+            key={i}
+            className="rounded-xl border border-border/50 bg-muted/20 p-6"
+          >
+            <div className="h-3 w-36 rounded bg-muted animate-pulse" />
+            <div className="mt-3 h-8 w-44 rounded bg-muted/70 animate-pulse" />
+            <div className="mt-4 h-3 w-28 rounded bg-muted/60 animate-pulse" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const attendanceData = await getTodayAttendance();
+  // Auth di-dedupe per request (lihat lib/auth) dan data absensi tidak
+  // bergantung pada hasil auth, jadi keduanya dijalankan paralel alih-alih
+  // berurutan.
+  const [user, attendanceData] = await Promise.all([
+    getSessionUser(),
+    getTodayAttendance(),
+  ]);
 
   const role = user?.user_metadata?.role;
   const isOwner = isOwnerLike(role);
@@ -188,10 +237,9 @@ export default async function DashboardPage() {
       </div>
 
       {isOwner && (
-        <DashboardFinanceSummary
-          labaBersih={dashboardData.monthLabaBersih}
-          bebanOperasional={dashboardData.monthBebanOperasional}
-        />
+        <Suspense fallback={<DashboardFinanceSummarySkeleton />}>
+          <DashboardFinanceSection />
+        </Suspense>
       )}
 
       <section>

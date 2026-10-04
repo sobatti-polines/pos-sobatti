@@ -63,7 +63,7 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 15 });
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     const headers = ["Tanggal", "Status", "Jam Masuk", "Jam Pulang", "Keterangan", "Sumber", "Informasi Perangkat"];
     const rows = filteredData.map(d => [
       formatDate(d.tanggal),
@@ -74,10 +74,10 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
       d.sumber === "MANUAL" ? "Manual" : "QR",
       d.device_info || "-"
     ]);
-    exportToCSV(`Riwayat_Absensi_${getTodayWIB()}`, headers, rows);
+    await exportToCSV(`Riwayat_Absensi_${getTodayWIB()}`, headers, rows);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const headers = ["Tanggal", "Status", "Jam Masuk", "Jam Pulang", "Keterangan", "Sumber", "Informasi Perangkat"];
     const rows = filteredData.map(d => [
       formatDate(d.tanggal),
@@ -88,7 +88,7 @@ export function HistoryClient({ initialData }: { initialData: AttendanceRecord[]
       d.sumber === "MANUAL" ? "Manual" : "QR",
       d.device_info || "-"
     ]);
-    exportToPDF(`Riwayat_Absensi_${getTodayWIB()}`, "Riwayat Absensi", headers, rows);
+    await exportToPDF(`Riwayat_Absensi_${getTodayWIB()}`, "Riwayat Absensi", headers, rows);
   };
 
   const filters: FilterDef[] = [

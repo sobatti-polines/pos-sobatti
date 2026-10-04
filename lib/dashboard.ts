@@ -1,6 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase, getSessionUser } from "@/lib/auth";
 import { generateLabaRugi } from "@/lib/laporan-keuangan";
-import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { startOfMonth, format } from "date-fns";
 import { DEV_ROLE, isDev } from "@/lib/roles";
 
@@ -10,13 +9,9 @@ export interface DashboardData {
   revenueChangePercent: number;
   todayOrders: number;
   avgTicket: number;
-  productsLow: number;
   recentTransactions: TransactionRow[];
-  lowStockItems: LowStockItem[];
   sparklineData: number[];
   recentActivity: ActivityRow[];
-  monthLabaBersih: number;
-  monthBebanOperasional: number;
 }
 
 export interface ActivityRow {
@@ -37,19 +32,14 @@ export interface TransactionRow {
   status: string;
 }
 
-export interface LowStockItem {
-  id: number;
-  nama_produk: string;
-  stock: number;
-  displayLow: boolean;
-  gudangLow: boolean;
+export interface DashboardFinanceSummaryData {
+  labaBersih: number;
+  bebanOperasional: number;
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const supabase = await getServerSupabase();
+  const user = await getSessionUser();
   const role = user?.user_metadata?.role;
 
   // Use WIB (UTC+7) for business-day boundaries, consistent with
@@ -79,7 +69,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     yesterdayRevenueRes,
     todayOrdersRes,
     transactionsRes,
-    allProductsRes,
     recentDaysRes,
     activityRes,
   ] = await Promise.all([
@@ -101,24 +90,19 @@ export async function getDashboardData(): Promise<DashboardData> {
       .eq("status", "berhasil")
       .gte("tgl_transaksi", `${todayStr}T00:00:00`)
       .lte("tgl_transaksi", `${todayStr}T23:59:59`),
+    // detail_transaksi_keluar ikut di-embed supaya jumlah item per transaksi
+    // tidak perlu satu query terpisah yang menambah satu tahap berurutan.
     supabase
       .from("transaksi_keluar")
       .select(`
         id, no_transaksi, tgl_transaksi, total, bayar,
-        pelanggan(nama_pelanggan)
-,
-        pengguna!transaksi_keluar_id_kasir_fkey(username)
+        pelanggan(nama_pelanggan),
+        pengguna!transaksi_keluar_id_kasir_fkey(username),
+        detail_transaksi_keluar(qty)
       `)
       .eq("status", "berhasil")
       .order("tgl_transaksi", { ascending: false })
       .limit(5),
-    fetchAllRows(supabase, (db, from, to) =>
-      db
-        .from("produk")
-        .select("id, nama_produk, hitung_stok, stok, stok_gudang, stok_minimum, stok_minimum_gudang")
-        .eq("hitung_stok", true)
-        .range(from, to)
-    ),
     supabase
       .from("transaksi_keluar")
       .select("tgl_transaksi, total")
@@ -143,47 +127,6 @@ export async function getDashboardData(): Promise<DashboardData> {
         ? 100
         : 0;
 
-  const lowStockItems: LowStockItem[] = [];
-  for (const p of (allProductsRes ?? []) as Array<{
-    id: number;
-    nama_produk: string;
-    stok: number | null;
-    stok_gudang: number | null;
-    stok_minimum: number | null;
-    stok_minimum_gudang: number | null;
-  }>) {
-    const stok = p.stok ?? 0;
-    const stokGudang = p.stok_gudang ?? 0;
-    // Display: stok 0 = "Habis" (badge terpisah), bukan menipis — konsisten dengan perilaku lama.
-    const displayLow = stok > 0 && stok <= (p.stok_minimum ?? 5);
-    // Gudang: aktif jika ambang diisi (termasuk stok gudang 0).
-    const gudangLow =
-      p.stok_minimum_gudang != null && stokGudang <= p.stok_minimum_gudang;
-    if (!displayLow && !gudangLow) continue;
-    lowStockItems.push({
-      id: p.id,
-      nama_produk: p.nama_produk,
-      stock: displayLow ? stok : stokGudang,
-      displayLow,
-      gudangLow,
-    });
-  }
-  lowStockItems.sort((a, b) => a.stock - b.stock);
-
-  const productsLow = lowStockItems.length;
-
-  const transactionIds = (transactionsRes.data ?? []).map((t) => t.id);
-  const itemCountMap = new Map<number, number>();
-  if (transactionIds.length > 0) {
-    const detailRes = await supabase
-      .from("detail_transaksi_keluar")
-      .select("id_transaksi, qty")
-      .in("id_transaksi", transactionIds);
-    for (const row of detailRes.data ?? []) {
-      itemCountMap.set(row.id_transaksi, (itemCountMap.get(row.id_transaksi) ?? 0) + row.qty);
-    }
-  }
-
   const recentTransactions: TransactionRow[] = (transactionsRes.data as unknown as Array<{
     id: number;
     no_transaksi: string;
@@ -192,6 +135,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     bayar: number;
     pelanggan: { nama_pelanggan: string } | null;
     pengguna: { username: string } | null;
+    detail_transaksi_keluar: Array<{ qty: number | null }> | null;
   }> ?? []).map(
     (t) => ({
       no_transaksi: `#${t.no_transaksi}`,
@@ -201,7 +145,10 @@ export async function getDashboardData(): Promise<DashboardData> {
         minute: "2-digit",
         hour12: true,
       }),
-      items: itemCountMap.get(t.id) ?? 0,
+      items: (t.detail_transaksi_keluar ?? []).reduce(
+        (sum, d) => sum + Number(d.qty ?? 0),
+        0
+      ),
       total: Number(t.total),
       status:
         t.bayar >= t.total
@@ -252,31 +199,44 @@ export async function getDashboardData(): Promise<DashboardData> {
     };
   });
 
-  // K3-04: ringkasan keuangan bulan berjalan (Laba Rugi + beban operasional)
-  let monthLabaBersih = 0;
-  let monthBebanOperasional = 0;
-  try {
-    const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
-    const today = format(new Date(), "yyyy-MM-dd");
-    const labaRugi = await generateLabaRugi(supabase, monthStart, today);
-    monthLabaBersih = Number(labaRugi.hasil.laba_bersih || 0);
-    monthBebanOperasional = Number(labaRugi.hasil.beban_operasional || 0);
-  } catch (e) {
-    console.error("Failed to load month finance summary:", e);
-  }
-
   return {
     todayRevenue,
     yesterdayRevenue,
     revenueChangePercent: Math.round(revenueChangePercent * 100) / 100,
     todayOrders,
     avgTicket: Math.round(avgTicket * 100) / 100,
-    productsLow,
     recentTransactions,
-    lowStockItems,
     sparklineData,
     recentActivity,
-    monthLabaBersih,
-    monthBebanOperasional,
   };
+}
+
+/**
+ * Ringkasan keuangan bulan berjalan (K3-04).
+ *
+ * SENGAJA dipisah dari `getDashboardData()` dan dipanggil dari `<Suspense>`
+ * di halaman dashboard. `generateLabaRugi()` adalah rantai query + RPC yang
+ * berurutan (penjualan, selisih kas, pembelian, retur, detail retur,
+ * persediaan akhir, pengeluaran). Dulu seluruh halaman dashboard menunggu
+ * rantai itu selesai hanya untuk menampilkan dua angka; sekarang konten utama
+ * (pendapatan, pesanan, stok menipis, transaksi terbaru) dirender lebih dulu
+ * dan ringkasan keuangan menyusul.
+ *
+ * Kegagalan di sini tidak boleh menjatuhkan halaman, jadi error dikembalikan
+ * sebagai 0 (perilaku lama juga menelan error di sini).
+ */
+export async function getDashboardFinanceSummary(): Promise<DashboardFinanceSummaryData> {
+  try {
+    const supabase = await getServerSupabase();
+    const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
+    const today = format(new Date(), "yyyy-MM-dd");
+    const labaRugi = await generateLabaRugi(supabase, monthStart, today);
+    return {
+      labaBersih: Number(labaRugi.hasil.laba_bersih || 0),
+      bebanOperasional: Number(labaRugi.hasil.beban_operasional || 0),
+    };
+  } catch (e) {
+    console.error("Failed to load month finance summary:", e);
+    return { labaBersih: 0, bebanOperasional: 0 };
+  }
 }

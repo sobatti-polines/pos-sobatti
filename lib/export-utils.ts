@@ -1,10 +1,18 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import Papa from "papaparse";
-import * as XLSX from "xlsx";
+// PENTING — jangan pernah mengembalikan ke static import di file ini.
+//
+// Modul ini adalah SATU modul bersama yang dipakai ±24 client component di
+// dashboard. Saat `jspdf`, `jspdf-autotable`, dan `xlsx` diimpor secara statis,
+// webpack menaruh ketiganya di chunk bersama yang ikut diunduh SETIAP KALI
+// halaman dibuka — termasuk halaman yang hanya perlu ekspor CSV. Terukur di
+// build: ±804 KB (474 KB xlsx + 330 KB jspdf) dimuat di 25 route dashboard.
+//
+// Karena itu tiap library dimuat dinamis di dalam fungsi yang memakainya, dan
+// semua fungsi export menjadi async. Tanda tangan fungsi tidak berubah selain
+// mengembalikan Promise.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const exportToCSV = (filename: string, headers: string[], data: any[][]) => {
+export const exportToCSV = async (filename: string, headers: string[], data: any[][]) => {
+  const { default: Papa } = await import("papaparse");
   const csvData = [headers, ...data];
   const csv = Papa.unparse(csvData);
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -19,8 +27,8 @@ export const exportToCSV = (filename: string, headers: string[], data: any[][]) 
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const downloadCSVTemplate = (filename: string, headers: string[], sampleRows: any[][]) => {
-  exportToCSV(filename, headers, sampleRows);
+export const downloadCSVTemplate = async (filename: string, headers: string[], sampleRows: any[][]) => {
+  await exportToCSV(filename, headers, sampleRows);
 };
 
 export interface TemplateColumnGuide {
@@ -48,12 +56,13 @@ export interface ExcelTemplateOptions {
  * Kolom otomatis dilebarkan sesuai panjang header, dan (opsional) sheet
  * "Petunjuk" ditambahkan berisi panduan pengisian.
  */
-export const downloadExcelTemplate = (
+export const downloadExcelTemplate = async (
   filename: string,
   headers: string[],
   sampleRows: (string | number | null)[][],
   options?: ExcelTemplateOptions
 ) => {
+  const XLSX = await import("xlsx");
   const wb = XLSX.utils.book_new();
 
   // Sheet data
@@ -101,7 +110,8 @@ export const downloadExcelTemplate = (
  * Baca file Excel (.xlsx/.xls) menjadi array of rows (object key = header kolom).
  * Nilai sel dikonversi ke string dan di-trim; sel kosong menjadi string kosong.
  */
-export const parseExcelToRows = (file: File): Promise<Record<string, string>[]> => {
+export const parseExcelToRows = async (file: File): Promise<Record<string, string>[]> => {
+  const XLSX = await import("xlsx");
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -137,7 +147,11 @@ export interface PDFExportOptions {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const exportToPDF = (filename: string, title: string, headers: string[], data: any[][], options?: PDFExportOptions) => {
+export const exportToPDF = async (filename: string, title: string, headers: string[], data: any[][], options?: PDFExportOptions) => {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
   const doc = new jsPDF();
   
   doc.setFontSize(14);
@@ -166,7 +180,8 @@ export const exportToPDF = (filename: string, title: string, headers: string[], 
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const exportToExcel = (filename: string, headers: string[], data: any[][], sheetName = "Data") => {
+export const exportToExcel = async (filename: string, headers: string[], data: any[][], sheetName = "Data") => {
+  const XLSX = await import("xlsx");
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
   ws["!cols"] = headers.map((h) => ({
@@ -360,6 +375,11 @@ export async function generateOpnameTemplate(
   noSesi?: string
 ) {
   if (areaProducts.length === 0) return;
+
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
 
   // Load logo
   let logoDataURL: string | null = null;

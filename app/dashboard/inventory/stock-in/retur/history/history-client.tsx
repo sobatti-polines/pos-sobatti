@@ -114,7 +114,7 @@ export default function ReturHistoryClient({
     return filteredData.reduce((sum, h) => sum + Number(h.total_nilai || 0), 0);
   }, [filteredData]);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     const headers = ["No. Retur", "Tanggal", "Supplier", "Barang Masuk", "No. Faktur", "Jumlah Item", "Total Nilai", "Operator", "Keterangan"];
     const rows = filteredData.map((h) => [
       h.no_retur,
@@ -127,10 +127,10 @@ export default function ReturHistoryClient({
       h.pengguna?.nama || h.pengguna?.username || "-",
       h.keterangan || "",
     ]);
-    exportToCSV(`Riwayat_Retur_${new Date().toISOString().split("T")[0]}`, headers, rows);
+    await exportToCSV(`Riwayat_Retur_${new Date().toISOString().split("T")[0]}`, headers, rows);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const headers = ["No. Retur", "Tanggal", "Supplier", "Barang Masuk", "Jumlah Item", "Total Nilai", "Operator"];
     const rows = filteredData.map((h) => [
       h.no_retur,
@@ -141,7 +141,7 @@ export default function ReturHistoryClient({
       formatIDR(h.total_nilai),
       h.pengguna?.nama || h.pengguna?.username || "-",
     ]);
-    exportToPDF(`Riwayat_Retur_${new Date().toISOString().split("T")[0]}`, "Riwayat Retur Pembelian", headers, rows);
+    await exportToPDF(`Riwayat_Retur_${new Date().toISOString().split("T")[0]}`, "Riwayat Retur Pembelian", headers, rows);
   };
 
   const filters: FilterDef[] = [

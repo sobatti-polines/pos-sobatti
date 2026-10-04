@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { POS_PRODUCT_COLUMNS } from "@/lib/pos-data";
+import { escapeLikeWildcards, ilikePattern } from "@/lib/postgrest-filter";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -11,25 +13,65 @@ export async function GET(req: Request) {
 
   const supabase = await createClient();
 
-  const fields = `id, nama_produk, id_kategori, hitung_stok, stok, stok_gudang,
-    harga_modal, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, diskon,
-    default_purchase_unit, conversion_ratio,
-    jual_satuan,
-    harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo,
-    id_produk_master, qty_per_unit,
-    kategori(nama), satuan(nama)`;
+  // Bentuk objek produk disamakan dengan jalur POS lain (lib/pos-data.ts) agar
+  // produk hasil scan barcode punya field yang sama dengan produk dari katalog.
+  const fields = POS_PRODUCT_COLUMNS;
+
+  // Pattern ILIKE di-escape + dikutip: tanpa ini `%`/`_` pada kode hasil scan
+  // bertindak sebagai wildcard, dan karakter kutip membuat filter PostgREST
+  // gagal dibaca (lihat lib/postgrest-filter.ts).
+  const pattern = ilikePattern(code);
+
+  // POS_PRODUCT_COLUMNS bertipe string sehingga client Supabase tidak bisa
+  // menginferensi tipe barisnya. Kolom yang diakses langsung di route
+  // dideklarasikan eksplisit; kolom lainnya mengalir apa adanya ke respons.
+  type BarcodeRow = {
+    id: number;
+    barcode: string | null;
+    stok: number | null;
+    stok_gudang: number | null;
+  };
 
   const findProduct = async () => {
-    // Try barcode match first (scanner input)
-    const { data: barcodeMatch } = await supabase
+    // Coba kecocokan barcode persis dulu (input scanner).
+    //
+    // .limit(2) PENTING: bila satu barcode terdaftar di lebih dari satu produk
+    // (pernah terjadi lewat import massal CSV), tanpa limit query mengembalikan
+    // beberapa baris dan .maybeSingle() melempar error PGRST116
+    // ("multiple (or no) rows returned") → data null → scan gagal diam-diam
+    // dengan pesan "Produk tidak ditemukan". Dengan limit(2) kita selalu tahu:
+    // 1 baris = unik; 2 baris = duplikat.
+    const { data: barcodeMatches, error: barcodeError } = await supabase
       .from("produk")
       .select(fields)
-      .ilike("barcode", code)
-      .maybeSingle();
+      .ilike("barcode", pattern)
+      .limit(2);
 
-    if (barcodeMatch) return barcodeMatch;
+    if (barcodeError) {
+      console.error("Lookup barcode gagal:", barcodeError);
+    }
+    const matches = (barcodeMatches ?? []) as unknown as BarcodeRow[];
+    if (matches.length > 0) {
+      // Jika ada duplikat, pilih deterministik: stok terbanyak, lalu id
+      // terkecil — supaya hasil scan tidak berubah-ubah antar pemindaian.
+      // Sumber masalah sesungguhnya tetap data duplikat dan harus dibersihkan
+      // di database (lihat SQL verifikasi di laporan analisa bug).
+      const sorted = [...matches].sort((a, b) => {
+        const stokA = Number(a.stok ?? 0) + Number(a.stok_gudang ?? 0);
+        const stokB = Number(b.stok ?? 0) + Number(b.stok_gudang ?? 0);
+        if (stokB !== stokA) return stokB - stokA;
+        return Number(a.id) - Number(b.id);
+      });
+      return { product: sorted[0], duplicated: matches.length > 1 };
+    }
 
-    // Try numeric ID match as fallback
+    // Fallback numeric-ID: SENGAJA dibatasi untuk produk TANPA barcode saja.
+    //
+    // Dulu fallback ini dijalankan untuk semua kode digit, sehingga scanner
+    // yang salah baca / barcode EAN tak terdaftar bisa cocok dengan `id`
+    // produk lain yang kebetulan sama angkanya — produk SALAH masuk keranjang.
+    // Sekarang hanya dijalankan bila kolom barcode-nya memang kosong (cek di
+    // JS, bukan filter or= PostgREST, supaya tidak ada risiko parsing lagi).
     const numericId = /^\d+$/.test(code) ? Number(code) : null;
     if (numericId !== null) {
       const { data } = await supabase
@@ -38,24 +80,30 @@ export async function GET(req: Request) {
         .eq("id", numericId)
         .maybeSingle();
 
-      if (data) return data;
+      const row = data as unknown as BarcodeRow | null;
+      if (row && (row.barcode == null || row.barcode === "")) {
+        return { product: row, duplicated: false };
+      }
     }
 
-    // Try name search as another fallback
+    // Fallback terakhir: cari berdasarkan nama produk (pattern di-escape
+    // dengan aturan yang sama seperti filter barcode).
     const { data } = await supabase
       .from("produk")
       .select(fields)
-      .ilike("nama_produk", `%${code}%`)
+      .ilike("nama_produk", `%${escapeLikeWildcards(code)}%`)
       .limit(1)
       .maybeSingle();
 
-    if (data) return data;
+    if (data) return { product: data as unknown as BarcodeRow, duplicated: false };
 
     return null;
   };
 
-  const product = await findProduct();
-  if (!product) return NextResponse.json({ product: null }, { status: 404 });
+  const result = await findProduct();
+  if (!result) return NextResponse.json({ product: null }, { status: 404 });
 
-  return NextResponse.json({ product });
+  // `duplicated` diberikan ke klien untuk peringatan: scan tetap berhasil
+  // (produk pilihan deterministik), tapi owner perlu tahu datanya ganda.
+  return NextResponse.json({ product: result.product, duplicated: result.duplicated });
 }

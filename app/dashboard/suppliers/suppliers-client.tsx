@@ -110,7 +110,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
     setErrorMsg("");
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     // Header SAMA dengan template import supplier agar bisa round-trip (export → import ulang)
     const headers = ["Nama Supplier", "Alamat", "No. Telepon", "Email", "Keterangan"];
     const data = filteredData.map(s => [
@@ -120,10 +120,10 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
       s.email || "",
       s.keterangan || ""
     ]);
-    exportToCSV("Data_Supplier", headers, data);
+    await exportToCSV("Data_Supplier", headers, data);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const headers = ["Nama Supplier", "Telepon", "Email", "Alamat", "Keterangan"];
     const data = filteredData.map(s => [
       s.nama_supplier,
@@ -132,7 +132,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
       s.alamat || "-",
       s.keterangan || "-"
     ]);
-    exportToPDF("Data_Supplier", "Laporan Data Supplier", headers, data);
+    await exportToPDF("Data_Supplier", "Laporan Data Supplier", headers, data);
   };
 
   const editInput = (field: keyof Supplier, placeholder: string, opts?: { tabular?: boolean }) => (

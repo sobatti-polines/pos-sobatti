@@ -42,7 +42,7 @@ export default function NeracaClient({ initialData, store }: { initialData: any;
     setLoading(false);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!data) return;
     const headers = ["Kategori", "Sub-Kategori", "Item", "Jumlah"];
     const rows = [
@@ -61,7 +61,7 @@ export default function NeracaClient({ initialData, store }: { initialData: any;
       ["PENYESUAIAN", "", "Penyesuaian Neraca", data.penyesuaian_neraca],
       ["RINGKASAN", "", "TOTAL KEWAJIBAN + MODAL", data.kewajiban.total_kewajiban + data.ekuitas.total_ekuitas],
     ];
-    exportToCSV(`neraca-${date}`, headers, rows);
+    await exportToCSV(`neraca-${date}`, headers, rows);
   };
 
   return (

@@ -117,9 +117,16 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
         <span className="text-xl font-light tracking-tight text-foreground">PLK POS</span>
       </div>
 
+      {/*
+        Link sengaja TIDAK memakai prefetch={true}. Prefetch paksa mengambil
+        payload RSC penuh untuk semua link yang terlihat sekaligus, dan itu
+        berebut bandwidth dengan halaman yang sedang dibuka — merugikan pada
+        koneksi lambat. Prefetch bawaan Next (berbasis intent: hover/masuk
+        viewport) sudah cukup cepat dan jauh lebih hemat.
+      */}
       <nav className="flex flex-col gap-1 flex-1 overflow-y-auto pr-2 custom-scrollbar">
         {role !== KASIR_ROLE && (
-          <Link href="/dashboard" className={linkClass("/dashboard")} prefetch={true}>
+          <Link href="/dashboard" className={linkClass("/dashboard")}>
             <LayoutGrid className="w-5 h-5" />
             <span className="text-sm">Ringkasan</span>
             <NavLinkPending />
@@ -128,22 +135,22 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
 
         {role === KASIR_ROLE && (
           <>
-            <Link href="/pos" className={linkClass("/pos")} prefetch={true}>
+            <Link href="/pos" className={linkClass("/pos")}>
               <CircleDollarSign className="w-5 h-5" />
               <span className="text-sm">Penjualan</span>
               <NavLinkPending />
             </Link>
-            <Link href="/dashboard/buka-kasir" className={linkClass("/dashboard/buka-kasir")} prefetch={true}>
+            <Link href="/dashboard/buka-kasir" className={linkClass("/dashboard/buka-kasir")}>
               <Wallet className="w-5 h-5" />
               <span className="text-sm">Buka Kasir</span>
               <NavLinkPending />
             </Link>
-            <Link href="/dashboard/tutup-kasir" className={linkClass("/dashboard/tutup-kasir")} prefetch={true}>
+            <Link href="/dashboard/tutup-kasir" className={linkClass("/dashboard/tutup-kasir")}>
               <Calculator className="w-5 h-5" />
               <span className="text-sm">Tutup Kasir</span>
               <NavLinkPending />
             </Link>
-            <Link href="/dashboard/transactions" className={linkClass("/dashboard/transactions")} prefetch={true}>
+            <Link href="/dashboard/transactions" className={linkClass("/dashboard/transactions")}>
               <Receipt className="w-5 h-5" />
               <span className="text-sm">Riwayat Transaksi</span>
               <NavLinkPending />
@@ -153,25 +160,25 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
 
         {isManagement && (
           <>
-            <Link href="/dashboard/transactions" className={linkClass("/dashboard/transactions")} prefetch={true}>
+            <Link href="/dashboard/transactions" className={linkClass("/dashboard/transactions")}>
               <Receipt className="w-5 h-5" />
               <span className="text-sm">Riwayat Transaksi</span>
               <NavLinkPending />
             </Link>
 
-            <Link href="/dashboard/customers" className={linkClass("/dashboard/customers")} prefetch={true}>
+            <Link href="/dashboard/customers" className={linkClass("/dashboard/customers")}>
               <Users className="w-5 h-5" />
               <span className="text-sm">Pelanggan</span>
               <NavLinkPending />
             </Link>
 
-            <Link href="/dashboard/suppliers" className={linkClass("/dashboard/suppliers")} prefetch={true}>
+            <Link href="/dashboard/suppliers" className={linkClass("/dashboard/suppliers")}>
               <Truck className="w-5 h-5" />
               <span className="text-sm">Supplier</span>
               <NavLinkPending />
             </Link>
 
-            <Link href="/dashboard/po-custom" className={linkClass("/dashboard/po-custom")} prefetch={true}>
+            <Link href="/dashboard/po-custom" className={linkClass("/dashboard/po-custom")}>
               <ClipboardList className="w-5 h-5" />
               <span className="text-sm">PO Custom</span>
               <NavLinkPending />
@@ -196,44 +203,44 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
               </div>
 
               <div className="ml-2 mt-1 flex flex-col gap-0.5 pl-6 border-l border-border/50">
-                <Link href="/dashboard/inventory" className={subLinkClass("/dashboard/inventory")} prefetch={true}>
+                <Link href="/dashboard/inventory" className={subLinkClass("/dashboard/inventory")}>
                   <PackageOpen className="w-4 h-4" />
                   <span>Produk</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/inventory/stock-in" className={subLinkClass("/dashboard/inventory/stock-in")} prefetch={true}>
+                <Link href="/dashboard/inventory/stock-in" className={subLinkClass("/dashboard/inventory/stock-in")}>
                   <PackagePlus className="w-4 h-4" />
                   <span>Barang Masuk</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/inventory/stock-in/history" className={subLinkClass("/dashboard/inventory/stock-in/history")} prefetch={true}>
+                <Link href="/dashboard/inventory/stock-in/history" className={subLinkClass("/dashboard/inventory/stock-in/history")}>
                   <Receipt className="w-4 h-4" />
                   <span>Riwayat Barang Masuk</span>
                   <NavLinkPending />
                 </Link>
                 {isOwner && (
-                  <Link href="/dashboard/inventory/stock-in/tentukan-harga" className={subLinkClass("/dashboard/inventory/stock-in/tentukan-harga")} prefetch={true}>
+                  <Link href="/dashboard/inventory/stock-in/tentukan-harga" className={subLinkClass("/dashboard/inventory/stock-in/tentukan-harga")}>
                     <DollarSign className="w-4 h-4" />
                     <span>Tentukan Harga</span>
                     <NavLinkPending />
                   </Link>
                 )}
-                <Link href="/dashboard/inventory/stock-in/retur" className={subLinkClass("/dashboard/inventory/stock-in/retur")} prefetch={true}>
+                <Link href="/dashboard/inventory/stock-in/retur" className={subLinkClass("/dashboard/inventory/stock-in/retur")}>
                   <RotateCcw className="w-4 h-4" />
                   <span>Retur Barang</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/inventory/stock-in/retur/history" className={subLinkClass("/dashboard/inventory/stock-in/retur/history")} prefetch={true}>
+                <Link href="/dashboard/inventory/stock-in/retur/history" className={subLinkClass("/dashboard/inventory/stock-in/retur/history")}>
                   <Receipt className="w-4 h-4" />
                   <span>Riwayat Retur</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/inventory/stock-opname" className={subLinkClass("/dashboard/inventory/stock-opname")} prefetch={true}>
+                <Link href="/dashboard/inventory/stock-opname" className={subLinkClass("/dashboard/inventory/stock-opname")}>
                   <ClipboardList className="w-4 h-4" />
                   <span>Stok Opname</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/inventory/stock-opname/history" className={subLinkClass("/dashboard/inventory/stock-opname/history")} prefetch={true}>
+                <Link href="/dashboard/inventory/stock-opname/history" className={subLinkClass("/dashboard/inventory/stock-opname/history")}>
                   <Receipt className="w-4 h-4" />
                   <span>Riwayat Opname</span>
                   <NavLinkPending />
@@ -254,13 +261,13 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
               </div>
 
               <div className="ml-2 mt-1 flex flex-col gap-0.5 pl-6 border-l border-border/50">
-                <Link href="/dashboard/reports" className={subLinkClass("/dashboard/reports")} prefetch={true}>
+                <Link href="/dashboard/reports" className={subLinkClass("/dashboard/reports")}>
                   <BarChart3 className="w-4 h-4" />
                   <span>Ringkasan</span>
                   <NavLinkPending />
                 </Link>
                 {isManagement && (
-                  <Link href="/dashboard/laporan/analisis-produk" className={subLinkClass("/dashboard/laporan/analisis-produk")} prefetch={true}>
+                  <Link href="/dashboard/laporan/analisis-produk" className={subLinkClass("/dashboard/laporan/analisis-produk")}>
                     <BarChart3 className="w-4 h-4" />
                     <span>Analisis Produk</span>
                     <NavLinkPending />
@@ -303,7 +310,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
                 Kasir & Keuangan
               </div>
               <div className="flex flex-col gap-1">
-                <Link href="/dashboard/keuangan/kas-admin" className={linkClass("/dashboard/keuangan/kas-admin")} prefetch={true}>
+                <Link href="/dashboard/keuangan/kas-admin" className={linkClass("/dashboard/keuangan/kas-admin")}>
                   <Coins className="w-5 h-5" />
                   <span className="text-sm">Kas Admin</span>
                   <NavLinkPending />
@@ -313,7 +320,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
                   <span className="text-sm">Riwayat Kas Harian</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/keuangan/pengeluaran" className={linkClass("/dashboard/keuangan/pengeluaran")} prefetch={true}>
+                <Link href="/dashboard/keuangan/pengeluaran" className={linkClass("/dashboard/keuangan/pengeluaran")}>
                   <Wallet className="w-5 h-5" />
                   <span className="text-sm">Pengeluaran</span>
                   <NavLinkPending />
@@ -333,22 +340,22 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
                 Tools
               </div>
               <div className="flex flex-col gap-1">
-                <Link href="/dashboard/label-generator" className={linkClass("/dashboard/label-generator")} prefetch={true}>
+                <Link href="/dashboard/label-generator" className={linkClass("/dashboard/label-generator")}>
                   <Tag className="w-5 h-5" />
                   <span className="text-sm">Pricetag Generator</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/product-label" className={linkClass("/dashboard/product-label")} prefetch={true}>
+                <Link href="/dashboard/product-label" className={linkClass("/dashboard/product-label")}>
                   <Printer className="w-5 h-5" />
                   <span className="text-sm">Cetak Label Produk</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/event-promo" className={linkClass("/dashboard/event-promo")} prefetch={true}>
+                <Link href="/dashboard/event-promo" className={linkClass("/dashboard/event-promo")}>
                   <Tag className="w-5 h-5" />
                   <span className="text-sm">Event Promo</span>
                   <NavLinkPending />
                 </Link>
-                <Link href="/dashboard/log-aktivitas" className={linkClass("/dashboard/log-aktivitas")} prefetch={true}>
+                <Link href="/dashboard/log-aktivitas" className={linkClass("/dashboard/log-aktivitas")}>
                   <History className="w-5 h-5" />
                   <span className="text-sm">Log Aktivitas</span>
                   <NavLinkPending />
@@ -365,17 +372,17 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
               Absensi Saya
             </div>
             <div className="flex flex-col gap-1">
-              <Link href="/dashboard/attendance/scan" className={linkClass("/dashboard/attendance/scan")} prefetch={true}>
+              <Link href="/dashboard/attendance/scan" className={linkClass("/dashboard/attendance/scan")}>
                 <Camera className="w-5 h-5" />
                 <span className="text-sm">Scan QR Absensi</span>
                 <NavLinkPending />
               </Link>
-              <Link href="/dashboard/attendance/history" className={linkClass("/dashboard/attendance/history")} prefetch={true}>
+              <Link href="/dashboard/attendance/history" className={linkClass("/dashboard/attendance/history")}>
                 <UserCheck className="w-5 h-5" />
                 <span className="text-sm">Riwayat Absen</span>
                 <NavLinkPending />
               </Link>
-              <Link href="/dashboard/jadwal-saya" className={linkClass("/dashboard/jadwal-saya")} prefetch={true}>
+              <Link href="/dashboard/jadwal-saya" className={linkClass("/dashboard/jadwal-saya")}>
                 <CalendarDays className="w-5 h-5" />
                 <span className="text-sm">Jadwal Saya</span>
                 <NavLinkPending />
@@ -391,22 +398,22 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
               Manajemen Absensi
             </div>
             <div className="flex flex-col gap-1">
-              <Link href="/dashboard/attendance/generate-qr" className={linkClass("/dashboard/attendance/generate-qr")} prefetch={true}>
+              <Link href="/dashboard/attendance/generate-qr" className={linkClass("/dashboard/attendance/generate-qr")}>
                 <QrCode className="w-5 h-5" />
                 <span className="text-sm">Generate QR</span>
                 <NavLinkPending />
               </Link>
-              <Link href="/dashboard/attendance/manual" className={linkClass("/dashboard/attendance/manual")} prefetch={true}>
+              <Link href="/dashboard/attendance/manual" className={linkClass("/dashboard/attendance/manual")}>
                 <ClipboardCheck className="w-5 h-5" />
                 <span className="text-sm">Absen Manual</span>
                 <NavLinkPending />
               </Link>
-              <Link href="/dashboard/attendance/report" className={linkClass("/dashboard/attendance/report")} prefetch={true}>
+              <Link href="/dashboard/attendance/report" className={linkClass("/dashboard/attendance/report")}>
                 <UserCheck className="w-5 h-5" />
                 <span className="text-sm">Laporan Pegawai</span>
                 <NavLinkPending />
               </Link>
-              <Link href="/dashboard/jadwal-karyawan" className={linkClass("/dashboard/jadwal-karyawan")} prefetch={true}>
+              <Link href="/dashboard/jadwal-karyawan" className={linkClass("/dashboard/jadwal-karyawan")}>
                 <CalendarDays className="w-5 h-5" />
                 <span className="text-sm">Jadwal Karyawan</span>
                 <NavLinkPending />
@@ -429,7 +436,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
           {!isAttendanceOnly && role !== KASIR_ROLE && bottomLinks
             .filter((link) => isOwner || link.href !== "/dashboard/settings/keuangan")
             .map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href} className={linkClass(href)} prefetch={true}>
+            <Link key={href} href={href} className={linkClass(href)}>
               <Icon className="w-5 h-5" />
               <span className="text-sm">{label}</span>
               <NavLinkPending />

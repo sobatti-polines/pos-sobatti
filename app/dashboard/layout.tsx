@@ -1,6 +1,6 @@
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardMobileNav } from "@/components/dashboard-mobile-nav";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase, getSessionUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({
@@ -8,8 +8,9 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Auth di-dedupe per request: layout, page, dan lib/ tidak lagi memanggil
+  // supabase.auth.getUser() masing-masing.
+  const user = await getSessionUser();
 
   if (!user) {
     redirect("/");
@@ -21,6 +22,7 @@ export default async function DashboardLayout({
   // Ambil nama lengkap dari tabel pengguna untuk ditampilkan di sidebar
   let userName: string | null = null;
   if (username) {
+    const supabase = await getServerSupabase();
     const { data: pengguna } = await supabase
       .from("pengguna")
       .select("nama")

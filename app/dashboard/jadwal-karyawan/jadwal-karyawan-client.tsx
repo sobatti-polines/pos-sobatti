@@ -2,9 +2,12 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+// PENTING — jangan ubah menjadi static import.
+//
+// jsPDF + jspdf-autotable (±330 KB) dan xlsx (±480 KB) hanya dipakai saat
+// tombol Export ditekan, tetapi static import membuat ±810 KB ikut terunduh
+// setiap kali halaman Jadwal Karyawan dibuka. Keduanya dimuat dinamis di dalam
+// fungsi export di bawah, sehingga tanda tangannya kini async.
 import {
   AlertTriangle,
   Check,
@@ -189,7 +192,7 @@ function shiftLabel(value: CellValue): string {
   return "-";
 }
 
-function exportSchedulePDF(
+async function exportSchedulePDF(
   weekStart: string,
   weekEnd: string,
   employees: EmployeeOption[],
@@ -200,6 +203,12 @@ function exportSchedulePDF(
   kebutuhanSore: string,
   catatanSeragam?: Record<string, string> | null,
 ) {
+  // Muat library hanya saat benar-benar dipakai (lihat komentar import).
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+
   const pagiShift = shifts.find((s) => s.kode === "PAGI");
   const soreShift = shifts.find((s) => s.kode === "SORE");
   const fullShift = shifts.find((s) => s.kode === "FULL");
@@ -354,7 +363,7 @@ function exportSchedulePDF(
   doc.save(`jadwal-karyawan-${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${String(now.getFullYear()).slice(-2)}.pdf`);
 }
 
-function exportScheduleExcel(
+async function exportScheduleExcel(
   weekStart: string,
   weekEnd: string,
   employees: EmployeeOption[],
@@ -365,6 +374,9 @@ function exportScheduleExcel(
   kebutuhanSore: string,
   catatanSeragam?: Record<string, string> | null,
 ) {
+  // Muat library hanya saat benar-benar dipakai (lihat komentar import).
+  const XLSX = await import("xlsx");
+
   const pagiShift = shifts.find((s) => s.kode === "PAGI");
   const soreShift = shifts.find((s) => s.kode === "SORE");
   const fullShift = shifts.find((s) => s.kode === "FULL");
@@ -771,21 +783,25 @@ export default function JadwalKaryawanClient({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem
-                  onClick={() => exportSchedulePDF(
-                    weekStart, weekEnd, employees, weekDates,
-                    schedule, shifts, kebutuhanPagi, kebutuhanSore,
-                    catatanSeragam
-                  )}
+                  onClick={async () => {
+                    await exportSchedulePDF(
+                      weekStart, weekEnd, employees, weekDates,
+                      schedule, shifts, kebutuhanPagi, kebutuhanSore,
+                      catatanSeragam
+                    );
+                  }}
                 >
                   <FileDown className="mr-2 h-4 w-4" />
                   PDF
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => exportScheduleExcel(
-                    weekStart, weekEnd, employees, weekDates,
-                    schedule, shifts, kebutuhanPagi, kebutuhanSore,
-                    catatanSeragam
-                  )}
+                  onClick={async () => {
+                    await exportScheduleExcel(
+                      weekStart, weekEnd, employees, weekDates,
+                      schedule, shifts, kebutuhanPagi, kebutuhanSore,
+                      catatanSeragam
+                    );
+                  }}
                 >
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
                   Excel

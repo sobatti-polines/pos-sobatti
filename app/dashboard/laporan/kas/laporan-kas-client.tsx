@@ -74,7 +74,7 @@ export default function LaporanKasClient({
     setLoading(false);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!data) return;
     const headers = ["Tanggal", "Keterangan", "Sumber", "Masuk", "Keluar", "Saldo Setelah", "Oleh"];
     const rows: Array<Array<string | number | null>> = [];
@@ -105,7 +105,7 @@ export default function LaporanKasClient({
       ]);
     }
 
-    exportToCSV(`laporan-kas-${start}-to-${end}`, headers, rows);
+    await exportToCSV(`laporan-kas-${start}-to-${end}`, headers, rows);
   };
 
   const ring = data?.ringkasan;

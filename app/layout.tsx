@@ -41,27 +41,16 @@ export default function RootLayout({
       className={cn("h-full", "antialiased", interSans.variable)}
     >
       <head>
+        {/* Preconnect ke Supabase: origin data utama aplikasi dan sudah
+            dipakai sejak render pertama, jadi koneksinya layak dipanaskan. */}
         <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL!} />
-        <link
-          rel="preload"
-          href="/icon-192x192.png"
-          as="image"
-          type="image/png"
-        />
-        <script
-          type="speculationrules"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              prerender: [
-                {
-                  source: "document",
-                  where: { href_matches: "/pos" },
-                  eagerness: "moderate",
-                },
-              ],
-            }),
-          }}
-        />
+        {/*
+          Sengaja TIDAK ada preload ikon aplikasi dan TIDAK ada prerender
+          spekulatif ke /pos di sini. Ikon aplikasi bukan resource kritis, dan
+          prerender /pos selalu memakan bandwidth halaman yang sedang dibuka
+          (termasuk halaman login) untuk rute yang belum tentu dikunjungi —
+          justru merugikan pada koneksi lambat/terbatas.
+        */}
       </head>
       <body className="min-h-full flex flex-col md:overflow-hidden">{children}</body>
     </html>

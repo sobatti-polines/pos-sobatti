@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
-import { NotFoundException, DecodeHintType, BarcodeFormat } from "@zxing/library";
+// PENTING — jangan ubah menjadi static import.
+//
+// @zxing/browser + @zxing/library menghasilkan chunk ±468 KB (terukur dari
+// build: chunk 5289-*.js) dan hanya dipakai SETELAH pengguna menekan "Buka
+// Kamera". Saat diimpor statis, seluruh decoder ini ikut terunduh begitu
+// halaman absensi dibuka — di jaringan lambat itu menunda halaman tampil
+// sebelum pengguna melakukan apa pun.
+//
+// `import type` di bawah tidak menambah bundel sama sekali: TypeScript
+// menghapusnya saat kompilasi, jadi hanya dipakai untuk tipe `useRef`.
+import type { BrowserMultiFormatReader } from "@zxing/browser";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Camera, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
@@ -14,6 +23,9 @@ export default function AttendanceScanPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Modul @zxing/browser yang sudah dimuat dinamis. Dipakai untuk memanggil
+  // static `releaseAllStreams()` dari stopCamera() dan cleanup unmount.
+  const zxingBrowserRef = useRef<typeof import("@zxing/browser") | null>(null);
   const [status, setStatus] = useState<ScanStatus>("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [successMsg, setSuccessMsg] = useState<string>("");
@@ -21,7 +33,7 @@ export default function AttendanceScanPage() {
 
   const stopCamera = useCallback(() => {
     if (readerRef.current) {
-      BrowserMultiFormatReader.releaseAllStreams();
+      zxingBrowserRef.current?.BrowserMultiFormatReader.releaseAllStreams();
       readerRef.current = null;
     }
     if (streamRef.current) {
@@ -133,21 +145,29 @@ export default function AttendanceScanPage() {
       video.srcObject = stream;
       await video.play();
 
-      // 3. Configure ZXing reader with QR_CODE format
-      const hints = new Map();
-      hints.set(DecodeHintType.TRY_HARDER, true);
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
+      // 3. Muat decoder ZXing secara dinamis — hanya saat kamera benar-benar
+      //    dipakai. Rincian di komentar import di atas.
+      const [zxingBrowser, zxingLibrary] = await Promise.all([
+        import("@zxing/browser"),
+        import("@zxing/library"),
+      ]);
+      zxingBrowserRef.current = zxingBrowser;
 
-      const reader = new BrowserMultiFormatReader(hints);
+      // 4. Configure ZXing reader with QR_CODE format
+      const hints = new Map();
+      hints.set(zxingLibrary.DecodeHintType.TRY_HARDER, true);
+      hints.set(zxingLibrary.DecodeHintType.POSSIBLE_FORMATS, [zxingLibrary.BarcodeFormat.QR_CODE]);
+
+      const reader = new zxingBrowser.BrowserMultiFormatReader(hints);
       readerRef.current = reader;
 
-      // 4. Start continuous decoding from the already-playing stream
+      // 5. Start continuous decoding from the already-playing stream
       reader.decodeFromStream(stream, video, (result, err) => {
         if (result) {
           // Stop scanning immediately on successful decode
           stopCamera();
           handleScan(result.getText());
-        } else if (err && !(err instanceof NotFoundException)) {
+        } else if (err && !(err instanceof zxingLibrary.NotFoundException)) {
           // NotFoundException fires every frame when no QR visible — ignore
           console.warn("[qr-scanner]", err);
         }
@@ -176,7 +196,8 @@ export default function AttendanceScanPage() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      BrowserMultiFormatReader.releaseAllStreams();
+      // Aman dipanggil walau modul belum pernah dimuat (opsional chaining).
+      zxingBrowserRef.current?.BrowserMultiFormatReader.releaseAllStreams();
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);

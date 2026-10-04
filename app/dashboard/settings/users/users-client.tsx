@@ -122,7 +122,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
 
   const roleOptions = [...USER_MANAGED_ROLES];
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     // Header SAMA dengan template import pengguna agar bisa round-trip.
     // Kolom Password dikosongkan: password asli tersimpan ter-hash di Supabase Auth
     // (kolom pengguna.password = "auth-managed") sehingga TIDAK bisa diexport.
@@ -134,10 +134,10 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
       user.level,
       user.aktif ? "Aktif" : "Nonaktif"
     ]);
-    exportToCSV("Data_Pengguna", headers, data);
+    await exportToCSV("Data_Pengguna", headers, data);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const headers = ["Nama", "Username", "Level", "Status", "Tanggal Dibuat"];
     const data = filteredData.map(user => [
       user.nama || user.username,
@@ -146,7 +146,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
       user.aktif ? "Aktif" : "Nonaktif",
       new Date(user.created_at).toLocaleString()
     ]);
-    exportToPDF("Data_Pengguna", "Laporan Data Pengguna", headers, data);
+    await exportToPDF("Data_Pengguna", "Laporan Data Pengguna", headers, data);
   };
 
   const columns: Column<User>[] = [

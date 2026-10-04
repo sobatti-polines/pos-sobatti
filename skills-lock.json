@@ -1,6 +1,24 @@
 {
   "version": 1,
   "skills": {
+    "accelint-nextjs-best-practices": {
+      "source": "gohypergiant/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/accelint-nextjs-best-practices/SKILL.md",
+      "computedHash": "cf62a8806d0ca8e67c2be330b9b3e3c675ec6c67acc759dd9816d60855e8cc2b"
+    },
+    "accelint-tanstack-query-best-practices": {
+      "source": "gohypergiant/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/accelint-tanstack-query-best-practices/SKILL.md",
+      "computedHash": "125dc5ced24684d22a71f6cc835ac9c1434511a881152759ab46045210d81f30"
+    },
+    "add-pwa": {
+      "source": "mattwoodco/skills",
+      "sourceType": "github",
+      "skillPath": "skills/add-pwa/SKILL.md",
+      "computedHash": "9cf17238f850634ec227f95f8ca21b007375bdd958ab58e8f5c5effca23b76f4"
+    },
     "create-readme": {
       "source": "github/awesome-copilot",
       "sourceType": "github",
@@ -19,11 +37,17 @@
       "skillPath": "skill/SKILL.md",
       "computedHash": "ada9c434d56c794352ccd5c7a6901e5ebb4b7f3b7fe42e8c17c2c4b96c3735c8"
     },
+    "nextjs": {
+      "source": "pymodel/react-frontend-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nextjs/SKILL.md",
+      "computedHash": "92ec10ddef26c3722acd05afb2255a3c4b5482d4e10631df7da08849f4f84e76"
+    },
     "performance": {
       "source": "addyosmani/web-quality-skills",
       "sourceType": "github",
       "skillPath": "skills/performance/SKILL.md",
-      "computedHash": "38e9a28b0a5ce04a9e3bd6e9cfb2e52e4012f0e93d763eb863b15218a7abccd6"
+      "computedHash": "ce9d36f139a1b2a6a8ac2cb222698963b8076d2dd8b41685e8e8ae589cdcf1e4"
     },
     "security-review": {
       "source": "getsentry/skills",

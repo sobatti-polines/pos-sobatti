@@ -98,7 +98,7 @@ export default function LaporanStokOpnameClient({
     setLoading(false);
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (!data) return;
     const headers = ["Bulan", "Sesi", "Item", "Selisih", "Defisit (Rp)", "Surplus (Rp)", "Shrinkage %"];
     const rows = data.bulanan.map((b) => [
@@ -110,10 +110,10 @@ export default function LaporanStokOpnameClient({
       b.surplus,
       `${b.shrinkage.toFixed(1)}%`,
     ]);
-    exportToCSV(`Laporan_Stok_Opname_${new Date().toISOString().split("T")[0]}`, headers, rows);
+    await exportToCSV(`Laporan_Stok_Opname_${new Date().toISOString().split("T")[0]}`, headers, rows);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (!data) return;
     const headers = ["Bulan", "Sesi", "Item", "Selisih", "Defisit (Rp)", "Surplus (Rp)", "Shrinkage %"];
     const rows = data.bulanan.map((b) => [
@@ -125,7 +125,7 @@ export default function LaporanStokOpnameClient({
       b.surplus,
       `${b.shrinkage.toFixed(1)}%`,
     ]);
-    exportToPDF(
+    await exportToPDF(
       `Laporan_Stok_Opname_${new Date().toISOString().split("T")[0]}`,
       "Laporan Stok Opname",
       headers,

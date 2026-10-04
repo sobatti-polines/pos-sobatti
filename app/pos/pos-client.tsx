@@ -17,6 +17,7 @@ import {
   Check,
   ChevronDown,
   Receipt,
+  RefreshCw,
   Smartphone,
   Wifi,
   WifiOff,
@@ -50,6 +51,13 @@ import {
 import { usePosStore, type Customer, type Product } from "@/stores/pos-store";
 import { LowStockBanner } from "@/components/low-stock-banner";
 import { Highlight } from "@/components/highlight";
+import {
+  applyPromoToProducts,
+  toEffectivePriceMap,
+  type EffectivePrice,
+} from "@/lib/promo";
+// Tipe saja — lib/pos-data.ts adalah modul server, tidak ikut ke bundel klien.
+import type { PosBootstrapData } from "@/lib/pos-data";
 
 // Pertahankan harga besar manual dari database; hitung otomatis hanya sebagai
 // fallback untuk data lama yang masih NULL/0.
@@ -74,6 +82,32 @@ function normalizeBigPrices(p: Product): Product {
     harga_jual_besar_grosir: null,
     harga_jual_besar_promo: null,
   };
+}
+
+/**
+ * Ambil harga efektif promo untuk sekumpulan produk, dipakai saat hasil
+ * pencarian server perlu ditimpa harga promo-nya. Mengembalikan map kosong
+ * bila tidak ada promo / permintaan gagal, sehingga pemanggil tidak perlu
+ * menangani error.
+ */
+async function fetchEffectivePrices(
+  products: { id: number }[]
+): Promise<Map<number, EffectivePrice>> {
+  const ids = products.map((p) => p.id);
+  if (ids.length === 0) return new Map();
+
+  try {
+    const res = await fetch("/api/event-promo/efektif", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_produk: ids }),
+    });
+    if (!res.ok) return new Map();
+    const list: EffectivePrice[] = await res.json();
+    return toEffectivePriceMap(list);
+  } catch {
+    return new Map();
+  }
 }
 
 function formatIDR(n: number) {
@@ -114,10 +148,17 @@ interface ScannedStockProduct {
   satuan?: { nama?: string } | null;
 }
 
-export function PosClient() {
+export function PosClient({ initialData }: { initialData: PosBootstrapData }) {
   const router = useRouter();
   const supabase = createClient();
-  const [cashier, setCashier] = useState<{ name: string; username: string } | null>(null);
+  // Nama kasir ikut di payload server, jadi tidak perlu query `pengguna` dari
+  // browser lagi. Nilainya identik antara render server dan klien, sehingga
+  // tidak ada risiko hydration mismatch. Tidak perlu state: nilainya tetap
+  // selama halaman POS hidup.
+  const cashier = {
+    name: initialData.cashierName,
+    username: initialData.cashierUsername,
+  };
 
   const [editingPriceItem, setEditingPriceItem] = useState<{id_produk: number, satuan_jual: string | null} | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>("");
@@ -160,33 +201,18 @@ export function PosClient() {
   const clearCart = usePosStore((s) => s.clearCart);
 
   // ── User state ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const username = user.user_metadata?.username || user.email?.split("@")[0] || "Cashier";
-        
-        // Fetch detailed name from pengguna table
-        const { data: pengguna } = await supabase
-          .from("pengguna")
-          .select("nama")
-          .eq("username", username)
-          .maybeSingle();
-        
-        setCashier({
-          name: pengguna?.nama || username,
-          username: username
-        });
-      }
-    };
-    fetchUser();
-  }, [supabase]);
+  // Identitas kasir + nama tampilannya sudah tersedia dari server (lihat
+  // deklarasi `cashier` di atas). Dulu di sini ada `auth.getUser()`
+  // ditambah query ke tabel `pengguna` — dua round-trip tambahan dari browser
+  // hanya untuk menampilkan nama di pojok layar.
 
-  const [taxRate, setTaxRate] = useState(0);
+  // Pengaturan toko juga ikut payload server; nilainya tetap selama sesi POS
+  // berjalan, jadi tidak perlu state maupun setter.
+  const taxRate = initialData.settings.taxRate;
   const [printUrl, setPrintUrl] = useState<string | null>(null);
   const [printIframeOpen, setPrintIframeOpen] = useState(false);
-  const [jenisNota, setJenisNota] = useState("Invoice");
-  const [metodeCetak, setMetodeCetak] = useState("Preview");
+  const jenisNota = initialData.settings.jenisNota;
+  const metodeCetak = initialData.settings.metodeCetak;
 
   // ── Server-side search state ─────────────────────────────────────────────
   const [serverSearch, setServerSearch] = useState<{ q: string; data: Product[] } | null>(null);
@@ -287,8 +313,11 @@ export function PosClient() {
       // Look up product
       const res = await fetch(`/api/pos/barcode?code=${encodeURIComponent(barcode)}`);
       if (res.ok) {
-        const { product } = await res.json();
+        const { product, duplicated } = await res.json();
         if (product) {
+          if (duplicated) {
+            pushToast("Barcode terdaftar di lebih dari satu produk, periksa data master", false);
+          }
           const normalized = normalizeBigPrices(product);
           if (stockCheckOpenRef.current) {
             setScannedStockProduct(normalized);
@@ -329,65 +358,51 @@ export function PosClient() {
     generateQr();
   }, [scannerOpen, sessionId, qrDataUrl]);
 
+  // ── Seed data awal dari server ─────────────────────────────────────────────
+  // `initialData` dikirim oleh app/pos/page.tsx sebagai satu payload Server
+  // Component. Dulu blok ini yang mengambil semuanya dari browser: produk,
+  // pelanggan, metode bayar, pengaturan, lalu harga promo (yang harus menunggu
+  // daftar produk selesai lebih dulu). Sekarang tidak ada permintaan jaringan
+  // sama sekali di sini — hanya mengisi store Zustand dari data yang sudah ada.
+  const seededRef = useRef(false);
   useEffect(() => {
-    const load = async () => {
-      const [prodRes, custRes, pmRes, settingsRes] = await Promise.all([
-        fetch("/api/pos/products"),
-        fetch("/api/pos/customers"),
-        fetch("/api/pos/payment-methods"),
-        supabase.from("pengaturan").select("pajak_persen, jenis_nota, metode_cetak").eq("id", 1).single()
-      ]);
-      const prodJson = await prodRes.json();
-      let data = prodJson.data ?? prodJson ?? [];
-      
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pIds = data.map((p: any) => p.id);
-      if (pIds.length > 0) {
-        try {
-          const res = await fetch("/api/event-promo/efektif", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_produk: pIds })
-          });
-          if (res.ok) {
-            const promo = await res.json();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const promoMap = new Map<number, any>(promo.map((p: any) => [p.id_produk, p]));
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            data = data.map((p: any) => {
-              const pr = promoMap.get(p.id);
-              if (pr && pr.id_event_promo) {
-                return {
-                  ...p,
-                  harga_asli_satuan: p.harga_jual_satuan,
-                  harga_asli_besar_satuan: p.harga_jual_besar_satuan,
-                  harga_jual_satuan: pr.harga_jual_satuan,
-                  harga_jual_grosir: pr.harga_jual_grosir,
-                  harga_jual_promo: pr.harga_jual_promo,
-                  harga_jual_besar_satuan: pr.harga_jual_besar_satuan,
-                  harga_jual_besar_grosir: pr.harga_jual_besar_grosir,
-                  harga_jual_besar_promo: pr.harga_jual_besar_promo,
-                  nama_event_promo: pr.nama_event
-                };
-              }
-              return p;
-            });
-          }
-        } catch (e) {
-          console.error("Failed to fetch promo", e);
-        }
+    // Seeding cukup sekali walau komponen re-render.
+    if (seededRef.current) return;
+    seededRef.current = true;
+
+    setProducts(initialData.products.map(normalizeBigPrices));
+    setCustomers(initialData.customers);
+    setPaymentMethods(initialData.paymentMethods);
+  }, [initialData, setProducts, setCustomers, setPaymentMethods]);
+
+  // ── Muat ulang katalog dari server ─────────────────────────────────────────
+  // Katalog di-seed sekali dari initialData saat halaman dibuka. Produk yang
+  // diinput owner SETELAH halaman POS terbuka tidak ikut masuk sampai halaman
+  // dimuat ulang — tombol ini menarik ulang daftar produk tanpa menghapus isi
+  // keranjang.
+  const [catalogRefreshing, setCatalogRefreshing] = useState(false);
+  const refreshCatalog = useCallback(async () => {
+    if (catalogRefreshing) return;
+    setCatalogRefreshing(true);
+    try {
+      const res = await fetch("/api/pos/products", { cache: "no-store" });
+      if (!res.ok) {
+        pushToast("Gagal memuat ulang katalog", false);
+        return;
       }
-      setProducts(data.map(normalizeBigPrices));
-      setCustomers(await custRes.json());
-      setPaymentMethods(await pmRes.json());
-      
-      if (settingsRes.data) {
-        setTaxRate(settingsRes.data.pajak_persen || 0);
-        setJenisNota(settingsRes.data.jenis_nota || "Invoice");
-        setMetodeCetak(settingsRes.data.metode_cetak || "Preview");
-      }
-    };
-    load();
-  }, [setProducts, setCustomers, setPaymentMethods, supabase]);
+      const json = await res.json();
+      const rows = (json.data ?? []) as Product[];
+      // Harga promo diterapkan dengan helper yang sama seperti bootstrap &
+      // pencarian server supaya harga selalu konsisten antar jalur.
+      const withPromo = applyPromoToProducts(rows, await fetchEffectivePrices(rows));
+      setProducts(withPromo.map(normalizeBigPrices));
+      pushToast(`Katalog diperbarui (${rows.length} produk)`, true);
+    } catch {
+      pushToast("Gagal memuat ulang katalog", false);
+    } finally {
+      setCatalogRefreshing(false);
+    }
+  }, [catalogRefreshing, setProducts, pushToast]);
 
   // ── Debounced server-side search ──────────────────────────────────────────
   // Pencarian lokal hanya menjangkau 500 produk pertama yang dimuat. Untuk
@@ -402,45 +417,20 @@ export function PosClient() {
         const res = await fetch(`/api/pos/products?search=${encodeURIComponent(q)}`, {
           signal: controller.signal,
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          // Jangan senyap: bila pencarian server gagal (mis. koneksi terputus),
+          // kasir harus tahu — bukan mengira produknya memang tidak ada.
+          pushToast("Pencarian server gagal, coba lagi", false);
+          return;
+        }
         const json = await res.json();
         let sdata = json.data ?? [];
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const spIds = sdata.map((p: any) => p.id);
-        if (spIds.length > 0) {
-          try {
-            const pres = await fetch("/api/event-promo/efektif", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id_produk: spIds })
-            });
-            if (pres.ok) {
-              const promo = await pres.json();
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const promoMap = new Map<number, any>(promo.map((p: any) => [p.id_produk, p]));
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              sdata = sdata.map((p: any) => {
-                const pr = promoMap.get(p.id);
-                if (pr && pr.id_event_promo) {
-                  return {
-                    ...p,
-                    harga_asli_satuan: p.harga_jual_satuan,
-                    harga_asli_besar_satuan: p.harga_jual_besar_satuan,
-                    harga_jual_satuan: pr.harga_jual_satuan,
-                    harga_jual_grosir: pr.harga_jual_grosir,
-                    harga_jual_promo: pr.harga_jual_promo,
-                    harga_jual_besar_satuan: pr.harga_jual_besar_satuan,
-                    harga_jual_besar_grosir: pr.harga_jual_besar_grosir,
-                    harga_jual_besar_promo: pr.harga_jual_besar_promo,
-                    nama_event_promo: pr.nama_event
-                  };
-                }
-                return p;
-              });
-            }
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          } catch (e) {}
-        }
+        // Harga promo diterapkan lewat helper bersama (lib/promo.ts) agar aturan
+        // harga identik dengan bootstrap server. Helper mengembalikan map kosong
+        // bila tidak ada promo atau permintaan gagal, jadi hasil pencarian tetap
+        // bisa ditampilkan apa adanya.
+        sdata = applyPromoToProducts(sdata, await fetchEffectivePrices(sdata));
 
         setServerSearch({ q, data: sdata.map(normalizeBigPrices) });
       } catch (err) {
@@ -455,7 +445,7 @@ export function PosClient() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [searchQuery]);
+  }, [searchQuery, pushToast]);
 
   const barcodeBufferRef = useRef<string>("");
   const lastKeyTimeRef = useRef<number>(0);
@@ -483,8 +473,13 @@ export function PosClient() {
             // Produk mungkin berada di luar 500 pertama yang dimuat di memori
             const res = await fetch(`/api/pos/barcode?code=${encodeURIComponent(barcode)}`);
             if (res.ok) {
-              const { product: serverProduct } = await res.json();
-              if (serverProduct) product = normalizeBigPrices(serverProduct);
+              const { product: serverProduct, duplicated } = await res.json();
+              if (serverProduct) {
+                product = normalizeBigPrices(serverProduct);
+                if (duplicated) {
+                  pushToast("Barcode terdaftar di lebih dari satu produk, periksa data master", false);
+                }
+              }
             }
           }
           if (product) {
@@ -725,7 +720,7 @@ export function PosClient() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setSearchOpen(true)}
-              onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
+              onBlur={() => setTimeout(() => setSearchOpen(false), 250)}
               autoFocus
             />
             {searchQuery && (
@@ -853,6 +848,16 @@ export function PosClient() {
           >
             <PackageSearch className="w-4 h-4" />
             Cek Stok
+          </button>
+          <button
+            type="button"
+            onClick={refreshCatalog}
+            disabled={catalogRefreshing}
+            className="flex items-center gap-2 h-10 px-4 rounded-full border border-border bg-background hover:bg-muted/40 transition-colors text-sm font-medium text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Tarik ulang daftar produk terbaru dari server"
+          >
+            <RefreshCw className={`w-4 h-4 ${catalogRefreshing ? "animate-spin" : ""}`} />
+            Muat Ulang
           </button>
           <button
             type="button"

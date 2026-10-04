@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { headers } from "next/headers";
@@ -8,8 +8,7 @@ export default async function PosLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   if (!user) {
     redirect("/");

@@ -41,7 +41,7 @@ export default function LabaRugiClient({ initialData, store }: { initialData: an
     setLoading(false);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!data) return;
     const headers = ["Kategori", "Item", "Jumlah"];
     const rows: Array<[string, string, number]> = [
@@ -71,7 +71,7 @@ export default function LabaRugiClient({ initialData, store }: { initialData: an
     }
 
     rows.push(["HASIL", "Laba / Rugi Bersih", data.hasil.laba_bersih]);
-    exportToCSV(`laba-rugi-${start}-to-${end}`, headers, rows);
+    await exportToCSV(`laba-rugi-${start}-to-${end}`, headers, rows);
   };
 
   return (

@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition, useDeferredValue, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Plus, PackageOpen, PackagePlus, X, AlertCircle, Check, Loader2, Edit2, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Upload, ChevronsUpDown, Search, Percent } from "lucide-react";
+import { Plus, PackageOpen, PackagePlus, X, AlertCircle, Check, Loader2, Edit2, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Upload, ChevronsUpDown, Search, Percent, Wand2 } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef, type DeleteModalConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { TableCell, TableRow } from "@/components/ui/table";
-import { addProduct, updateProduct, deleteProduct, deleteProducts, forceDeleteProduct, restockDisplay, moveToWarehouse, importProducts, isiStokPaket, previewBulkPriceAdjustment, applyBulkPriceAdjustment } from "./actions";
+import { addProduct, updateProduct, deleteProduct, deleteProducts, forceDeleteProduct, restockDisplay, moveToWarehouse, importProducts, isiStokPaket, previewBulkPriceAdjustment, applyBulkPriceAdjustment, generateSkuBarcode } from "./actions";
 import type { BulkPriceAdjustmentInput, BulkPriceAdjustmentResult } from "./actions";
 import { exportToCSV, exportToPDF } from "@/lib/export-utils";
 import ProductDetailSheet from "@/components/product-detail-sheet";
@@ -280,6 +280,7 @@ export default function InventoryClient({
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleteIds, setBulkDeleteIds] = useState<number[] | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isGenKode, setIsGenKode] = useState(false);
 
   const [displayModal, setDisplayModal] = useState<{ open: boolean; product: Product | null; qty: string; error: string }>({
     open: false, product: null, qty: "1", error: "",
@@ -523,6 +524,35 @@ export default function InventoryClient({
 
   const handleCancelInline = () => { setEditingId(null); setEditForm({}); setIsPaket(false); setErrorMsg(""); };
 
+  // Generate SKU & Barcode otomatis via server (aturan keunikan sama dengan
+  // generateAllSkuBarcode): hasil mengisi kolom form, tidak langsung ke database.
+  const handleGenerateKode = () => {
+    if (isGenKode) return;
+    if (!editForm.nama_produk?.trim()) {
+      setErrorMsg("Isi nama produk terlebih dahulu sebelum generate kode.");
+      return;
+    }
+    setErrorMsg("");
+    setIsGenKode(true);
+    generateSkuBarcode({
+      nama_produk: editForm.nama_produk,
+      id_merk: editForm.id_merk ?? null,
+    })
+      .then((res) => {
+        if (res.error) {
+          setErrorMsg(res.error);
+          return;
+        }
+        setEditForm((prev) => ({
+          ...prev,
+          sku: res.sku ?? prev.sku,
+          barcode: res.barcode ?? prev.barcode,
+        }));
+      })
+      .catch(() => setErrorMsg("Gagal generate kode. Coba lagi."))
+      .finally(() => setIsGenKode(false));
+  };
+
   
   const handleForceDelete = async () => {
     if (!deleteTarget?.id) return;
@@ -660,7 +690,7 @@ export default function InventoryClient({
     return Math.round(Number(p.harga_jual_satuan || 0) * Number(p.conversion_ratio || 1));
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     // Header SAMA dengan template import produk (ImportCSVModal) agar file export
     // bisa langsung dipakai untuk import ulang (round-trip). Kolom yang dihitung
     // sistem (HPP/Total Aset/Harga Besar) diletakkan di akhir & diabaikan saat import.
@@ -733,10 +763,10 @@ export default function InventoryClient({
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     const filename = `plk-produk-${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${String(now.getFullYear()).slice(-2)}(${pad(now.getHours())}-${pad(now.getMinutes())})`;
-    exportToCSV(filename, headers, data);
+    await exportToCSV(filename, headers, data);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const allHeaders = ["SKU", "Barcode", "Item", "Kategori", "Lokasi", "Stok Display", "Stok Gudang", "Harga Modal", "HPP (AVCO)", "Total Aset", "Harga Retail", "Harga Grosir", "Harga Promo", "Harga Besar"];
     const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![7, 8, 9, 11, 12].includes(i));
     const data = filteredData.map(p => {
@@ -754,7 +784,7 @@ export default function InventoryClient({
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     const filename = `plk-produk-${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${String(now.getFullYear()).slice(-2)}(${pad(now.getHours())}-${pad(now.getMinutes())})`;
-    exportToPDF(filename, "Laporan Data Inventaris", headers, data);
+    await exportToPDF(filename, "Laporan Data Inventaris", headers, data);
   };
 
   const baseColumns: Column<Product>[] = [
@@ -1496,6 +1526,20 @@ export default function InventoryClient({
                         className="h-11 font-mono text-sm bg-background px-4"
                       />
                     </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full gap-2"
+                      onClick={handleGenerateKode}
+                      disabled={isGenKode}
+                    >
+                      {isGenKode ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                      Generate Kode
+                    </Button>
                   </div>
                 </div>
               </div>

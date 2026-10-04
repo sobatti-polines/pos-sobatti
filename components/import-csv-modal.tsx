@@ -84,11 +84,11 @@ export default function ImportCSVModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     const hasNotes =
       (templateInstructions && templateInstructions.length > 0) ||
       (templateColumnGuide && templateColumnGuide.length > 0);
-    downloadExcelTemplate(
+    await downloadExcelTemplate(
       templateFilename,
       templateHeaders,
       sampleRows,

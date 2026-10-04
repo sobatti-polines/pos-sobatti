@@ -107,7 +107,7 @@ export default function KasAdminClient({ initialData }: { initialData: KasAdminD
     });
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const headers = ["Tanggal", "Jenis", "Keterangan", "Sumber", "Jumlah", "Oleh"];
     const rows = data.mutasi.map((m) => [
       m.tanggal,
@@ -117,7 +117,7 @@ export default function KasAdminClient({ initialData }: { initialData: KasAdminD
       m.jenis === "MASUK" ? m.jumlah : -m.jumlah,
       m.oleh || "-",
     ]);
-    exportToCSV(`kas-admin-${getTodayWIB()}`, headers, rows);
+    await exportToCSV(`kas-admin-${getTodayWIB()}`, headers, rows);
   };
 
   return (

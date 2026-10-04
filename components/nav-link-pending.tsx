@@ -1,17 +1,19 @@
 "use client";
 
 import { useLinkStatus } from "next/link";
-import { Loader2 } from "lucide-react";
 
 /**
  * Indikator pending navigasi (useLinkStatus).
  *
- * Saat navigasi link masih berlangsung, tampilkan OVERLAY layar penuh:
- * spinner di tengah layar dengan latar belakang hitam transparan tipis —
- * bukan indikator kecil di dalam sidebar/link.
+ * Sebelumnya komponen ini menampilkan overlay LAYAR PENUH (latar gelap +
+ * spinner besar) selama navigasi berlangsung. Pada koneksi lambat itu menutup
+ * seluruh UI, menyembunyikan konten yang sudah dimuat, dan membuat halaman
+ * terasa macet. Sekarang hanya bar tipis di tepi atas viewport: tetap memberi
+ * umpan balik bahwa halaman sedang dimuat, tanpa menghalangi konten maupun
+ * klik.
  *
  * Dipasang sebagai anak dari `<Link>` (next/link); hanya link yang sedang
- * pending yang akan merender overlay (hanya satu pada satu waktu).
+ * pending yang merender indikator ini (satu pada satu waktu).
  */
 export function NavLinkPending() {
   const { pending } = useLinkStatus();
@@ -19,13 +21,12 @@ export function NavLinkPending() {
   if (!pending) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-3 bg-black/40 animate-in fade-in duration-200"
+    <span
+      className="fixed inset-x-0 top-0 z-[100] block h-0.5 bg-primary/25"
       role="status"
       aria-label="Memuat halaman"
     >
-      <Loader2 className="w-10 h-10 text-white animate-spin" />
-      <span className="text-sm font-medium text-white/90">Memuat...</span>
-    </div>
+      <span className="block h-full w-full bg-primary animate-pulse" />
+    </span>
   );
 }

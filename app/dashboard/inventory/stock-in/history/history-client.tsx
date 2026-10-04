@@ -210,7 +210,7 @@ export default function StockInHistoryClient({
     return activeData.reduce((sum, h) => sum + Number(h.total_cost || h.total), 0);
   }, [activeData]);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     const allHeaders = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Satuan Suplai", "Qty Suplai", "Rasio", "Base Qty", "HPP/Pcs", "Total Biaya", "Status", "Keterangan"];
     const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![8, 9].includes(i));
     const rows = filteredData.map(h => {
@@ -230,10 +230,10 @@ export default function StockInHistoryClient({
       ];
       return isOwner ? row : row.filter((_, i) => ![8, 9].includes(i));
     });
-    exportToCSV(`Riwayat_Stok_Masuk_${new Date().toISOString().split("T")[0]}`, headers, rows);
+    await exportToCSV(`Riwayat_Stok_Masuk_${new Date().toISOString().split("T")[0]}`, headers, rows);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const allHeaders = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Base Qty", "HPP/Pcs", "Total Biaya", "Status"];
     const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![4, 5].includes(i));
     const rows = filteredData.map(h => {
@@ -249,7 +249,7 @@ export default function StockInHistoryClient({
       ];
       return isOwner ? row : row.filter((_, i) => ![4, 5].includes(i));
     });
-    exportToPDF(`Riwayat_Stok_Masuk_${new Date().toISOString().split("T")[0]}`, "Riwayat Stok Masuk", headers, rows);
+    await exportToPDF(`Riwayat_Stok_Masuk_${new Date().toISOString().split("T")[0]}`, "Riwayat Stok Masuk", headers, rows);
   };
 
   const filters: FilterDef[] = [

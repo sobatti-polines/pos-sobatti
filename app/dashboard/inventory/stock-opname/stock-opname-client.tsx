@@ -498,7 +498,7 @@ function Step2({
     }
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     // Header SAMA dengan template import stok opname agar bisa round-trip
     // (export draft → isi/edit → import ulang).
     const headers = ["SKU / Barcode", "Fisik Display", "Fisik Gudang", "Keterangan"];
@@ -509,7 +509,7 @@ function Step2({
         const code = p?.sku || p?.barcode || (p ? `#${p.id}` : "");
         return [code, item.stok_fisik, item.stok_fisik_gudang, item.keterangan || ""];
       });
-    exportToCSV(`Stok_Opname_${sesi.no_sesi}`, headers, data);
+    await exportToCSV(`Stok_Opname_${sesi.no_sesi}`, headers, data);
   };
 
   const handlePrintTemplate = async () => {
