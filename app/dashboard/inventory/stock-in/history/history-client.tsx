@@ -70,6 +70,7 @@ interface StockInHistoryRecord {
   total_cost: number | null;
   base_cost_per_piece: number | null;
   status?: string;
+  jenis_masuk?: string | null;
   created_at: string | null;
 }
 
@@ -91,6 +92,7 @@ export default function StockInHistoryClient({
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [supplierFilter, setSupplierFilter] = useState("all");
+  const [jenisFilter, setJenisFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState({ start: "", end: "" });
 
   const [isPending, startTransition] = useTransition();
@@ -186,6 +188,11 @@ export default function StockInHistoryClient({
       result = result.filter((h) => h.supplier?.id.toString() === supplierFilter);
     }
 
+    if (jenisFilter !== "all") {
+      const target = jenisFilter === "BARU" ? "BARU" : "RESTOCK";
+      result = result.filter((h) => (h.jenis_masuk ?? "RESTOCK") === target);
+    }
+
     if (dateFilter.start) {
       const start = new Date(dateFilter.start);
       start.setHours(0, 0, 0, 0);
@@ -198,7 +205,7 @@ export default function StockInHistoryClient({
     }
 
     return result;
-  }, [initialHistory, deferredSearchQuery, supplierFilter, dateFilter]);
+  }, [initialHistory, deferredSearchQuery, supplierFilter, jenisFilter, dateFilter]);
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 25 });
 
@@ -211,7 +218,7 @@ export default function StockInHistoryClient({
   }, [activeData]);
 
   const handleExportCSV = async () => {
-    const allHeaders = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Satuan Suplai", "Qty Suplai", "Rasio", "Base Qty", "HPP/Pcs", "Total Biaya", "Status", "Keterangan"];
+    const allHeaders = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Satuan Suplai", "Qty Suplai", "Rasio", "Base Qty", "HPP/Pcs", "Total Biaya", "Jenis", "Status", "Keterangan"];
     const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![8, 9].includes(i));
     const rows = filteredData.map(h => {
       const row = [
@@ -225,6 +232,7 @@ export default function StockInHistoryClient({
         h.base_qty_added ?? h.jumlah,
         h.base_cost_per_piece ?? h.harga_beli,
         h.total_cost ?? h.total,
+        h.jenis_masuk === "BARU" ? "Barang Baru" : "Restock",
         h.status || "AKTIF",
         h.keterangan || "",
       ];
@@ -234,7 +242,7 @@ export default function StockInHistoryClient({
   };
 
   const handleExportPDF = async () => {
-    const allHeaders = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Base Qty", "HPP/Pcs", "Total Biaya", "Status"];
+    const allHeaders = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Base Qty", "HPP/Pcs", "Total Biaya", "Jenis", "Status"];
     const headers = isOwner ? allHeaders : allHeaders.filter((_, i) => ![4, 5].includes(i));
     const rows = filteredData.map(h => {
       const row = [
@@ -245,6 +253,7 @@ export default function StockInHistoryClient({
         String(h.base_qty_added ?? h.jumlah),
         formatIDR(h.base_cost_per_piece ?? h.harga_beli),
         formatIDR(h.total_cost ?? h.total),
+        h.jenis_masuk === "BARU" ? "Barang Baru" : "Restock",
         h.status || "AKTIF",
       ];
       return isOwner ? row : row.filter((_, i) => ![4, 5].includes(i));
@@ -259,6 +268,17 @@ export default function StockInHistoryClient({
       value: supplierFilter,
       onChange: setSupplierFilter,
       options: suppliers.map((s) => ({ value: String(s.id), label: s.nama_supplier })),
+    },
+    {
+      type: "select",
+      label: "Jenis",
+      value: jenisFilter,
+      onChange: setJenisFilter,
+      options: [
+        { value: "all", label: "Semua" },
+        { value: "BARU", label: "Barang Baru" },
+        { value: "RESTOCK", label: "Restock" },
+      ],
     },
     {
       type: "date-range",
@@ -284,6 +304,21 @@ export default function StockInHistoryClient({
     );
   };
 
+  const jenisBadge = (h: StockInHistoryRecord) => {
+    if (h.jenis_masuk === "BARU") {
+      return (
+        <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">
+          Baru
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="secondary" className="bg-muted-foreground/10 text-muted-foreground hover:bg-muted-foreground/20 font-medium border-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest leading-tight">
+        Restock
+      </Badge>
+    );
+  };
+
   const rowText = (h: StockInHistoryRecord, content: React.ReactNode) => {
     return isVoided(h) ? <span className="line-through text-muted-foreground/70">{content}</span> : content;
   };
@@ -294,6 +329,10 @@ export default function StockInHistoryClient({
     { key: "no_surat", header: "No. Faktur", sortable: true, mobileHide: true, render: (h) => rowText(h, h.no_surat || "-") },
     { key: "supplier", header: "Supplier", sortable: true, sortKey: "supplier.nama_supplier", render: (h) => rowText(h, h.supplier?.nama_supplier || "Umum") },
     { key: "produk", header: "Produk", sortable: true, sortKey: "produk.nama_produk", render: (h) => rowText(h, h.produk?.nama_produk || "Produk dihapus") },
+    {
+      key: "jenis_masuk", header: "Jenis", sortable: true, sortKey: "jenis_masuk", headerClassName: "w-[100px] text-center",
+      render: (h) => rowText(h, <div className="flex justify-center">{jenisBadge(h)}</div>),
+    },
     {
       key: "suplai", header: "Suplai", headerClassName: "w-[100px] text-center",
       render: (h) => {
@@ -401,7 +440,7 @@ export default function StockInHistoryClient({
         filters={filters}
         errorBanner={error}
         actions={[
-          { label: "Reset", variant: "outline", onClick: () => { setSearchQuery(""); setSupplierFilter("all"); setDateFilter({ start: "", end: "" }); } },
+          { label: "Reset", variant: "outline", onClick: () => { setSearchQuery(""); setSupplierFilter("all"); setJenisFilter("all"); setDateFilter({ start: "", end: "" }); } },
           {
             label: "Export",
             customRender: () => (

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
-import StockInClient, { type ReorderPrefill } from "./stock-in-client";
+import StockInClient, { type ReorderPrefill, type StockInStats } from "./stock-in-client";
 import { isOwnerLike } from "@/lib/roles";
 
 interface ReorderRawItem {
@@ -62,6 +62,8 @@ export default async function StockInPage({
 
   const satuanOptions: { id: number; nama: string }[] = satuanRes.data ?? [];
 
+  const stockInStats = await buildStockInStats(supabase);
+
   let initialReorder: ReorderPrefill | null = null;
   const reorderId = params.reorder ? Number(params.reorder) : null;
   if (reorderId && Number.isInteger(reorderId) && reorderId > 0) {
@@ -78,9 +80,43 @@ export default async function StockInPage({
       suppliers={suppliersRes.data ?? []}
       satuanOptions={satuanOptions}
       initialReorder={initialReorder}
+      stockInStats={stockInStats}
       isOwner={isOwner}
     />
   );
+}
+
+// Statistik penerimaan per produk (untuk hint "Barang Baru" vs "Restock" di form).
+// Hanya kolom ringan — dihitung di server, bukan diambil mentah oleh client.
+async function buildStockInStats(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+): Promise<StockInStats> {
+  try {
+    const rows = await fetchAllRows<{ id_produk: number; tgl_masuk: string; status: string }>(
+      supabase,
+      (db, from, to) =>
+        db
+          .from("barang_masuk")
+          .select("id_produk, tgl_masuk, status")
+          .order("tgl_masuk", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to)
+    );
+
+    const stats: StockInStats = {};
+    for (const row of rows) {
+      if (!row?.id_produk) continue;
+      const entry = stats[row.id_produk] ?? { count: 0, lastDate: null };
+      entry.count += 1;
+      entry.lastDate = row.tgl_masuk;
+      stats[row.id_produk] = entry;
+    }
+    return stats;
+  } catch (e) {
+    console.error("Failed to fetch stock-in stats:", e);
+    return {};
+  }
 }
 
 async function buildReorderPrefill(

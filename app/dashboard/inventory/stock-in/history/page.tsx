@@ -29,6 +29,7 @@ export default async function StockInHistoryPage() {
           base_qty_added,
           total_cost,
           base_cost_per_piece,
+          jenis_masuk,
           produk(nama_produk),
           supplier(id, nama_supplier)
         `)

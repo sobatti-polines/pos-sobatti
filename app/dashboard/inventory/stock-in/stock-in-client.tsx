@@ -61,6 +61,11 @@ export interface ReorderPrefill {
   items: ReorderPrefillItem[];
 }
 
+/** Penerimaan per produk: berapa kali masuk + tanggal masuk terakhir. */
+export interface StockInStats {
+  [idProduk: number]: { count: number; lastDate: string | null };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Inline zodResolver (no @hookform/resolvers dependency)             */
 /* ------------------------------------------------------------------ */
@@ -117,6 +122,16 @@ function formatIDR(n: number) {
   }).format(n);
 }
 
+function formatDateOnly(dateStr: string) {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(d);
+}
+
 /* ------------------------------------------------------------------ */
 /*  ProductCombo — search-and-select combobox                          */
 /* ------------------------------------------------------------------ */
@@ -124,9 +139,11 @@ function formatIDR(n: number) {
 function ProductCombo({
   index,
   products,
+  stats,
 }: {
   index: number;
   products: Product[];
+  stats: StockInStats;
 }) {
   const { watch, setValue } = useFormContext<StockInFormValues>();
   const [searchText, setSearchText] = useState("");
@@ -140,6 +157,7 @@ function ProductCombo({
     () => products.find((p) => p.id === productId),
     [productId, products]
   );
+  const selectedStat = productId > 0 ? stats[productId] : undefined;
 
   useEffect(() => {
     if (selectedProduct) {
@@ -251,20 +269,36 @@ function ProductCombo({
 
   return (
     <div className="relative min-w-[200px]">
-      <input
-        ref={inputRef}
-        value={searchText}
-        onChange={(e) => handleInputChange(e.target.value)}
-        onFocus={() => setOpen(true)}
-        onKeyDown={handleKeyDown}
-        placeholder="Cari produk..."
-        className={inputBase + " tabular-nums"}
-        autoComplete="off"
-      />
+      <div className="relative">
+        <input
+          ref={inputRef}
+          value={searchText}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder="Cari produk..."
+          className={inputBase + " tabular-nums"}
+          autoComplete="off"
+        />
+        {selectedProduct && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground uppercase tracking-widest">
+            {selectedProduct.default_purchase_unit || selectedProduct.inventory_unit || "pcs"}
+          </span>
+        )}
+      </div>
       {selectedProduct && (
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground uppercase tracking-widest">
-          {selectedProduct.default_purchase_unit || selectedProduct.inventory_unit || "pcs"}
-        </span>
+        <p className="mt-1 text-[11px] leading-tight tracking-tight text-muted-foreground">
+          {selectedStat ? (
+            <>
+              Restock &mdash; pernah masuk {selectedStat.count}&times;
+              {selectedStat.lastDate && ` · terakhir ${formatDateOnly(selectedStat.lastDate)}`}
+            </>
+          ) : (
+            <span className="text-primary/80 font-medium">
+              Barang baru &mdash; penerimaan pertama untuk produk ini
+            </span>
+          )}
+        </p>
       )}
       {open && filtered.length > 0 && (
         <div
@@ -284,11 +318,22 @@ function ProductCombo({
               onMouseEnter={() => setHighlightIdx(i)}
             >
               <span className="truncate">{p.nama_produk}</span>
-              {p.barcode && (
-                <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
-                  {p.barcode}
-                </span>
-              )}
+              <span className="flex items-center gap-2 shrink-0">
+                {!stats[p.id] ? (
+                  <span className="text-[9px] font-semibold uppercase tracking-widest text-primary bg-primary/10 rounded-full px-1.5 py-0.5 leading-tight">
+                    Baru
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 leading-tight tabular-nums">
+                    {stats[p.id].count}&times;
+                  </span>
+                )}
+                {p.barcode && (
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    {p.barcode}
+                  </span>
+                )}
+              </span>
             </button>
           ))}
         </div>
@@ -505,12 +550,14 @@ function FormBody({
   suppliers,
   satuanOptions,
   reorderInfo,
+  stockInStats,
   isOwner = false,
 }: {
   products: Product[];
   suppliers: Supplier[];
   satuanOptions: { id: number; nama: string }[];
   reorderInfo: { supplierName: string; noSurat: string | null; itemCount: number } | null;
+  stockInStats: StockInStats;
   isOwner?: boolean;
 }) {
   const {
@@ -820,7 +867,7 @@ function FormBody({
                     {index + 1}
                   </td>
                   <td className="px-2 py-2">
-                    <ProductCombo index={index} products={products} />
+                    <ProductCombo index={index} products={products} stats={stockInStats} />
                     <ConversionIndicator index={index} products={products} />
                   </td>
                   <td className="px-2 py-2">
@@ -965,12 +1012,14 @@ export default function StockInClient({
   suppliers,
   satuanOptions,
   initialReorder = null,
+  stockInStats = {},
   isOwner = false,
 }: {
   products: Product[];
   suppliers: Supplier[];
   satuanOptions: { id: number; nama: string }[];
   initialReorder?: ReorderPrefill | null;
+  stockInStats?: StockInStats;
   isOwner?: boolean;
 }) {
   const today = getTodayWIB();
@@ -1023,6 +1072,7 @@ export default function StockInClient({
             suppliers={suppliers}
             satuanOptions={satuanOptions}
             reorderInfo={reorderInfo}
+            stockInStats={stockInStats}
             isOwner={isOwner}
           />
         </div>
