@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { POS_PRODUCT_COLUMNS } from "@/lib/pos-data";
-import { escapeLikeWildcards, ilikePattern } from "@/lib/postgrest-filter";
+import { ilikeContainsValue, ilikeValue } from "@/lib/postgrest-filter";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -17,10 +17,11 @@ export async function GET(req: Request) {
   // produk hasil scan barcode punya field yang sama dengan produk dari katalog.
   const fields = POS_PRODUCT_COLUMNS;
 
-  // Pattern ILIKE di-escape + dikutip: tanpa ini `%`/`_` pada kode hasil scan
-  // bertindak sebagai wildcard, dan karakter kutip membuat filter PostgREST
-  // gagal dibaca (lihat lib/postgrest-filter.ts).
-  const pattern = ilikePattern(code);
+  // Pattern ILIKE untuk filter kolom LANGSUNG (bukan di dalam or=()):
+  // wildcard `%`/`_` di-escape agar literal, dan nilai TIDAK dikutip ganda —
+  // kutip ganda pada filter kolom langsung justru ikut dicari sebagai teks
+  // sehingga lookup barcode selalu kosong (lihat lib/postgrest-filter.ts).
+  const pattern = ilikeValue(code);
 
   // POS_PRODUCT_COLUMNS bertipe string sehingga client Supabase tidak bisa
   // menginferensi tipe barisnya. Kolom yang diakses langsung di route
@@ -86,12 +87,13 @@ export async function GET(req: Request) {
       }
     }
 
-    // Fallback terakhir: cari berdasarkan nama produk (pattern di-escape
-    // dengan aturan yang sama seperti filter barcode).
+    // Fallback terakhir: cari berdasarkan nama produk secara SEBAGIAN.
+    // `ilikeContainsValue` menambahkan wildcard %...% tanpa kutip ganda, sesuai
+    // aturan filter kolom langsung (lihat lib/postgrest-filter.ts).
     const { data } = await supabase
       .from("produk")
       .select(fields)
-      .ilike("nama_produk", `%${escapeLikeWildcards(code)}%`)
+      .ilike("nama_produk", ilikeContainsValue(code))
       .limit(1)
       .maybeSingle();
 
