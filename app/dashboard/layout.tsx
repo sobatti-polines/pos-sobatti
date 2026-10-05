@@ -1,7 +1,32 @@
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardMobileNav } from "@/components/dashboard-mobile-nav";
-import { getServerSupabase, getSessionUser } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
+
+/**
+ * Nama tampil sidebar per username, di-cache 5 menit.
+ *
+ * Data global per username (bukan rahasia finansial) dan nama jarang berubah,
+ * sehingga tidak perlu 1 query Tokyo tiap full load. Memakai supabaseAdmin
+ * (tanpa cookies) supaya boleh masuk unstable_cache; key = username.
+ */
+const getPenggunaNamaCached = unstable_cache(
+  async (username: string): Promise<string | null> => {
+    const { data, error } = await supabaseAdmin
+      .from("pengguna")
+      .select("nama")
+      .eq("username", username)
+      .maybeSingle();
+    // Error dilempar (tidak di-cache): fallback username dipakai dan
+    // navigasi berikutnya mencoba lagi. Hanya null legitim yang di-cache.
+    if (error) throw error;
+    return (data?.nama as string | undefined) ?? null;
+  },
+  ["pengguna-nama-v1"],
+  { revalidate: 300 }
+);
 
 export default async function DashboardLayout({
   children,
@@ -22,13 +47,12 @@ export default async function DashboardLayout({
   // Ambil nama lengkap dari tabel pengguna untuk ditampilkan di sidebar
   let userName: string | null = null;
   if (username) {
-    const supabase = await getServerSupabase();
-    const { data: pengguna } = await supabase
-      .from("pengguna")
-      .select("nama")
-      .eq("username", username)
-      .maybeSingle();
-    userName = pengguna?.nama || username;
+    try {
+      userName = (await getPenggunaNamaCached(username)) || username;
+    } catch (e) {
+      console.error("Gagal memuat nama pengguna sidebar, pakai username:", e);
+      userName = username;
+    }
   }
 
   return (

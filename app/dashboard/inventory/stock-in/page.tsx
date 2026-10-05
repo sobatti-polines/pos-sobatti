@@ -87,11 +87,33 @@ export default async function StockInPage({
 }
 
 // Statistik penerimaan per produk (untuk hint "Barang Baru" vs "Restock" di form).
-// Hanya kolom ringan — dihitung di server, bukan diambil mentah oleh client.
+// Jalur cepat: agregasi di DB via 1 RPC. Fallback ke pindai penuh bila RPC
+// belum dimigrasi di environment ini.
 async function buildStockInStats(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any
 ): Promise<StockInStats> {
+  try {
+    const { data, error } = await supabase.rpc("get_stockin_stats");
+    if (!error && data) {
+      const stats: StockInStats = {};
+      for (const row of data as Array<{
+        id_produk: number;
+        cnt: number | string;
+        last_date: string;
+      }>) {
+        if (!row?.id_produk) continue;
+        stats[row.id_produk] = {
+          count: Number(row.cnt),
+          lastDate: row.last_date,
+        };
+      }
+      return stats;
+    }
+    if (error) throw error;
+  } catch (e) {
+    console.error("get_stockin_stats RPC gagal, fallback fetchAllRows:", e);
+  }
   try {
     const rows = await fetchAllRows<{ id_produk: number; tgl_masuk: string; status: string }>(
       supabase,

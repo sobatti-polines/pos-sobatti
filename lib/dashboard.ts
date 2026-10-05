@@ -1,4 +1,6 @@
+import { unstable_cache } from "next/cache";
 import { getServerSupabase, getSessionUser } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { generateLabaRugi } from "@/lib/laporan-keuangan";
 import { startOfMonth, format } from "date-fns";
 import { DEV_ROLE, isDev } from "@/lib/roles";
@@ -37,10 +39,173 @@ export interface DashboardFinanceSummaryData {
   bebanOperasional: number;
 }
 
+// ---------------------------------------------------------------------------
+// Bentuk baris yang dikembalikan RPC get_dashboard_summary (lihat
+// supabase/20261005_perf_dashboard_rpc.sql). Angka dikirim sebagai numeric
+// sehingga di-cast via Number() seperti code lama.
+// ---------------------------------------------------------------------------
+interface RpcTransactionRow {
+  no_transaksi: number | string;
+  tgl_transaksi: string;
+  total: number | string;
+  bayar: number | string;
+  customer_name: string | null;
+  item_count: number | string | null;
+}
+
+interface RpcActivityRow {
+  id: string;
+  aksi: string;
+  entitas: string;
+  deskripsi: string;
+  created_at: string;
+  pengguna_nama: string | null;
+  pengguna_username: string | null;
+}
+
+interface DashboardSummaryRpc {
+  today_revenue: number | string;
+  yesterday_revenue: number | string;
+  today_orders: number;
+  sparkline: Array<number | string>;
+  recent_transactions: RpcTransactionRow[];
+  recent_activity: RpcActivityRow[];
+}
+
+/**
+ * Ringkasan dashboard via 1 RPC agregasi, di-cache 45 detik.
+ *
+ * Sebelumnya tiap buka dashboard = 6 query paralel (select total tanpa
+ * agregasi + limit 100000 untuk sparkline) dari VPS Bogor ke Supabase Tokyo
+ * (~300ms per roundtrip). Sekarang 1 call yang di-cache lintas request.
+ *
+ * Sengaja memakai supabaseAdmin (tanpa cookies) di dalam unstable_cache:
+ * data ringkasan bersifat global (bukan per-user) dan RPC bersifat
+ * SECURITY DEFINER, sehingga aman di-cache. Filter DEV vs non-DEV dijadikan
+ * argumen cache key (excludeDev) agar OWNER/DEV tetap melihat semua aktivitas.
+ */
+const getSummaryCached = unstable_cache(
+  async (
+    todayStr: string,
+    excludeDev: boolean
+  ): Promise<DashboardSummaryRpc> => {
+    const { data, error } = await supabaseAdmin.rpc("get_dashboard_summary", {
+      p_today: todayStr,
+      p_days: 14,
+      p_exclude_dev: excludeDev,
+    });
+    if (error) throw error;
+    return data as unknown as DashboardSummaryRpc;
+  },
+  ["dashboard-summary-v1"],
+  { revalidate: 45 }
+);
+
+function formatWaktuRelatif(createdAt: string, now: number): string {
+  const ms = now - new Date(createdAt).getTime();
+  const detik = Math.floor(ms / 1000);
+  const menit = Math.floor(detik / 60);
+  const jam = Math.floor(menit / 60);
+  const hari = Math.floor(jam / 24);
+  if (detik < 60) return "Baru saja";
+  if (menit < 60) return `${menit} menit lalu`;
+  if (jam < 24) return `${jam} jam lalu`;
+  if (hari < 7) return `${hari} hari lalu`;
+  return new Date(createdAt).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function truncateDeskripsi(deskripsi: string): string {
+  return deskripsi.length > 90 ? deskripsi.slice(0, 87) + "..." : deskripsi;
+}
+
+function mapRpcTransactions(rows: RpcTransactionRow[]): TransactionRow[] {
+  return (rows ?? []).map((t) => {
+    const total = Number(t.total);
+    const bayar = Number(t.bayar);
+    return {
+      no_transaksi: `#${t.no_transaksi}`,
+      customer: t.customer_name ?? null,
+      time: new Date(t.tgl_transaksi).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }),
+      items: Number(t.item_count ?? 0),
+      total,
+      status:
+        bayar >= total ? "Selesai" : bayar > 0 ? "Sebagian" : "Tertunda",
+    };
+  });
+}
+
+function mapRpcActivity(rows: RpcActivityRow[], now: number): ActivityRow[] {
+  return (rows ?? []).map((a) => ({
+    id: a.id,
+    waktu: formatWaktuRelatif(a.created_at, now),
+    pengguna: a.pengguna_nama || a.pengguna_username || `User #...`,
+    aksi: a.aksi,
+    entitas: a.entitas,
+    deskripsi: truncateDeskripsi(a.deskripsi ?? ""),
+  }));
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
-  const supabase = await getServerSupabase();
   const user = await getSessionUser();
   const role = user?.user_metadata?.role;
+  const excludeDev = !isDev(role);
+
+  // Batas hari bisnis WIB, konsisten dengan prefix no_transaksi dan
+  // /api/laporan/penjualan (+07:00 filters).
+  const nowUtc = Date.now();
+  const wibOffset = 7 * 60 * 60 * 1000;
+  const nowWIB = new Date(nowUtc + wibOffset);
+  const todayStr = nowWIB.toISOString().slice(0, 10);
+
+  try {
+    const s = await getSummaryCached(todayStr, excludeDev);
+    const todayRevenue = Number(s.today_revenue ?? 0);
+    const yesterdayRevenue = Number(s.yesterday_revenue ?? 0);
+    const todayOrders = Number(s.today_orders ?? 0);
+    const avgTicket = todayOrders > 0 ? todayRevenue / todayOrders : 0;
+    const revenueChangePercent =
+      yesterdayRevenue > 0
+        ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100
+        : todayRevenue > 0
+          ? 100
+          : 0;
+
+    return {
+      todayRevenue,
+      yesterdayRevenue,
+      revenueChangePercent: Math.round(revenueChangePercent * 100) / 100,
+      todayOrders,
+      avgTicket: Math.round(avgTicket * 100) / 100,
+      recentTransactions: mapRpcTransactions(s.recent_transactions ?? []),
+      sparklineData: (s.sparkline ?? []).map((v) => Number(v)),
+      recentActivity: mapRpcActivity(s.recent_activity ?? [], nowUtc),
+    };
+  } catch (e) {
+    // Rollback aman: bila RPC belum dimigrasi di environment ini (mis.
+    // produksi sebelum migration dijalankan), pakai query lama.
+    console.error(
+      "get_dashboard_summary RPC gagal, fallback ke query lama:",
+      e
+    );
+    return getDashboardDataLegacy(excludeDev);
+  }
+}
+
+/**
+ * Implementasi lama (6 query paralel + sum di JS). Dipertahankan sebagai
+ * fallback selama masa rollout migration RPC ke semua environment.
+ */
+async function getDashboardDataLegacy(
+  excludeDev: boolean
+): Promise<DashboardData> {
+  const supabase = await getServerSupabase();
 
   // Use WIB (UTC+7) for business-day boundaries, consistent with
   // no_transaksi prefix and /api/laporan/penjualan (+07:00 filters).
@@ -53,14 +218,16 @@ export async function getDashboardData(): Promise<DashboardData> {
   const yesterdayStr = yesterday.toISOString().slice(0, 10);
   let activityQuery = supabase
     .from("log_aktivitas")
-    .select(`
+    .select(
+      `
       id, aksi, entitas, deskripsi, created_at,
       pengguna!inner(nama, username, level)
-    `)
+    `
+    )
     .order("created_at", { ascending: false })
     .limit(10);
 
-  if (!isDev(role)) {
+  if (excludeDev) {
     activityQuery = activityQuery.neq("pengguna.level", DEV_ROLE);
   }
 
@@ -94,12 +261,14 @@ export async function getDashboardData(): Promise<DashboardData> {
     // tidak perlu satu query terpisah yang menambah satu tahap berurutan.
     supabase
       .from("transaksi_keluar")
-      .select(`
+      .select(
+        `
         id, no_transaksi, tgl_transaksi, total, bayar,
         pelanggan(nama_pelanggan),
         pengguna!transaksi_keluar_id_kasir_fkey(username),
         detail_transaksi_keluar(qty)
-      `)
+      `
+      )
       .eq("status", "berhasil")
       .order("tgl_transaksi", { ascending: false })
       .limit(5),
@@ -107,7 +276,10 @@ export async function getDashboardData(): Promise<DashboardData> {
       .from("transaksi_keluar")
       .select("tgl_transaksi, total")
       .eq("status", "berhasil")
-      .gte("tgl_transaksi", `${new Date(nowWIB.getTime() - 13 * 86400000).toISOString().slice(0, 10)}T00:00:00`)
+      .gte(
+        "tgl_transaksi",
+        `${new Date(nowWIB.getTime() - 13 * 86400000).toISOString().slice(0, 10)}T00:00:00`
+      )
       .lte("tgl_transaksi", `${todayStr}T23:59:59`)
       .order("tgl_transaksi", { ascending: true })
       .limit(100000),
@@ -136,28 +308,22 @@ export async function getDashboardData(): Promise<DashboardData> {
     pelanggan: { nama_pelanggan: string } | null;
     pengguna: { username: string } | null;
     detail_transaksi_keluar: Array<{ qty: number | null }> | null;
-  }> ?? []).map(
-    (t) => ({
-      no_transaksi: `#${t.no_transaksi}`,
-      customer: t.pelanggan?.nama_pelanggan ?? null,
-      time: new Date(t.tgl_transaksi).toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }),
-      items: (t.detail_transaksi_keluar ?? []).reduce(
-        (sum, d) => sum + Number(d.qty ?? 0),
-        0
-      ),
-      total: Number(t.total),
-      status:
-        t.bayar >= t.total
-          ? "Selesai"
-          : t.bayar > 0
-            ? "Sebagian"
-            : "Tertunda",
-    })
-  );
+  }> ?? []).map((t) => ({
+    no_transaksi: `#${t.no_transaksi}`,
+    customer: t.pelanggan?.nama_pelanggan ?? null,
+    time: new Date(t.tgl_transaksi).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }),
+    items: (t.detail_transaksi_keluar ?? []).reduce(
+      (sum, d) => sum + Number(d.qty ?? 0),
+      0
+    ),
+    total: Number(t.total),
+    status:
+      t.bayar >= t.total ? "Selesai" : t.bayar > 0 ? "Sebagian" : "Tertunda",
+  }));
 
   const dayTotals = new Map<string, number>();
   for (const row of recentDaysRes.data ?? []) {
@@ -177,25 +343,13 @@ export async function getDashboardData(): Promise<DashboardData> {
     created_at: string;
     pengguna: { nama: string; username: string } | null;
   }> ?? []).map((a) => {
-    const ms = now - new Date(a.created_at).getTime();
-    const detik = Math.floor(ms / 1000);
-    const menit = Math.floor(detik / 60);
-    const jam = Math.floor(menit / 60);
-    const hari = Math.floor(jam / 24);
-    let waktu: string;
-    if (detik < 60) waktu = "Baru saja";
-    else if (menit < 60) waktu = `${menit} menit lalu`;
-    else if (jam < 24) waktu = `${jam} jam lalu`;
-    else if (hari < 7) waktu = `${hari} hari lalu`;
-    else waktu = new Date(a.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-
     return {
       id: a.id,
-      waktu,
+      waktu: formatWaktuRelatif(a.created_at, now),
       pengguna: a.pengguna?.nama || a.pengguna?.username || `User #...`,
       aksi: a.aksi,
       entitas: a.entitas,
-      deskripsi: a.deskripsi.length > 90 ? a.deskripsi.slice(0, 87) + "..." : a.deskripsi,
+      deskripsi: truncateDeskripsi(a.deskripsi),
     };
   });
 

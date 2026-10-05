@@ -26,6 +26,48 @@ export async function GET() {
     return NextResponse.json([]);
   }
 
+  // Jalur cepat: 1 RPC agregasi (filter + sort di SQL, pulang hanya yang
+  // menipis). Fallback ke pindai penuh bila RPC belum dimigrasi.
+  try {
+    const { data, error } = await supabase.rpc("get_low_stock_preview", {
+      p_limit: 200,
+    });
+    if (!error && data) {
+      const lowStock = (
+        data as unknown as Array<{
+          id: number;
+          nama_produk: string;
+          stok: number | string;
+          stok_gudang: number | string;
+          stok_minimum: number | null;
+          stok_minimum_gudang: number | string | null;
+          display_low: boolean;
+          gudang_low: boolean;
+          satuan_nama: string | null;
+        }>
+      ).map((p) => ({
+        id: p.id,
+        nama_produk: p.nama_produk,
+        stok: Number(p.stok ?? 0),
+        stok_gudang: Number(p.stok_gudang ?? 0),
+        stok_minimum: p.stok_minimum ?? null,
+        stok_minimum_gudang:
+          p.stok_minimum_gudang == null
+            ? null
+            : Number(p.stok_minimum_gudang),
+        displayLow: p.display_low,
+        gudangLow: p.gudang_low,
+        satuan: p.satuan_nama ? { nama: p.satuan_nama } : null,
+      }));
+      const res = NextResponse.json(lowStock);
+      res.headers.set("Cache-Control", "no-store");
+      return res;
+    }
+    if (error) throw error;
+  } catch (e) {
+    console.error("get_low_stock_preview RPC gagal, fallback fetchAllRows:", e);
+  }
+
   const data = await fetchAllRows(supabase, (db, from, to) =>
     db
       .from("produk")

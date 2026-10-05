@@ -17,6 +17,23 @@ export async function GET(req: NextRequest) {
 
   const search = req.nextUrl.searchParams.get("search") || "";
 
+  // Mode ringan untuk polling katalog POS: hanya mengembalikan JUMLAH produk,
+  // bukan seluruh daftar. Dipakai klien untuk mendeteksi produk baru yang
+  // ditambahkan owner tanpa menarik 2000+ baris tiap interval. Satu query count
+  // (HEAD) jauh lebih murah daripada katalog penuh.
+  if (req.nextUrl.searchParams.get("count") === "1") {
+    const { count, error } = await supabase
+      .from("produk")
+      .select("*", { count: "exact", head: true });
+    if (error) {
+      console.error("Gagal menghitung produk POS:", error);
+      return NextResponse.json({ error: "Gagal menghitung produk" }, { status: 500 });
+    }
+    const res = NextResponse.json({ total: count ?? 0 });
+    res.headers.set("Cache-Control", "no-store");
+    return res;
+  }
+
   // Filter pencarian dihitung SEKALI lalu dipakai semua chunk.
   //
   // Dua hal yang wajib dijaga di sini:

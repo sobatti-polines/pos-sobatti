@@ -329,8 +329,17 @@ export default function InventoryClient({
     && bulkPriceFilteredProducts.every((product) => bulkPriceSelectedIds.has(product.id));
   const bulkPriceSomeVisibleSelected = bulkPriceFilteredProducts.some((product) => bulkPriceSelectedIds.has(product.id));
 
+  // Peta nama merk per id — mengganti merks.find() per produk per render
+  // (O(n × merk)) menjadi lookup O(1). Murni optimasi, hasil filter sama.
+  const merkNamaById = useMemo(
+    () => new Map(merks.map((m) => [m.id, m.nama.toLowerCase()] as const)),
+    [merks]
+  );
+
   const filteredData = useMemo(() => {
-    let result = [...initialProducts];
+    // Tanpa copy [...]: filter di bawah selalu menghasilkan array baru,
+    // dan sort di useTable juga meng-copy sendiri.
+    let result = initialProducts;
 
     if (deferredSearchQuery.trim()) {
       const q = deferredSearchQuery.toLowerCase();
@@ -341,7 +350,7 @@ export default function InventoryClient({
           p.sku?.toLowerCase().includes(q) ||
           p.kategori?.nama.toLowerCase().includes(q) ||
           p.lokasi_area?.nama.toLowerCase().includes(q) ||
-          merks.find((m) => m.id === p.id_merk)?.nama.toLowerCase().includes(q)
+          (p.id_merk != null && (merkNamaById.get(p.id_merk) ?? "").includes(q))
       );
     }
 
@@ -390,7 +399,7 @@ export default function InventoryClient({
     }
 
     return result;
-  }, [initialProducts, deferredSearchQuery, categoryFilter, merkFilter, lokasiFilter, stockFilter, typeFilter, merks]);
+  }, [initialProducts, deferredSearchQuery, categoryFilter, merkFilter, lokasiFilter, stockFilter, typeFilter, merkNamaById]);
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 25 });
 

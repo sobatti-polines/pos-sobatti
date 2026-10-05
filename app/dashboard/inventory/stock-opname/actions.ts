@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 import { isAdminOrOwnerLike } from "@/lib/roles";
 
@@ -327,6 +327,7 @@ export async function applyOpname(id_sesi: string) {
   revalidatePath("/dashboard/inventory/stock-opname");
   revalidatePath("/dashboard/inventory/stock-opname/history");
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   return { success: true, ...data };
 }
 

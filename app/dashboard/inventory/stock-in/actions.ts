@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 import { isAdminOrOwnerLike } from "@/lib/roles";
@@ -165,6 +165,7 @@ export async function addStockIn(
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   revalidatePath("/dashboard/inventory/stock-in/history");
 
   // Inserted row ids (from RPC { success, inserted: [{ id, ... }] }) —
@@ -229,6 +230,7 @@ export async function voidBarangMasuk(id: number, alasan: string) {
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   revalidatePath("/dashboard/inventory/stock-in/history");
   return { success: true };
 }
@@ -390,6 +392,7 @@ export async function createReturPembelian(
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   revalidatePath("/dashboard/inventory/stock-in/history");
   revalidatePath("/dashboard/inventory/stock-in/retur/history");
   return { success: true, ...result };
@@ -472,6 +475,7 @@ export async function updateBarangMasuk(data: z.infer<typeof updateStockInSchema
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   revalidatePath("/dashboard/inventory/stock-in/history");
   return { success: true };
 }

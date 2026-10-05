@@ -1,77 +1,77 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getSessionUser } from "@/lib/auth";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { attachMasterInfo, type MasterInfo } from "@/lib/produk-paket";
 import InventoryClient from "./inventory-client";
 import { isOwnerLike } from "@/lib/roles";
 
-export default async function InventoryPage() {
-  const supabase = await createClient();
+interface RawProduct {
+  id: number;
+  sku: string | null;
+  nama_produk: string;
+  id_kategori: number;
+  id_satuan: number;
+  id_merk: number | null;
+  hitung_stok: boolean;
+  barcode: string | null;
+  harga_modal: number;
+  harga_jual_satuan: number;
+  harga_jual_grosir: number;
+  harga_jual_promo: number | null;
+  diskon: number;
+  stok: number | null;
+  stok_gudang: number | null;
+  stok_minimum: number | null;
+  stok_minimum_gudang: number | null;
+  harga_pokok_avco: number | null;
+  nilai_persediaan: number | null;
+  default_purchase_unit: string | null;
+  conversion_ratio: number | null;
+  jual_satuan: string | null;
+  harga_jual_besar_satuan: number | null;
+  harga_jual_besar_grosir: number | null;
+  harga_jual_besar_promo: number | null;
+  harga_jual_besar_manual?: boolean;
+  id_produk_master: number | null;
+  qty_per_unit: number | null;
+  isi_satuan: string | null;
+  jenis_isi_paket: string | null;
+  id_lokasi_area: number | null;
+  kategori: { nama: string } | null;
+  satuan: { nama: string } | null;
+  lokasi_area: { nama: string } | null;
+  created_at: string;
+  updated_at: string;
+}
 
+/**
+ * Fetch live (tanpa cache). THROW saat query produk gagal — pemanggil yang
+ * memutuskan fallback. Kegagalan TIDAK BOLEH diubah jadi [] di sini karena
+ * [] yang masuk unstable_cache akan menyajikan tabel kosong sampai expired
+ * (bug: "Tidak ada produk ditemukan" padahal DB berisi 1000+ baris).
+ *
+ * Kegagalan promo sengaja non-fatal (seperti perilaku lama): harga tampil
+ * tanpa penyesuaian promo daripada halaman kosong.
+ */
+async function fetchProductsLive() {
   // fetchAllRows: PostgREST memotong response maksimal 1000 baris per request
-  // (max_rows). Tanpa pagination, produk ke-1001+ (total bisa 1199+) tidak pernah
-  // muncul di tabel inventaris. Loop chunk 1000 baris sampai semua terkumpul.
-  const productsData = await fetchAllRows(supabase, (db, from, to) =>
+  // (max_rows). Tanpa pagination, produk ke-1001+ tidak pernah muncul di
+  // tabel inventaris. Loop chunk 1000 baris sampai semua terkumpul.
+  // fetchAllRows melempar error bila query gagal — sengaja tidak di-catch.
+  const productsData = await fetchAllRows(supabaseAdmin, (db, from, to) =>
     db.from("produk").select(`
       *,
       kategori(nama),
       satuan(nama),
       lokasi_area(nama)
     `).order("nama_produk", { ascending: true }).range(from, to)
-  ).catch((e) => {
-    console.error("Failed to fetch products:", e);
-    return [];
-  });
+  );
 
-  const [categoriesRes, unitsRes, lokasiRes, merksRes] = await Promise.all([
-    supabase.from("kategori").select("*").order("nama"),
-    supabase.from("satuan").select("*").order("nama"),
-    supabase.from("lokasi_area").select("*").order("nama"),
-    supabase.from("merk").select("*").order("nama"),
-  ]);
-
-  interface RawProduct {
-    id: number;
-    sku: string | null;
-    nama_produk: string;
-    id_kategori: number;
-    id_satuan: number;
-    id_merk: number | null;
-    hitung_stok: boolean;
-    barcode: string | null;
-    harga_modal: number;
-    harga_jual_satuan: number;
-    harga_jual_grosir: number;
-    harga_jual_promo: number | null;
-    diskon: number;
-    stok: number | null;
-    stok_gudang: number | null;
-    stok_minimum: number | null;
-    stok_minimum_gudang: number | null;
-    harga_pokok_avco: number | null;
-    nilai_persediaan: number | null;
-    default_purchase_unit: string | null;
-    conversion_ratio: number | null;
-    jual_satuan: string | null;
-    harga_jual_besar_satuan: number | null;
-    harga_jual_besar_grosir: number | null;
-    harga_jual_besar_promo: number | null;
-    harga_jual_besar_manual?: boolean;
-    id_produk_master: number | null;
-    qty_per_unit: number | null;
-    isi_satuan: string | null;
-    jenis_isi_paket: string | null;
-    id_lokasi_area: number | null;
-    kategori: { nama: string } | null;
-    satuan: { nama: string } | null;
-    lokasi_area: { nama: string } | null;
-    created_at: string;
-    updated_at: string;
-  }
-
-  const withMaster = await attachMasterInfo(supabase, (productsData ?? []) as RawProduct[]);
+  const withMaster = await attachMasterInfo(supabaseAdmin, (productsData ?? []) as RawProduct[]);
 
   const today = new Date().toLocaleDateString('en-CA');
-  const { data: activePromos } = await supabase
+  const { data: activePromos } = await supabaseAdmin
     .from('event_promo')
     .select('id, nama, tipe_diskon, nilai_diskon, event_promo_produk!inner(id_produk)')
     .eq('aktif', true)
@@ -89,7 +89,7 @@ export default async function InventoryPage() {
     }
   }
 
-  const productsWithStock = withMaster.map((p) => {
+  return withMaster.map((p) => {
     const harga_asli_satuan = p.harga_jual_satuan;
     const harga_asli_grosir = p.harga_jual_grosir;
     const harga_asli_promo = p.harga_jual_promo;
@@ -113,7 +113,7 @@ export default async function InventoryPage() {
         }
         return Math.max(0, harga - promo.nilai_diskon);
       };
-      
+
       harga_jual_satuan = calc(p.harga_jual_satuan)!;
       harga_jual_grosir = calc(p.harga_jual_grosir)!;
       harga_jual_promo = calc(p.harga_jual_promo);
@@ -160,8 +160,95 @@ export default async function InventoryPage() {
       updated_at: p.updated_at,
     };
   });
+}
 
-  const { data: { user } } = await supabase.auth.getUser();
+/**
+ * Daftar produk + harga efektif promo, di-cache 10 detik.
+ *
+ * Hanya hasil SUKSES non-kosong yang di-cache. Error dan [] TIDAK PERNAH
+ * masuk cache (Next tidak meng-cache throw): gagal sesaat sembuh sendiri
+ * di navigasi berikutnya, bukan menyajikan tabel kosong 10 detik.
+ * Kolom select(*) dipertahankan sesuai permintaan (semua kolom tampil).
+ * Setiap mutasi produk/stok memanggil updateTag("inventory-products")
+ * sehingga CRUD tetap langsung terlihat.
+ */
+const getProductsCached = unstable_cache(
+  async () => {
+    const rows = await fetchProductsLive();
+    if (rows.length === 0) {
+      throw new Error(
+        "inventory-products kosong — tidak di-cache, pakai jalur live"
+      );
+    }
+    return rows;
+  },
+  ["inventory-products-v1"],
+  { revalidate: 10, tags: ["inventory-products"] }
+);
+
+/**
+ * Fetch live referensi. Throw bila ada query yang gagal agar kegagalan
+ * tidak di-cache 30 detik sebagai dropdown kosong.
+ */
+async function fetchRefsLive() {
+  const [categoriesRes, unitsRes, lokasiRes, merksRes] = await Promise.all([
+    supabaseAdmin.from("kategori").select("*").order("nama"),
+    supabaseAdmin.from("satuan").select("*").order("nama"),
+    supabaseAdmin.from("lokasi_area").select("*").order("nama"),
+    supabaseAdmin.from("merk").select("*").order("nama"),
+  ]);
+  const failed = [categoriesRes, unitsRes, lokasiRes, merksRes].find(
+    (r) => r.error
+  );
+  if (failed?.error) throw failed.error;
+  return {
+    categories: categoriesRes.data ?? [],
+    units: unitsRes.data ?? [],
+    lokasiAreas: lokasiRes.data ?? [],
+    merks: merksRes.data ?? [],
+  };
+}
+
+/**
+ * Data master referensi (kategori/satuan/lokasi/merk), di-cache 30 detik.
+ * Hampir tidak berubah sepanjang hari; stale maksimal 30 detik disetujui.
+ */
+const getRefsCached = unstable_cache(
+  () => fetchRefsLive(),
+  ["inventory-refs-v1"],
+  { revalidate: 30 }
+);
+
+type Refs = Awaited<ReturnType<typeof fetchRefsLive>>;
+const EMPTY_REFS: Refs = { categories: [], units: [], lokasiAreas: [], merks: [] };
+
+/**
+ * Muat inventory: coba cache dulu, gagal → fetch live TANPA cache.
+ * Fallback live paling akhir mengembalikan [] (perilaku lama) supaya halaman
+ * tidak crash saat DB benar-benar mati — tapi [] ini tidak di-cache sehingga
+ * navigasi berikutnya mencoba lagi dan sembuh sendiri.
+ */
+async function loadInventory() {
+  try {
+    const [productsWithStock, refs] = await Promise.all([
+      getProductsCached(),
+      getRefsCached(),
+    ]);
+    return { productsWithStock, refs };
+  } catch (e) {
+    console.error("Cache inventory gagal, fallback live (tidak di-cache):", e);
+    const [productsWithStock, refs] = await Promise.all([
+      fetchProductsLive().catch(() => []),
+      fetchRefsLive().catch(() => EMPTY_REFS),
+    ]);
+    return { productsWithStock, refs };
+  }
+}
+
+export default async function InventoryPage() {
+  // Auth + produk + referensi paralel (sebelumnya auth serial di akhir).
+  const [user, inv] = await Promise.all([getSessionUser(), loadInventory()]);
+
   const isOwner = isOwnerLike(user?.user_metadata?.role);
 
   return (
@@ -175,12 +262,12 @@ export default async function InventoryPage() {
         </p>
       </header>
 
-      <InventoryClient 
-        initialProducts={productsWithStock} 
-        categories={categoriesRes.data ?? []} 
-        units={unitsRes.data ?? []}
-        lokasiAreas={lokasiRes.data ?? []}
-        merks={merksRes.data ?? []}
+      <InventoryClient
+        initialProducts={inv.productsWithStock}
+        categories={inv.refs.categories}
+        units={inv.refs.units}
+        lokasiAreas={inv.refs.lokasiAreas}
+        merks={inv.refs.merks}
         isOwner={isOwner}
       />
     </div>

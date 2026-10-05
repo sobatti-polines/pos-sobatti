@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { isAdminOrOwnerLike, isOwnerLike } from "@/lib/roles";
@@ -148,6 +148,7 @@ export async function applyBulkPriceAdjustment(input: BulkPriceAdjustmentInput, 
   }
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   revalidatePath("/dashboard/laporan/pergerakan-harga");
   return res;
 }
@@ -273,6 +274,7 @@ export async function addProduct(data: ProductData) {
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   return { success: true };
 }
 
@@ -308,6 +310,7 @@ export async function updateProduct(id: number, data: ProductData) {
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   return { success: true };
 }
 
@@ -356,6 +359,7 @@ export async function deleteProduct(id: number) {
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   return { success: true };
 }
 
@@ -425,6 +429,7 @@ export async function forceDeleteProduct(id: number) {
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   return { success: true };
 }
 
@@ -527,6 +532,7 @@ export async function deleteProducts(ids: number[]) {
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   return { success: true, count: uniqueIds.length };
 }
 
@@ -576,6 +582,7 @@ export async function restockDisplay(productId: number, qty: number) {
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   return { success: true };
 }
 
@@ -625,6 +632,7 @@ export async function moveToWarehouse(productId: number, qty: number) {
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   return { success: true };
 }
 
@@ -668,6 +676,7 @@ export async function isiStokPaket(paketId: number, qtyPaket: number, totalBerat
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   return { success: true };
 }
 
@@ -1022,6 +1031,7 @@ export async function importProducts(
   });
 
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
   return { success: true, count: insertCount + updateCount, message: msg };
 }
 
@@ -1162,6 +1172,7 @@ export async function generateAllSkuBarcode() {
   if (updates.length === 0) {
     // Revalidate cache di Vercel agar data tidak tersangkut cache lama (stale)
     revalidatePath("/dashboard/inventory");
+    updateTag("inventory-products");
     return {
       success: true,
       count: 0,
@@ -1199,6 +1210,7 @@ export async function generateAllSkuBarcode() {
 
   // SELALU revalidate cache agar UI Vercel yang tersangkut (stale) otomatis mengambil data terbaru dari database
   revalidatePath("/dashboard/inventory");
+  updateTag("inventory-products");
 
   return {
     success: true,

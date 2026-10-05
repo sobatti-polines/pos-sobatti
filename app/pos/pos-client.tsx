@@ -404,12 +404,120 @@ export function PosClient({ initialData }: { initialData: PosBootstrapData }) {
     }
   }, [catalogRefreshing, setProducts, pushToast]);
 
-  // ── Debounced server-side search ──────────────────────────────────────────
-  // Pencarian lokal hanya menjangkau 500 produk pertama yang dimuat. Untuk
-  // menjangkau seluruh katalog (1000+ produk), query dikirim ke server.
+  // ── Pantau produk baru dari owner (polling ringan) ─────────────────────────
+  // Katalog hanya dimuat sekali saat POS dibuka. Bila owner menambah barang
+  // ketika POS masih berjalan, kasir tidak perlu menekan "Muat Ulang" lagi:
+  // POS menanyakan JUMLAH produk secara berkala (satu query ringan), dan hanya
+  // menarik ulang seluruh katalog bila jumlahnya berubah.
+  //
+  // Interval 2 menit dan hanya saat tab terlihat — layar POS yang ditinggal
+  // tidak ikut memanggil server. Saat tab kembali aktif, pengecekan dijalankan
+  // sekali supaya produk baru cepat muncul.
+  const catalogCountRef = useRef(products.length);
+  useEffect(() => {
+    catalogCountRef.current = products.length;
+  }, [products.length]);
+
+  const refreshCatalogRef = useRef(refreshCatalog);
+  useEffect(() => {
+    refreshCatalogRef.current = refreshCatalog;
+  }, [refreshCatalog]);
+
+  useEffect(() => {
+    const CHECK_INTERVAL_MS = 120_000;
+    let stopped = false;
+
+    const checkCatalogCount = async () => {
+      if (stopped || document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch("/api/pos/products?count=1", { cache: "no-store" });
+        if (!res.ok) return; // gangguan jaringan sesaat: coba lagi interval berikutnya
+        const json = await res.json();
+        const total = Number(json.total);
+        if (!Number.isFinite(total)) return;
+        if (total !== catalogCountRef.current) {
+          await refreshCatalogRef.current();
+        }
+      } catch {
+        // Diamkan — polling tidak boleh mengganggu kasir.
+      }
+    };
+
+    const timer = setInterval(checkCatalogCount, CHECK_INTERVAL_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") checkCatalogCount();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  // ── Pencarian lokal (instan) + server hanya sebagai cadangan ────────────
+  //
+  // Bootstrap POS memuat SELURUH katalog ke memori (fetchAllRows — bukan 500
+  // pertama seperti yang dulu diasumsikan), jadi mencari produk tidak perlu
+  // ke server. Yang dulu terjadi setiap ketikan: 1 query produk + 2 query
+  // merk/kategori di `/api/pos/products?search=...`, ditambah
+  // `POST /api/event-promo/efektif` — dan selama permintaan itu berjalan
+  // seluruh daftar hasil ditutup teks "Mencari produk...". Kasir jadi menunggu
+  // jaringan untuk data yang sudah ada di komputernya.
+  //
+  // Sekarang: hasil lokal tampil seketika dan tidak pernah ditutup; server
+  // hanya dipanggil bila lokal tidak menemukan apa pun (mis. produk yang baru
+  // ditambahkan owner setelah halaman POS terbuka).
+  //
+  // Katalog diurutkan SEKALI di sini; dulu `[...products].sort()` dijalankan
+  // ulang pada setiap ketikan.
+  const sortedProducts = useMemo(
+    () =>
+      [...products].sort((a, b) =>
+        a.nama_produk.localeCompare(b.nama_produk, "id", { sensitivity: "base" })
+      ),
+    [products]
+  );
+
+  // Satu string huruf-kecil per produk, dibangun sekali per perubahan katalog.
+  // Pencarian tinggal `hay.includes(q)` → tidak ada toLowerCase berulang tiap
+  // ketikan dan tidak ada iterasi objek bersarang.
+  //
+  // Kolom dipisah NUL (bukan spasi) supaya kueri tidak bisa cocok menyeberangi
+  // dua kolom — aturan yang sama dengan pencarian server yang mengecek tiap
+  // kolom secara terpisah.
+  const searchIndex = useMemo(
+    () =>
+      sortedProducts.map((p) => ({
+        p,
+        hay: [p.nama_produk, p.sku, p.barcode, p.merk?.nama, p.kategori?.nama]
+          .filter(Boolean)
+          .join("\u0000")
+          .toLowerCase(),
+      })),
+    [sortedProducts]
+  );
+
+  const localResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sortedProducts;
+    const out: Product[] = [];
+    for (let i = 0; i < searchIndex.length; i++) {
+      if (searchIndex[i].hay.includes(q)) out.push(searchIndex[i].p);
+    }
+    return out;
+  }, [searchIndex, sortedProducts, searchQuery]);
+
+  // Cadangan server: hanya ketika pencarian lokal nihil. Bila hasil lokal ada,
+  // state dibersihkan supaya hasil instan tidak pernah tertimpa.
   useEffect(() => {
     const q = searchQuery.trim();
-    if (!q) return;
+    if (!q || localResults.length > 0) {
+      setServerSearch(null);
+      setSearchLoading(false);
+      return;
+    }
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       setSearchLoading(true);
@@ -425,7 +533,7 @@ export function PosClient({ initialData }: { initialData: PosBootstrapData }) {
         }
         const json = await res.json();
         let sdata = json.data ?? [];
-        
+
         // Harga promo diterapkan lewat helper bersama (lib/promo.ts) agar aturan
         // harga identik dengan bootstrap server. Helper mengembalikan map kosong
         // bila tidak ada promo atau permintaan gagal, jadi hasil pencarian tetap
@@ -440,12 +548,12 @@ export function PosClient({ initialData }: { initialData: PosBootstrapData }) {
       } finally {
         setSearchLoading(false);
       }
-    }, 300);
+    }, 250);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [searchQuery, pushToast]);
+  }, [searchQuery, localResults.length, pushToast]);
 
   const barcodeBufferRef = useRef<string>("");
   const lastKeyTimeRef = useRef<number>(0);
@@ -530,27 +638,15 @@ export function PosClient({ initialData }: { initialData: PosBootstrapData }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [numpadPress, products, addToCart, pushToast, setSearchQuery]);
 
-  const serverResultsActive = serverSearch !== null && serverSearch.q === searchQuery.trim();
+  // Hasil server hanya dipakai bila kueri masih sama DAN lokal nihil, sehingga
+  // daftar lokal yang instan tidak pernah tertimpa oleh respons server.
+  const serverResultsActive =
+    localResults.length === 0 &&
+    serverSearch !== null &&
+    serverSearch.q === searchQuery.trim();
 
-  const filteredProducts = useMemo(() => {
-    const sortByName = (arr: Product[]) =>
-      [...arr].sort((a, b) =>
-        a.nama_produk.localeCompare(b.nama_produk, "id", { sensitivity: "base" })
-      );
-    if (serverResultsActive && serverSearch) return sortByName(serverSearch.data);
-    if (!searchQuery.trim()) return sortByName(products);
-    const q = searchQuery.toLowerCase();
-    return sortByName(
-      products.filter(
-        (p) =>
-          p.nama_produk.toLowerCase().includes(q) ||
-          p.sku?.toLowerCase().includes(q) ||
-          p.merk?.nama?.toLowerCase().includes(q) ||
-          p.kategori?.nama?.toLowerCase().includes(q) ||
-          (p.barcode && p.barcode.includes(q))
-      )
-    );
-  }, [products, searchQuery, serverSearch, serverResultsActive]);
+  const filteredProducts =
+    serverResultsActive && serverSearch ? serverSearch.data : localResults;
 
   const subtotal = cart.reduce((sum, item) => sum + (item.harga_jual - item.diskon_item) * item.qty_satuan, 0);
   const tax = subtotal * (taxRate / 100);

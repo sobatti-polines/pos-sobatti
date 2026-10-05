@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isAttendanceOnlyRole } from "@/lib/roles";
 
@@ -136,5 +137,8 @@ export async function POST(request: Request) {
     }
   }
 
+  // Penjualan mengurangi stok: purge cache list produk 10 detik agar
+  // angka stok di inventory langsung segar.
+  revalidateTag("inventory-products", "max");
   return NextResponse.json({ ...data, poin_ditambahkan });
 }
