@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchLabaRugi } from "./actions";
-import { exportToCSV } from "@/lib/export-utils";
+import { exportToCSV, yieldToPaint } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 import { terbilangRupiah } from "@/lib/terbilang";
 import type { StoreSettings } from "@/lib/store-settings";
@@ -39,6 +39,19 @@ export default function LabaRugiClient({ initialData, store }: { initialData: an
       setError(res.error || "Laporan tidak dapat dimuat. Silakan coba lagi.");
     }
     setLoading(false);
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Spinner export: ditampilkan di ExportDropdown supaya klik langsung terlihat.
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleExport = async () => {
@@ -95,7 +108,7 @@ export default function LabaRugiClient({ initialData, store }: { initialData: an
         </div>
 
         <div className="flex flex-wrap items-center gap-2 xl:ml-4 shrink-0 w-full xl:w-auto">
-          <ExportDropdown onExportCSV={handleExport} className="flex-1 md:flex-none" />
+          <ExportDropdown onExportCSV={() => jalankanExport(handleExport)} isLoading={isExporting} className="flex-1 md:flex-none" />
           <Button variant="outline" className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none" onClick={() => window.print()}>
             <Printer className="w-4 h-4" /> Cetak Laporan
           </Button>

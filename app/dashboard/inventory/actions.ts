@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag, updateTag } from "next/cache";
 import { logActivity, buildDeskripsi } from "@/lib/activity-log";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { isAdminOrOwnerLike, isOwnerLike } from "@/lib/roles";
@@ -147,10 +147,31 @@ export async function applyBulkPriceAdjustment(input: BulkPriceAdjustmentInput, 
     });
   }
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
+  // Ambil harga final dari database untuk produk yang benar-benar dipilih
+  // (bukan hasil preview, supaya tetap benar walau form diubah setelah
+  // "Cek Preview"). Klien memakai ini untuk memperbarui tabel tanpa refetch
+  // seluruh katalog. Dipecah per 200 id agar URL PostgREST tetap pendek.
+  const rows: BulkPriceUpdatedRow[] = [];
+  if (guard.ok) {
+    const ids = [...new Set(selectedProductIds)];
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data: baris, error: barisErr } = await guard.supabase
+        .from("produk")
+        .select(KOLOM_HARGA_SETELAH_UBAH)
+        .in("id", ids.slice(i, i + 200));
+      if (barisErr) {
+        console.error("Gagal memuat harga setelah ubah massal:", barisErr);
+        break;
+      }
+      rows.push(...((baris ?? []) as BulkPriceUpdatedRow[]));
+    }
+  }
+
+  // Non-blocking: pengguna TIDAK menunggu refetch 3000 baris. Cache ditandai
+  // stale, data lama dilayani dulu, penyegaran jalan di latar belakang.
+  revalidateTag("inventory-products", "max");
   revalidatePath("/dashboard/laporan/pergerakan-harga");
-  return res;
+  return { ...res, rows };
 }
 
 interface ProductData {
@@ -230,6 +251,28 @@ function paketErrorMessage(msg: string): string | null {
   return keywords.some((k) => msg.includes(k)) ? msg : null;
 }
 
+// Kolom yang dikembalikan setelah simpan/ubah produk. Nilainya authoritative
+// (sudah melewati trigger `sync_harga_jual_besar` dan default kolom), jadi klien
+// bisa langsung menampilkan baris baru tanpa menebak dan tanpa refetch katalog.
+const KOLOM_HASIL_SIMPAN =
+  "id, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo, harga_jual_besar_manual, stok, stok_gudang, stok_minimum, stok_minimum_gudang, harga_pokok_avco, nilai_persediaan, created_at, updated_at";
+
+// Kolom harga untuk memperbarui tabel setelah ubah harga massal.
+const KOLOM_HARGA_SETELAH_UBAH =
+  "id, harga_jual_satuan, harga_jual_grosir, harga_jual_promo, harga_jual_besar_satuan, harga_jual_besar_grosir, harga_jual_besar_promo, harga_jual_besar_manual, updated_at";
+
+export interface BulkPriceUpdatedRow {
+  id: number;
+  harga_jual_satuan: number;
+  harga_jual_grosir: number;
+  harga_jual_promo: number | null;
+  harga_jual_besar_satuan: number | null;
+  harga_jual_besar_grosir: number | null;
+  harga_jual_besar_promo: number | null;
+  harga_jual_besar_manual: boolean;
+  updated_at: string;
+}
+
 export async function addProduct(data: ProductData) {
   const ok = await requireAuth();
   if (!ok) return { error: "Unauthorized" };
@@ -260,7 +303,13 @@ export async function addProduct(data: ProductData) {
   }
 
   const payload = { ...data, ...computeBigPrices(data) };
-  const { error } = await supabase.from("produk").insert([payload]);
+  // Mengembalikan baris final supaya klien dapat menampilkan produk baru di
+  // daftar lokal tanpa memicu refetch seluruh katalog.
+  const { data: inserted, error } = await supabase
+    .from("produk")
+    .insert([payload])
+    .select(KOLOM_HASIL_SIMPAN)
+    .single();
   if (error) {
     console.error("Failed to add product:", error);
     return { error: paketErrorMessage(error.message ?? "") ?? "Gagal menambah produk" };
@@ -273,9 +322,10 @@ export async function addProduct(data: ProductData) {
     data_baru: data as unknown as Record<string, unknown>,
   });
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
-  return { success: true };
+  // Non-blocking: pengguna TIDAK menunggu refetch 3000 baris. Cache ditandai
+  // stale, data lama dilayani dulu, penyegaran jalan di latar belakang.
+  revalidateTag("inventory-products", "max");
+  return { success: true, id: inserted.id as number, row: inserted };
 }
 
 export async function updateProduct(id: number, data: ProductData) {
@@ -294,7 +344,14 @@ export async function updateProduct(id: number, data: ProductData) {
     .single();
 
   const payload = { ...data, ...computeBigPrices(data) };
-  const { error } = await supabase.from("produk").update(payload).eq("id", id);
+  // Baris hasil update dipakai klien untuk memperbarui tabel secara lokal;
+  // harga besar di sini sudah versi final dari trigger `sync_harga_jual_besar`.
+  const { data: updated, error } = await supabase
+    .from("produk")
+    .update(payload)
+    .eq("id", id)
+    .select(KOLOM_HASIL_SIMPAN)
+    .single();
   if (error) {
     console.error("Failed to update product:", error);
     return { error: paketErrorMessage(error.message ?? "") ?? "Gagal memperbarui produk" };
@@ -309,9 +366,10 @@ export async function updateProduct(id: number, data: ProductData) {
     data_baru: data as unknown as Record<string, unknown>,
   });
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
-  return { success: true };
+  // Non-blocking: pengguna TIDAK menunggu refetch 3000 baris. Cache ditandai
+  // stale, data lama dilayani dulu, penyegaran jalan di latar belakang.
+  revalidateTag("inventory-products", "max");
+  return { success: true, row: updated };
 }
 
 export async function deleteProduct(id: number) {
@@ -358,8 +416,9 @@ export async function deleteProduct(id: number) {
     data_lama: oldProduct ? (oldProduct as unknown as Record<string, unknown>) : null,
   });
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
+  // Non-blocking: pengguna TIDAK menunggu refetch 3000 baris. Cache ditandai
+  // stale, data lama dilayani dulu, penyegaran jalan di latar belakang.
+  revalidateTag("inventory-products", "max");
   return { success: true };
 }
 
@@ -428,8 +487,9 @@ export async function forceDeleteProduct(id: number) {
     data_lama: oldProduct ? (oldProduct as unknown as Record<string, unknown>) : null,
   });
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
+  // Non-blocking: pengguna TIDAK menunggu refetch 3000 baris. Cache ditandai
+  // stale, data lama dilayani dulu, penyegaran jalan di latar belakang.
+  revalidateTag("inventory-products", "max");
   return { success: true };
 }
 
@@ -531,8 +591,9 @@ export async function deleteProducts(ids: number[]) {
     data_lama: { count: uniqueIds.length, ids: uniqueIds } as unknown as Record<string, unknown>,
   });
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
+  // Non-blocking: pengguna TIDAK menunggu refetch 3000 baris. Cache ditandai
+  // stale, data lama dilayani dulu, penyegaran jalan di latar belakang.
+  revalidateTag("inventory-products", "max");
   return { success: true, count: uniqueIds.length };
 }
 
@@ -581,8 +642,9 @@ export async function restockDisplay(productId: number, qty: number) {
     data_baru: { stok: product.stok + qty, stok_gudang: product.stok_gudang - qty } as unknown as Record<string, unknown>,
   });
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
+  // Non-blocking: pengguna TIDAK menunggu refetch 3000 baris. Cache ditandai
+  // stale, data lama dilayani dulu, penyegaran jalan di latar belakang.
+  revalidateTag("inventory-products", "max");
   return { success: true };
 }
 
@@ -631,8 +693,9 @@ export async function moveToWarehouse(productId: number, qty: number) {
     data_baru: { stok: product.stok - qty, stok_gudang: product.stok_gudang + qty } as unknown as Record<string, unknown>,
   });
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
+  // Non-blocking: pengguna TIDAK menunggu refetch 3000 baris. Cache ditandai
+  // stale, data lama dilayani dulu, penyegaran jalan di latar belakang.
+  revalidateTag("inventory-products", "max");
   return { success: true };
 }
 
@@ -675,8 +738,9 @@ export async function isiStokPaket(paketId: number, qtyPaket: number, totalBerat
     data_baru: { qty_paket: qtyPaket, total_berat: totalBerat ?? null } as unknown as Record<string, unknown>,
   });
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
+  // Non-blocking: pengguna TIDAK menunggu refetch 3000 baris. Cache ditandai
+  // stale, data lama dilayani dulu, penyegaran jalan di latar belakang.
+  revalidateTag("inventory-products", "max");
   return { success: true };
 }
 
@@ -1030,7 +1094,9 @@ export async function importProducts(
     data_baru: { insertCount, updateCount },
   });
 
-  revalidatePath("/dashboard/inventory");
+  // Import mengubah banyak baris sekaligus dan hasilnya harus langsung terlihat
+  // di tabel, jadi sengaja memakai updateTag (menunggu data segar) — bukan
+  // penyegaran latar belakang yang akan menampilkan daftar lama dulu.
   updateTag("inventory-products");
   return { success: true, count: insertCount + updateCount, message: msg };
 }
@@ -1170,8 +1236,7 @@ export async function generateAllSkuBarcode() {
   }
 
   if (updates.length === 0) {
-    // Revalidate cache di Vercel agar data tidak tersangkut cache lama (stale)
-    revalidatePath("/dashboard/inventory");
+    // SKU/Barcode mengubah banyak baris sekaligus; tampilkan hasilnya langsung.
     updateTag("inventory-products");
     return {
       success: true,
@@ -1208,8 +1273,7 @@ export async function generateAllSkuBarcode() {
     data_baru: { updated, errors },
   });
 
-  // SELALU revalidate cache agar UI Vercel yang tersangkut (stale) otomatis mengambil data terbaru dari database
-  revalidatePath("/dashboard/inventory");
+  // Sama seperti import: banyak baris berubah, hasil harus langsung terlihat.
   updateTag("inventory-products");
 
   return {

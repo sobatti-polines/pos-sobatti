@@ -32,7 +32,7 @@ import {
 } from "./actions";
 import { z } from "zod";
 import ImportCSVModal from "@/components/import-csv-modal";
-import { exportToCSV, generateOpnameTemplate } from "@/lib/export-utils";
+import { exportToCSV, generateOpnameTemplate, yieldToPaint } from "@/lib/export-utils";
 
 /* ------------------------------------------------------------------ */
 /*  Zod schemas                                                        */
@@ -498,6 +498,19 @@ function Step2({
     }
   };
 
+  // Penanda proses untuk "Cetak Template" & "Export CSV": keduanya menyusun
+  // file besar di main thread, tanpa penanda klik terasa tidak merespons.
+  const [sibukExport, setSibukExport] = useState(false);
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setSibukExport(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setSibukExport(false);
+    }
+  };
+
   const handleExportCSV = async () => {
     // Header SAMA dengan template import stok opname agar bisa round-trip
     // (export draft → isi/edit → import ulang).
@@ -641,20 +654,22 @@ function Step2({
             type="button"
             variant="outline"
             size="sm"
-            onClick={handlePrintTemplate}
+            onClick={() => jalankanExport(handlePrintTemplate)}
+            disabled={sibukExport}
             className="rounded-full gap-1.5"
           >
-            <FileText className="w-3.5 h-3.5" />
+            {sibukExport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
             Cetak Template
           </Button>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={handleExportCSV}
+            onClick={() => jalankanExport(handleExportCSV)}
+            disabled={sibukExport}
             className="rounded-full gap-1.5"
           >
-            <Download className="w-3.5 h-3.5" />
+            {sibukExport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
             Export CSV
           </Button>
           <Button

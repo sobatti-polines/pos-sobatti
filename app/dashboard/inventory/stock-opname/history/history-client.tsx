@@ -4,7 +4,7 @@ import { useState, useMemo, useDeferredValue, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ClipboardList, ChevronDown, ChevronRight, Loader2, Search, X, FileText } from "lucide-react";
-import { exportToCSV, exportToPDF, generateOpnameTemplate } from "@/lib/export-utils";
+import { exportToCSV, exportToPDF, generateOpnameTemplate, yieldToPaint } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,6 +98,18 @@ function SesiAccordion({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // Penanda proses untuk export & cetak template per sesi, supaya klik langsung
+  // terlihat responsnya (pekerjaan ini menyusun PDF di main thread).
+  const [sibuk, setSibuk] = useState(false);
+  const jalankanSibuk = async (kerja: () => void | Promise<void>) => {
+    setSibuk(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setSibuk(false);
+    }
+  };
   const items = sesi.stok_opname ?? [];
   const operator = sesi.pengguna?.nama || sesi.pengguna?.username || "-";
 
@@ -263,13 +275,18 @@ function SesiAccordion({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={onPrintTemplate}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-full text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+                onClick={() => jalankanSibuk(onPrintTemplate)}
+                disabled={sibuk}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-full text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-60"
               >
-                <FileText className="w-3 h-3" />
+                {sibuk ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
                 Cetak Template
               </button>
-              <ExportDropdown onExportCSV={onExportCSV} onExportPDF={onExportPDF} />
+              <ExportDropdown
+                onExportCSV={() => jalankanSibuk(onExportCSV)}
+                onExportPDF={() => jalankanSibuk(onExportPDF)}
+                isLoading={sibuk}
+              />
             </div>
           </div>
         </div>
@@ -339,6 +356,19 @@ export default function OpnameHistoryClient({
 
     return result;
   }, [initialSesi, deferredSearchQuery, dateFilter, statusFilter]);
+
+  const [isExportingAll, setIsExportingAll] = useState(false);
+
+  // Spinner export seluruh sesi: ditampilkan di ExportDropdown.
+  const jalankanExportAll = async (kerja: () => Promise<void>) => {
+    setIsExportingAll(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExportingAll(false);
+    }
+  };
 
   const handleExportAllCSV = async () => {
     const headers = [
@@ -509,8 +539,9 @@ export default function OpnameHistoryClient({
               Reset
             </Button>
             <ExportDropdown
-              onExportCSV={handleExportAllCSV}
-              onExportPDF={handleExportAllPDF}
+              onExportCSV={() => jalankanExportAll(handleExportAllCSV)}
+              onExportPDF={() => jalankanExportAll(handleExportAllPDF)}
+              isLoading={isExportingAll}
               className="flex-1 md:flex-none"
             />
           </div>

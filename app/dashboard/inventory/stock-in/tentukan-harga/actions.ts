@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { logActivity } from "@/lib/activity-log";
 import type { PendingStockInItem } from "./types";
@@ -82,8 +82,8 @@ export async function markTidakAdaHarga(data: z.infer<typeof markNoPriceSchema>)
     data_baru: { harga_ditentukan: true } as unknown as Record<string, unknown>,
   });
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
+  // Non-blocking: pengguna tidak menunggu refetch seluruh katalog produk.
+  revalidateTag("inventory-products", "max");
   revalidatePath("/dashboard/inventory/stock-in/tentukan-harga");
 
   return { success: true };
@@ -333,8 +333,8 @@ export async function updateHargaBarangMasuk(data: z.infer<typeof batchUpdateHar
     });
   }
 
-  revalidatePath("/dashboard/inventory");
-  updateTag("inventory-products");
+  // Non-blocking: pengguna tidak menunggu refetch seluruh katalog produk.
+  revalidateTag("inventory-products", "max");
   revalidatePath("/dashboard/inventory/stock-in");
   revalidatePath("/dashboard/inventory/stock-in/history");
   revalidatePath("/dashboard/inventory/stock-in/tentukan-harga");

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import logoPerusahaan from "@/public/login-logo.jpeg";
 import { 
+  Loader2,
   LayoutGrid, 
   CircleDollarSign, 
   Package, 
@@ -60,11 +61,19 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
   const router = useRouter();
   const supabase = createClient();
   const [isOpen, setIsOpen] = useState(false);
+  // Umpan balik saat keluar: signOut + redirect butuh waktu di koneksi lambat.
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      router.push("/");
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   // Close the menu when pathname changes
@@ -477,10 +486,11 @@ export const DashboardMobileNav = React.memo(function DashboardMobileNav({ role,
                 
                 <button 
                   onClick={handleLogout} 
-                  className="flex items-center gap-3 px-3 py-3 rounded-md text-destructive hover:bg-destructive/10 transition-colors w-full text-left mt-2"
+                  disabled={loggingOut}
+                  className="flex items-center gap-3 px-3 py-3 rounded-md text-destructive hover:bg-destructive/10 transition-colors w-full text-left mt-2 disabled:opacity-60"
                 >
-                  <LogOut className="w-5 h-5" />
-                  <span className="font-medium">Keluar</span>
+                  {loggingOut ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogOut className="w-5 h-5" />}
+                  <span className="font-medium">{loggingOut ? "Keluar..." : "Keluar"}</span>
                 </button>
               </div>
             </div>

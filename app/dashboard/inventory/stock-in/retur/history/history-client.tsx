@@ -2,12 +2,13 @@
 
 import { useState, useMemo, useDeferredValue } from "react";
 import { PackageX, ArrowLeftRight } from "lucide-react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { ExportDropdown } from "@/components/export-dropdown";
-import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { NavLinkPending } from "@/components/nav-link-pending";
+import { exportToCSV, exportToPDF, yieldToPaint } from "@/lib/export-utils";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -69,8 +70,6 @@ export default function ReturHistoryClient({
   history: ReturHistoryRecord[];
   suppliers: Supplier[];
 }) {
-  const router = useRouter();
-
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [supplierFilter, setSupplierFilter] = useState("all");
@@ -113,6 +112,19 @@ export default function ReturHistoryClient({
   const totalNilai = useMemo(() => {
     return filteredData.reduce((sum, h) => sum + Number(h.total_nilai || 0), 0);
   }, [filteredData]);
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Spinner export: ditampilkan di ExportDropdown supaya klik langsung terlihat.
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleExportCSV = async () => {
     const headers = ["No. Retur", "Tanggal", "Supplier", "Barang Masuk", "No. Faktur", "Jumlah Item", "Total Nilai", "Operator", "Keterangan"];
@@ -262,12 +274,15 @@ export default function ReturHistoryClient({
           label: "Buat Retur",
           customRender: () => (
             <Button
+              asChild
               variant="default"
               className="rounded-full px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm font-normal shrink-0 gap-2 flex-1 md:flex-none"
-              onClick={() => router.push("/dashboard/inventory/stock-in/retur")}
             >
-              <ArrowLeftRight className="w-4 h-4" />
-              Buat Retur
+              <Link href="/dashboard/inventory/stock-in/retur">
+                <ArrowLeftRight className="w-4 h-4" />
+                Buat Retur
+                <NavLinkPending />
+              </Link>
             </Button>
           ),
         },
@@ -275,8 +290,9 @@ export default function ReturHistoryClient({
           label: "Export",
           customRender: () => (
             <ExportDropdown
-              onExportCSV={handleExportCSV}
-              onExportPDF={handleExportPDF}
+              onExportCSV={() => jalankanExport(handleExportCSV)}
+              onExportPDF={() => jalankanExport(handleExportPDF)}
+              isLoading={isExporting}
               className="flex-1 md:flex-none"
             />
           ),

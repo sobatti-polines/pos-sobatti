@@ -48,8 +48,8 @@ interface RawProduct {
 /**
  * Fetch live (tanpa cache). THROW saat query produk gagal — pemanggil yang
  * memutuskan fallback. Kegagalan TIDAK BOLEH diubah jadi [] di sini karena
- * [] yang masuk unstable_cache akan menyajikan tabel kosong sampai expired
- * (bug: "Tidak ada produk ditemukan" padahal DB berisi 1000+ baris).
+ * [] akan langsung menjadi tabel kosong yang menipu
+ * (bug lama: "Tidak ada produk ditemukan" padahal DB berisi 1000+ baris).
  *
  * Kegagalan promo sengaja non-fatal (seperti perilaku lama): harga tampil
  * tanpa penyesuaian promo daripada halaman kosong.
@@ -163,28 +163,27 @@ async function fetchProductsLive() {
 }
 
 /**
- * Daftar produk + harga efektif promo, di-cache 10 detik.
+ * Daftar produk + harga efektif promo, diambil LIVE setiap render.
  *
- * Hanya hasil SUKSES non-kosong yang di-cache. Error dan [] TIDAK PERNAH
- * masuk cache (Next tidak meng-cache throw): gagal sesaat sembuh sendiri
- * di navigasi berikutnya, bukan menyajikan tabel kosong 10 detik.
- * Kolom select(*) dipertahankan sesuai permintaan (semua kolom tampil).
- * Setiap mutasi produk/stok memanggil updateTag("inventory-products")
- * sehingga CRUD tetap langsung terlihat.
+ * Sengaja TIDAK memakai unstable_cache: nilai cache-nya melebihi batas data
+ * cache Next.js (2MB) pada skala nyata — 3000 produk ≈ 3,4MB — sehingga
+ * penulisan GAGAL ("items over 2MB can not be cached") dan entry LAMA tidak
+ * pernah bisa disegarkan. Akibatnya tabel bisa membeku: produk baru / hasil
+ * edit tidak muncul sampai server di-restart.
+ *
+ * Biaya fetch ditekan lewat chunk paralel (fetchAllRows), bukan lewat cache
+ * yang tidak pernah bisa menampung ukuran ini. [] tetap dibuang (throw) supaya
+ * kegagalan query tidak pernah menjadi "tabel kosong" yang menipu.
  */
-const getProductsCached = unstable_cache(
-  async () => {
-    const rows = await fetchProductsLive();
-    if (rows.length === 0) {
-      throw new Error(
-        "inventory-products kosong — tidak di-cache, pakai jalur live"
-      );
-    }
-    return rows;
-  },
-  ["inventory-products-v1"],
-  { revalidate: 10, tags: ["inventory-products"] }
-);
+async function getProductsLive() {
+  const rows = await fetchProductsLive();
+  if (rows.length === 0) {
+    throw new Error(
+      "inventory-products kosong — coba ulang, jangan tampilkan tabel kosong"
+    );
+  }
+  return rows;
+}
 
 /**
  * Fetch live referensi. Throw bila ada query yang gagal agar kegagalan
@@ -223,20 +222,20 @@ type Refs = Awaited<ReturnType<typeof fetchRefsLive>>;
 const EMPTY_REFS: Refs = { categories: [], units: [], lokasiAreas: [], merks: [] };
 
 /**
- * Muat inventory: coba cache dulu, gagal → fetch live TANPA cache.
- * Fallback live paling akhir mengembalikan [] (perilaku lama) supaya halaman
- * tidak crash saat DB benar-benar mati — tapi [] ini tidak di-cache sehingga
+ * Muat inventory: produk live + referensi (masih di-cache 30 detik).
+ * Bila apa pun gagal, coba ulang live; fallback paling akhir [] supaya halaman
+ * tidak crash saat DB benar-benar mati — [] ini tidak di-cache sehingga
  * navigasi berikutnya mencoba lagi dan sembuh sendiri.
  */
 async function loadInventory() {
   try {
     const [productsWithStock, refs] = await Promise.all([
-      getProductsCached(),
+      getProductsLive(),
       getRefsCached(),
     ]);
     return { productsWithStock, refs };
   } catch (e) {
-    console.error("Cache inventory gagal, fallback live (tidak di-cache):", e);
+    console.error("Gagal memuat inventory, ulangi live (tanpa cache):", e);
     const [productsWithStock, refs] = await Promise.all([
       fetchProductsLive().catch(() => []),
       fetchRefsLive().catch(() => EMPTY_REFS),

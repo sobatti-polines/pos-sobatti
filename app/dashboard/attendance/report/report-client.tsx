@@ -5,7 +5,7 @@ import { CalendarDays } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { exportToCSV, exportToPDF, yieldToPaint } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 import {
   attendanceDescription,
@@ -80,6 +80,19 @@ export function ReportClient({
   }, [filteredData]);
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 15 });
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Spinner export: ditampilkan di ExportDropdown supaya klik langsung terlihat.
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleExportCSV = async () => {
     const headers = ["Tanggal", "Username", "Level", "Jam Masuk", "Jam Pulang", "Status", "Telat (Menit)", "Sumber", "Catatan", "Perangkat"];
@@ -190,8 +203,9 @@ export function ReportClient({
           label: "Export",
           customRender: () => (
             <ExportDropdown
-              onExportCSV={handleExportCSV}
-              onExportPDF={handleExportPDF}
+              onExportCSV={() => jalankanExport(handleExportCSV)}
+              onExportPDF={() => jalankanExport(handleExportPDF)}
+              isLoading={isExporting}
               className="flex-1 md:flex-none"
             />
           ),

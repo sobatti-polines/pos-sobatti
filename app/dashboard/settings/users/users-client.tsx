@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { TableCell } from "@/components/ui/table";
 import { createUser, updateUser, deleteUser, importUsers } from "./actions";
-import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { exportToCSV, exportToPDF, yieldToPaint } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
 import { ExportDropdown } from "@/components/export-dropdown";
 import { CONTRACT_ROLE, DEV_ROLE, ROLE_LABELS, USER_MANAGED_ROLES } from "@/lib/roles";
@@ -122,6 +122,19 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
 
   const roleOptions = [...USER_MANAGED_ROLES];
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Spinner export: ditampilkan di ExportDropdown supaya klik langsung terlihat.
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleExportCSV = async () => {
     // Header SAMA dengan template import pengguna agar bisa round-trip.
     // Kolom Password dikosongkan: password asli tersimpan ter-hash di Supabase Auth
@@ -191,7 +204,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
         <div className="flex justify-end gap-1">
           {user.level === DEV_ROLE ? null : (
             <>
-          <Button variant="ghost" size="icon" aria-label="Edit pengguna" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground"
+          <Button variant="ghost" size="icon" aria-label="Edit pengguna" disabled={isPending} className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-foreground"
             onClick={() => {
               setEditingId(user.id);
               setEditForm({
@@ -207,7 +220,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
           >
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Hapus pengguna" className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(user)}>
+          <Button variant="ghost" size="icon" aria-label="Hapus pengguna" disabled={isPending} className="h-11 w-11 md:h-8 md:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(user)}>
             <Trash2 className="h-4 w-4" />
           </Button>
             </>
@@ -305,8 +318,9 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
           label: "Export",
           customRender: () => (
             <ExportDropdown
-              onExportCSV={handleExportCSV}
-              onExportPDF={handleExportPDF}
+              onExportCSV={() => jalankanExport(handleExportCSV)}
+              onExportPDF={() => jalankanExport(handleExportPDF)}
+              isLoading={isExporting}
               className="flex-1 md:flex-none"
             />
           ),

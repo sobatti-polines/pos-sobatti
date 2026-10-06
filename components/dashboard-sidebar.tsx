@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { useLowStockRealtime } from "@/hooks/use-low-stock-realtime";
 import { 
   LayoutGrid, 
@@ -58,6 +58,8 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
   const supabase = createClient();
 
   const [isMounted, setIsMounted] = useState(false);
+  // Umpan balik saat keluar: signOut + redirect butuh waktu di koneksi lambat.
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const isOwner = isOwnerLike(role);
   const isStaff = isStaffRole(role);
@@ -73,9 +75,15 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      router.push("/");
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   if (!isMounted) return <aside className="w-64 shrink-0 border-r border-border bg-background hidden md:flex flex-col py-6 px-4" />;
@@ -445,10 +453,11 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ role, use
           
           <button 
             onClick={handleLogout} 
-            className="flex items-center gap-3 px-3 py-2.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors w-full text-left mt-2"
+            disabled={loggingOut}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors w-full text-left mt-2 disabled:opacity-60"
           >
-            <LogOut className="w-5 h-5" />
-            <span className="text-sm font-medium">Keluar</span>
+            {loggingOut ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogOut className="w-5 h-5" />}
+            <span className="text-sm font-medium">{loggingOut ? "Keluar..." : "Keluar"}</span>
           </button>
         </div>
       </div>

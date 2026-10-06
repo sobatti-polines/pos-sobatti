@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ClipboardList, TrendingDown, TrendingUp, Package, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchLaporanStokOpname, type LaporanStokOpnameData } from "./actions";
-import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { exportToCSV, exportToPDF, yieldToPaint } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 import { Loader2 } from "lucide-react";
 
@@ -98,6 +98,19 @@ export default function LaporanStokOpnameClient({
     setLoading(false);
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Spinner export: ditampilkan di ExportDropdown supaya klik langsung terlihat.
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleExportCSV = async () => {
     if (!data) return;
     const headers = ["Bulan", "Sesi", "Item", "Selisih", "Defisit (Rp)", "Surplus (Rp)", "Shrinkage %"];
@@ -165,7 +178,7 @@ export default function LaporanStokOpnameClient({
           Muat Ulang
         </Button>
         <div className="ml-auto">
-          <ExportDropdown onExportCSV={handleExportCSV} onExportPDF={handleExportPDF} />
+          <ExportDropdown onExportCSV={() => jalankanExport(handleExportCSV)} onExportPDF={() => jalankanExport(handleExportPDF)} isLoading={isExporting} />
         </div>
       </div>
 

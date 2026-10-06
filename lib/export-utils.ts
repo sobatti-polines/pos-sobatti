@@ -10,6 +10,15 @@
 // semua fungsi export menjadi async. Tanda tangan fungsi tidak berubah selain
 // mengembalikan Promise.
 
+/**
+ * Beri browser kesempatan mengecat ulang (paint) sebelum pekerjaan sinkron
+ * berat berjalan — mis. menyusun ribuan baris lalu jsPDF yang memblokir main
+ * thread. Tanpa jeda ini spinner "sedang mengekspor" tidak akan pernah
+ * terlihat, karena thread sudah diblokir sebelum React sempat menggambar ulang.
+ */
+export const yieldToPaint = (ms = 30): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const exportToCSV = async (filename: string, headers: string[], data: any[][]) => {
   const { default: Papa } = await import("papaparse");

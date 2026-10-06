@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableCell } from "@/components/ui/table";
 import { addSupplier, updateSupplier, deleteSupplier, importSuppliers } from "./actions";
-import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { exportToCSV, exportToPDF, yieldToPaint } from "@/lib/export-utils";
 import ImportCSVModal from "@/components/import-csv-modal";
 import { ExportDropdown } from "@/components/export-dropdown";
 
@@ -108,6 +108,19 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
     setEditingId(null);
     setEditForm({});
     setErrorMsg("");
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Spinner export: ditampilkan di ExportDropdown supaya klik langsung terlihat.
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleExportCSV = async () => {
@@ -227,8 +240,9 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
           label: "Export",
           customRender: () => (
             <ExportDropdown
-              onExportCSV={handleExportCSV}
-              onExportPDF={handleExportPDF}
+              onExportCSV={() => jalankanExport(handleExportCSV)}
+              onExportPDF={() => jalankanExport(handleExportPDF)}
+              isLoading={isExporting}
               className="flex-1 md:flex-none"
             />
           ),

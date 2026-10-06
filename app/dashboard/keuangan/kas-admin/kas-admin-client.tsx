@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { exportToCSV } from "@/lib/export-utils";
+import { exportToCSV, yieldToPaint } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 import { addKasAdminTopup, deleteKasAdminTopup, editKasAdminTopup, getKasAdminData, type KasAdminMutasi } from "./actions";
 
@@ -105,6 +105,19 @@ export default function KasAdminClient({ initialData }: { initialData: KasAdminD
         if (fresh.data) setData(fresh.data);
       }
     });
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Spinner export: ditampilkan di ExportDropdown supaya klik langsung terlihat.
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleExport = async () => {
@@ -238,7 +251,7 @@ export default function KasAdminClient({ initialData }: { initialData: KasAdminD
                 Uang masuk (top-up owner & refund retur) dan uang keluar (pengeluaran operasional Tunai)
               </p>
             </div>
-            <ExportDropdown onExportCSV={handleExport} className="flex-1 sm:flex-none" />
+            <ExportDropdown onExportCSV={() => jalankanExport(handleExport)} isLoading={isExporting} className="flex-1 sm:flex-none" />
           </div>
 
           <div className="flex-1 overflow-auto min-h-0">

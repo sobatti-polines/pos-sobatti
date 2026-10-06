@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { exportToCSV } from "@/lib/export-utils";
+import { exportToCSV, yieldToPaint } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 import { editSesiKasir } from "@/app/dashboard/tutup-kasir/actions";
 import { terbilangRupiah } from "@/lib/terbilang";
@@ -150,6 +150,19 @@ export default function LaporanKasirClient({
     router.refresh();
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Spinner export: ditampilkan di ExportDropdown supaya klik langsung terlihat.
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleExport = async () => {
     const headers = ["Tanggal", "Uang Awal", "Total Masuk", "Penambahan", "Saldo Sistem", "Uang Aktual", "Selisih", "Kasir"];
     const rows = filtered.map(r => [
@@ -183,7 +196,7 @@ export default function LaporanKasirClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 xl:ml-4 shrink-0 w-full xl:w-auto">
-          <ExportDropdown onExportCSV={handleExport} className="flex-1 md:flex-none" />
+          <ExportDropdown onExportCSV={() => jalankanExport(handleExport)} isLoading={isExporting} className="flex-1 md:flex-none" />
           <Button variant="outline" className="rounded-full px-4 h-10 gap-2 flex-1 md:flex-none" onClick={() => window.print()}>
             <Printer className="w-4 h-4" /> Cetak Laporan
           </Button>

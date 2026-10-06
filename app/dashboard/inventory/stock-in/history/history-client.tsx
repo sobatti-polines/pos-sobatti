@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { voidBarangMasuk, updateBarangMasuk } from "../actions";
-import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { exportToCSV, exportToPDF, yieldToPaint } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 
 function formatIDR(n: number) {
@@ -216,6 +216,19 @@ export default function StockInHistoryClient({
   const totalValue = useMemo(() => {
     return activeData.reduce((sum, h) => sum + Number(h.total_cost || h.total), 0);
   }, [activeData]);
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Spinner export: ditampilkan di ExportDropdown supaya klik langsung terlihat.
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleExportCSV = async () => {
     const allHeaders = ["Tanggal", "No. Faktur", "Supplier", "Produk", "Satuan Suplai", "Qty Suplai", "Rasio", "Base Qty", "HPP/Pcs", "Total Biaya", "Jenis", "Status", "Keterangan"];
@@ -445,8 +458,9 @@ export default function StockInHistoryClient({
             label: "Export",
             customRender: () => (
               <ExportDropdown
-                onExportCSV={handleExportCSV}
-                onExportPDF={handleExportPDF}
+                onExportCSV={() => jalankanExport(handleExportCSV)}
+                onExportPDF={() => jalankanExport(handleExportPDF)}
+                isLoading={isExporting}
                 className="flex-1 md:flex-none"
               />
             ),

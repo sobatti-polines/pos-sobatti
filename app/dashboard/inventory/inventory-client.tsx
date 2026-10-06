@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useTransition, useDeferredValue, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Plus, PackageOpen, PackagePlus, X, AlertCircle, Check, Loader2, Edit2, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Upload, ChevronsUpDown, Search, Percent, Wand2 } from "lucide-react";
 import { useTable } from "@/hooks/use-table";
@@ -13,8 +12,8 @@ import { Switch } from "@/components/ui/switch";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { TableCell, TableRow } from "@/components/ui/table";
 import { addProduct, updateProduct, deleteProduct, deleteProducts, forceDeleteProduct, restockDisplay, moveToWarehouse, importProducts, isiStokPaket, previewBulkPriceAdjustment, applyBulkPriceAdjustment, generateSkuBarcode } from "./actions";
-import type { BulkPriceAdjustmentInput, BulkPriceAdjustmentResult } from "./actions";
-import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import type { BulkPriceAdjustmentInput, BulkPriceAdjustmentResult, BulkPriceUpdatedRow } from "./actions";
+import { exportToCSV, exportToPDF, yieldToPaint } from "@/lib/export-utils";
 import ProductDetailSheet from "@/components/product-detail-sheet";
 import { Highlight } from "@/components/highlight";
 import ImportCSVModal from "@/components/import-csv-modal";
@@ -206,6 +205,7 @@ interface Product {
   harga_asli_besar_satuan?: number | null;
   harga_asli_besar_grosir?: number | null;
   harga_asli_besar_promo?: number | null;
+  nama_event_promo?: string;
   id_produk_master: number | null;
   qty_per_unit: number | null;
   isi_satuan: string | null;
@@ -217,6 +217,48 @@ interface Product {
   lokasi_area: { nama: string } | null;
   created_at: string;
   updated_at: string;
+}
+
+// Snapshot produk master untuk baris paket, dibentuk dari daftar produk lokal
+// dengan bentuk sama seperti hasil join server.
+function masterSnapshot(daftar: Product[], masterId: number | null): Product["master"] {
+  if (masterId == null) return null;
+  const m = daftar.find((r) => r.id === masterId);
+  if (!m) return null;
+  return {
+    stok: m.stock,
+    stok_gudang: m.stok_gudang ?? null,
+    hitung_stok: m.hitung_stok,
+    nama_produk: m.nama_produk,
+    harga_pokok_avco: m.harga_pokok_avco,
+    harga_modal: m.harga_modal,
+  };
+}
+
+// Cermin dari RPC `process_isi_stok_paket`: produk master diambil dari GUDANG
+// lebih dulu, sisanya dari display; stok paket bertambah sebesar qty.
+function isiStokPaketLokal(prev: Product[], produk: Product, qty: number, terpakai: number): Product[] {
+  return prev.map((r) => {
+    if (r.id === produk.id) {
+      const gudangAda = r.master?.stok_gudang ?? 0;
+      const dariGudang = Math.min(gudangAda, terpakai);
+      const dariDisplay = terpakai - dariGudang;
+      return {
+        ...r,
+        stock: (r.stock ?? 0) + qty,
+        master: r.master
+          ? { ...r.master, stok: Math.max(0, (r.master.stok ?? 0) - dariDisplay), stok_gudang: gudangAda - dariGudang }
+          : r.master,
+      };
+    }
+    if (r.id === produk.id_produk_master && r.hitung_stok) {
+      const gudangAda = r.stok_gudang ?? 0;
+      const dariGudang = Math.min(gudangAda, terpakai);
+      const dariDisplay = terpakai - dariGudang;
+      return { ...r, stock: Math.max(0, (r.stock ?? 0) - dariDisplay), stok_gudang: gudangAda - dariGudang };
+    }
+    return r;
+  });
 }
 
 const bulkPriceFields: Array<{ key: keyof Pick<BulkPriceAdjustmentInput, "update_retail" | "update_grosir" | "update_promo" | "update_big_retail" | "update_big_grosir" | "update_big_promo">; label: string }> = [
@@ -257,7 +299,11 @@ export default function InventoryClient({
   merks: { id: number; nama: string }[];
   isOwner?: boolean;
 }) {
-  const router = useRouter();
+  // Daftar produk dipegang lokal, di-seed sekali dari server (pola sama dengan
+  // POS di app/pos/pos-client.tsx). Mutasi memperbarui state ini langsung,
+  // sehingga hasil edit terlihat seketika tanpa memicu refetch seluruh katalog
+  // (ribuan baris) lewat router.refresh().
+  const [products, setProducts] = useState(initialProducts);
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -339,7 +385,7 @@ export default function InventoryClient({
   const filteredData = useMemo(() => {
     // Tanpa copy [...]: filter di bawah selalu menghasilkan array baru,
     // dan sort di useTable juga meng-copy sendiri.
-    let result = initialProducts;
+    let result = products;
 
     if (deferredSearchQuery.trim()) {
       const q = deferredSearchQuery.toLowerCase();
@@ -399,7 +445,7 @@ export default function InventoryClient({
     }
 
     return result;
-  }, [initialProducts, deferredSearchQuery, categoryFilter, merkFilter, lokasiFilter, stockFilter, typeFilter, merkNamaById]);
+  }, [products, deferredSearchQuery, categoryFilter, merkFilter, lokasiFilter, stockFilter, typeFilter, merkNamaById]);
 
   const table = useTable({ data: filteredData, defaultItemsPerPage: 25 });
 
@@ -452,7 +498,38 @@ export default function InventoryClient({
         setBulkPriceSearch("");
         setBulkPriceSelectedIds(new Set());
         setBulkPriceSuccess(`Harga berhasil diubah untuk ${updated} produk. ${skipped} produk dilewati.`);
-        router.refresh();
+        // Harga final dari server langsung diterapkan ke daftar lokal supaya
+        // tabel menampilkan angka baru tanpa menunggu refetch katalog.
+        const barisTerbaru = (res as { rows?: BulkPriceUpdatedRow[] }).rows ?? [];
+        if (barisTerbaru.length > 0) {
+          const perId = new Map(barisTerbaru.map((r) => [r.id, r]));
+          setProducts((prev) =>
+            prev.map((p) => {
+              const baru = perId.get(p.id);
+              if (!baru) return p;
+              // Baris dengan event promo aktif: harga tampil dihitung server dari
+              // aturan promo, jadi nilai tampil dipertahankan.
+              const adaEventPromo = Boolean(p.nama_event_promo);
+              return {
+                ...p,
+                harga_asli_satuan: baru.harga_jual_satuan,
+                harga_asli_grosir: baru.harga_jual_grosir,
+                harga_asli_promo: baru.harga_jual_promo,
+                harga_asli_besar_satuan: baru.harga_jual_besar_satuan,
+                harga_asli_besar_grosir: baru.harga_jual_besar_grosir,
+                harga_asli_besar_promo: baru.harga_jual_besar_promo,
+                harga_jual_besar_manual: baru.harga_jual_besar_manual,
+                updated_at: baru.updated_at,
+                harga_jual_satuan: adaEventPromo ? p.harga_jual_satuan : baru.harga_jual_satuan,
+                harga_jual_grosir: adaEventPromo ? p.harga_jual_grosir : baru.harga_jual_grosir,
+                harga_jual_promo: adaEventPromo ? p.harga_jual_promo : baru.harga_jual_promo,
+                harga_jual_besar_satuan: adaEventPromo ? p.harga_jual_besar_satuan : baru.harga_jual_besar_satuan,
+                harga_jual_besar_grosir: adaEventPromo ? p.harga_jual_besar_grosir : baru.harga_jual_besar_grosir,
+                harga_jual_besar_promo: adaEventPromo ? p.harga_jual_besar_promo : baru.harga_jual_besar_promo,
+              };
+            })
+          );
+        }
       }
     });
   };
@@ -510,13 +587,93 @@ export default function InventoryClient({
     };
 
     startTransition(async () => {
-      const res = editingId === "new" ? await addProduct(data) : await updateProduct(editingId as number, data);
+      const isBaru = editingId === "new";
+      const res = isBaru ? await addProduct(data) : await updateProduct(editingId as number, data);
       if (res?.error) {
         setErrorMsg(res.error);
       } else {
+        const idLama = editingId;
         setEditingId(null); setEditForm({}); setIsPaket(false);
-        // Muat ulang data dari server agar produk baru langsung muncul di tabel
-        router.refresh();
+        // Perbarui daftar lokal saat itu juga (read-your-own-writes). Server
+        // sudah menandai cache sebagai stale untuk disegarkan di latar
+        // belakang, jadi tidak perlu menunggu refetch ribuan baris.
+        const namaKategori = categories.find((c) => c.id === Number(data.id_kategori))?.nama ?? null;
+        const namaSatuan = units.find((u) => u.id === Number(data.id_satuan))?.nama ?? null;
+        const namaLokasi = data.id_lokasi_area != null
+          ? lokasiAreas.find((l) => l.id === Number(data.id_lokasi_area))?.nama ?? null
+          : null;
+        // Harga besar/jumlah stok diambil dari baris hasil simpan (nilai final
+        // setelah trigger database), bukan dari nilai form, supaya tabel tidak
+        // menampilkan angka yang tidak sesuai isi database.
+        const tersimpan = res.row;
+        const masterBaru = masterSnapshot(products, data.id_produk_master);
+        const hargaBesar = {
+          harga_jual_besar_satuan: tersimpan?.harga_jual_besar_satuan ?? data.harga_jual_besar_satuan ?? null,
+          harga_jual_besar_grosir: tersimpan?.harga_jual_besar_grosir ?? data.harga_jual_besar_grosir ?? null,
+          harga_jual_besar_promo: tersimpan?.harga_jual_besar_promo ?? data.harga_jual_besar_promo ?? null,
+          harga_jual_besar_manual: tersimpan?.harga_jual_besar_manual ?? false,
+        };
+        if (isBaru) {
+          const idBaru = (res as { id?: number }).id;
+          if (idBaru != null) {
+            const baris: Product = {
+              ...(data as unknown as Product),
+              id: idBaru,
+              stock: data.hitung_stok ? (tersimpan?.stok ?? 0) : null,
+              stok_gudang: tersimpan?.stok_gudang ?? 0,
+              stok_minimum: tersimpan?.stok_minimum ?? data.stok_minimum ?? 5,
+              stok_minimum_gudang: tersimpan?.stok_minimum_gudang ?? null,
+              harga_pokok_avco: tersimpan?.harga_pokok_avco ?? 0,
+              nilai_persediaan: tersimpan?.nilai_persediaan ?? 0,
+              master: masterBaru,
+              kategori: namaKategori ? { nama: namaKategori } : null,
+              satuan: namaSatuan ? { nama: namaSatuan } : null,
+              lokasi_area: namaLokasi ? { nama: namaLokasi } : null,
+              harga_asli_satuan: data.harga_jual_satuan,
+              harga_asli_grosir: data.harga_jual_grosir,
+              harga_asli_promo: data.harga_jual_promo ?? null,
+              ...hargaBesar,
+              harga_asli_besar_satuan: hargaBesar.harga_jual_besar_satuan,
+              harga_asli_besar_grosir: hargaBesar.harga_jual_besar_grosir,
+              harga_asli_besar_promo: hargaBesar.harga_jual_besar_promo,
+              created_at: tersimpan?.created_at ?? new Date().toISOString(),
+              updated_at: tersimpan?.updated_at ?? new Date().toISOString(),
+            };
+            setProducts((prev) => [baris, ...prev]);
+          }
+        } else if (typeof idLama === "number") {
+          setProducts((prev) =>
+            prev.map((p) => {
+              if (p.id !== idLama) return p;
+              // Baris dengan event promo aktif: harga tampil dihitung server dari
+              // aturan promo, jadi nilai tampil dipertahankan dan hanya nilai
+              // dasar (asli) yang diperbarui sampai navigasi berikutnya.
+              const adaEventPromo = Boolean(p.nama_event_promo);
+              return {
+                ...p,
+                ...(data as unknown as Partial<Product>),
+                ...hargaBesar,
+                master: masterBaru,
+                kategori: namaKategori ? { nama: namaKategori } : null,
+                satuan: namaSatuan ? { nama: namaSatuan } : null,
+                lokasi_area: namaLokasi ? { nama: namaLokasi } : null,
+                updated_at: tersimpan?.updated_at ?? p.updated_at,
+                harga_asli_satuan: data.harga_jual_satuan,
+                harga_asli_grosir: data.harga_jual_grosir,
+                harga_asli_promo: data.harga_jual_promo ?? null,
+                harga_asli_besar_satuan: hargaBesar.harga_jual_besar_satuan,
+                harga_asli_besar_grosir: hargaBesar.harga_jual_besar_grosir,
+                harga_asli_besar_promo: hargaBesar.harga_jual_besar_promo,
+                harga_jual_satuan: adaEventPromo ? p.harga_jual_satuan : data.harga_jual_satuan,
+                harga_jual_grosir: adaEventPromo ? p.harga_jual_grosir : data.harga_jual_grosir,
+                harga_jual_promo: adaEventPromo ? p.harga_jual_promo : (data.harga_jual_promo ?? null),
+                harga_jual_besar_satuan: adaEventPromo ? p.harga_jual_besar_satuan : hargaBesar.harga_jual_besar_satuan,
+                harga_jual_besar_grosir: adaEventPromo ? p.harga_jual_besar_grosir : hargaBesar.harga_jual_besar_grosir,
+                harga_jual_besar_promo: adaEventPromo ? p.harga_jual_besar_promo : hargaBesar.harga_jual_besar_promo,
+              };
+            })
+          );
+        }
         // Langsung tampilkan produk yang baru dibuat (jangan biarkan pengguna
         // menebak-nebak — penyebab pengguna menekan Simpan berkali-kali → duplikat)
         if (editingId === "new" && data.nama_produk) {
@@ -578,7 +735,7 @@ export default function InventoryClient({
           next.delete(id);
           return next;
         });
-        router.refresh();
+        setProducts((prev) => prev.filter((p) => p.id !== id));
       }
     });
   };
@@ -596,7 +753,7 @@ export default function InventoryClient({
           next.delete(id);
           return next;
         });
-        router.refresh();
+        setProducts((prev) => prev.filter((p) => p.id !== id));
       }
     });
   };
@@ -605,12 +762,15 @@ export default function InventoryClient({
     if (!bulkDeleteIds || bulkDeleteIds.length === 0) return;
     setErrorMsg("");
     startTransition(async () => {
-      const res = await deleteProducts(bulkDeleteIds);
-      if (res?.error) { setErrorMsg(res.error); } else {
+      const idsTerhapus = bulkDeleteIds;
+      const res = await deleteProducts(idsTerhapus);
+      if (res?.error) {
+        setErrorMsg(res.error);
+      } else {
         setBulkDeleteIds(null);
         setSelectedIds(new Set());
         table.setCurrentPage(1);
-        router.refresh();
+        setProducts((prev) => prev.filter((p) => !idsTerhapus.includes(p.id)));
       }
     });
   };
@@ -623,7 +783,7 @@ export default function InventoryClient({
     setDisplayModal(prev => ({ ...prev, error: "" }));
     startTransition(async () => {
       const res = await restockDisplay(displayModal.product!.id, qty);
-      if (res?.error) { setDisplayModal(prev => ({ ...prev, error: res.error })); } else { setDisplayModal({ open: false, product: null, qty: "1", error: "" }); router.refresh(); }
+      if (res?.error) { setDisplayModal(prev => ({ ...prev, error: res.error })); } else { const produkDipindah = displayModal.product; setDisplayModal({ open: false, product: null, qty: "1", error: "" }); if (produkDipindah) setProducts((prev) => prev.map((r) => (r.id === produkDipindah.id ? { ...r, stock: (r.stock ?? 0) + qty, stok_gudang: (r.stok_gudang ?? 0) - qty } : r))); }
     });
   };
 
@@ -635,7 +795,7 @@ export default function InventoryClient({
     setGudangModal(prev => ({ ...prev, error: "" }));
     startTransition(async () => {
       const res = await moveToWarehouse(gudangModal.product!.id, qty);
-      if (res?.error) { setGudangModal(prev => ({ ...prev, error: res.error })); } else { setGudangModal({ open: false, product: null, qty: "1", error: "" }); router.refresh(); }
+      if (res?.error) { setGudangModal(prev => ({ ...prev, error: res.error })); } else { const produkDipindah = gudangModal.product; setGudangModal({ open: false, product: null, qty: "1", error: "" }); if (produkDipindah) setProducts((prev) => prev.map((r) => (r.id === produkDipindah.id ? { ...r, stock: (r.stock ?? 0) - qty, stok_gudang: (r.stok_gudang ?? 0) + qty } : r))); }
     });
   };
 
@@ -657,7 +817,16 @@ export default function InventoryClient({
       setFillPaketModal(prev => ({ ...prev, error: "" }));
       startTransition(async () => {
         const res = await isiStokPaket(product.id, qty, totalBerat);
-        if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else { setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" }); router.refresh(); }
+        if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else {
+          setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" });
+          // Cermin dari RPC process_isi_stok_paket (lihat isiStokPaketLokal).
+          const terpakai = product.jenis_isi_paket === 'ACTUAL_WEIGHT'
+            ? parseFloat(fillPaketModal.totalBerat)
+            : qty * (product.qty_per_unit ?? 1);
+          if (Number.isFinite(terpakai) && terpakai > 0) {
+            setProducts((prev) => isiStokPaketLokal(prev, product, qty, terpakai));
+          }
+        }
       });
     } else {
       const qtyPerUnit = product.qty_per_unit ?? 1;
@@ -669,7 +838,16 @@ export default function InventoryClient({
       setFillPaketModal(prev => ({ ...prev, error: "" }));
       startTransition(async () => {
         const res = await isiStokPaket(product.id, qty);
-        if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else { setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" }); router.refresh(); }
+        if (res?.error) { setFillPaketModal(prev => ({ ...prev, error: res.error })); } else {
+          setFillPaketModal({ open: false, product: null, qty: "1", totalBerat: "", error: "" });
+          // Cermin dari RPC process_isi_stok_paket (lihat isiStokPaketLokal).
+          const terpakai = product.jenis_isi_paket === 'ACTUAL_WEIGHT'
+            ? parseFloat(fillPaketModal.totalBerat)
+            : qty * (product.qty_per_unit ?? 1);
+          if (Number.isFinite(terpakai) && terpakai > 0) {
+            setProducts((prev) => isiStokPaketLokal(prev, product, qty, terpakai));
+          }
+        }
       });
     }
   };
@@ -697,6 +875,20 @@ export default function InventoryClient({
     if (!p.jual_satuan || !(Number(p.conversion_ratio) > 0)) return null;
     if (p.harga_jual_besar_satuan != null) return p.harga_jual_besar_satuan;
     return Math.round(Number(p.harga_jual_satuan || 0) * Number(p.conversion_ratio || 1));
+  };
+
+  // Penanda proses export (terpisah dari isPending milik Server Action) supaya
+  // klik Export langsung menampilkan spinner, bukan diam lalu file terunduh.
+  const [isExporting, setIsExporting] = useState(false);
+
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleExportCSV = async () => {
@@ -1028,8 +1220,9 @@ export default function InventoryClient({
             label: "Export",
             customRender: () => (
               <ExportDropdown
-                onExportCSV={handleExportCSV}
-                onExportPDF={handleExportPDF}
+                onExportCSV={() => jalankanExport(handleExportCSV)}
+                onExportPDF={() => jalankanExport(handleExportPDF)}
+                isLoading={isExporting}
                 className="flex-1 md:flex-none"
               />
             ),
@@ -1319,6 +1512,7 @@ export default function InventoryClient({
               Cek Preview
             </Button>
             <Button type="button" onClick={handleBulkPriceApply} disabled={isPending || !bulkPricePreview || bulkPriceSelectedIds.size === 0}>
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               Terapkan Perubahan
             </Button>
           </DialogFooter>
@@ -1421,7 +1615,7 @@ export default function InventoryClient({
                       Produk Master <span className="text-destructive">*</span>
                     </label>
                     <MasterCombobox
-                      products={initialProducts.filter((m) => m.id !== editingId && !m.id_produk_master)}
+                      products={products.filter((m) => m.id !== editingId && !m.id_produk_master)}
                       value={editForm.id_produk_master ?? null}
                       onChange={(id, master) => {
                         setEditForm((prev) => ({

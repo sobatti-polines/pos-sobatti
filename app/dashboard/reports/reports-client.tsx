@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { exportToCSV, exportToPDF } from "@/lib/export-utils";
+import { exportToCSV, exportToPDF, yieldToPaint } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
 
 function formatIDR(n: number) {
@@ -153,25 +153,33 @@ export default function ReportsClient({ transactions, details, products, isOwner
     };
   }, [products]);
 
-  const handleExportCSV = async () => {
-    const headers = ["Produk", "Jumlah Transaksi", "Pendapatan"];
-    const data = topProducts.map(p => [
-      p.name,
-      p.count,
-      p.revenue
-    ]);
-    await exportToCSV("Laporan_Produk_Terlaris", headers, data);
+  // Penanda proses export: ditampilkan sebagai spinner di ExportDropdown supaya
+  // klik langsung terlihat responsnya, bukan diam lalu tiba-tiba file terunduh.
+  const [isExporting, setIsExporting] = useState(false);
+
+  const jalankanExport = async (kerja: () => Promise<void>) => {
+    setIsExporting(true);
+    await yieldToPaint();
+    try {
+      await kerja();
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  const handleExportPDF = async () => {
-    const headers = ["Produk", "Jumlah Transaksi", "Pendapatan"];
-    const data = topProducts.map(p => [
-      p.name,
-      p.count,
-      formatIDR(p.revenue)
-    ]);
-    await exportToPDF("Laporan_Produk_Terlaris", "Laporan Produk Terlaris", headers, data);
-  };
+  const handleExportCSV = () =>
+    jalankanExport(async () => {
+      const headers = ["Produk", "Jumlah Transaksi", "Pendapatan"];
+      const data = topProducts.map(p => [p.name, p.count, p.revenue]);
+      await exportToCSV("Laporan_Produk_Terlaris", headers, data);
+    });
+
+  const handleExportPDF = () =>
+    jalankanExport(async () => {
+      const headers = ["Produk", "Jumlah Transaksi", "Pendapatan"];
+      const data = topProducts.map(p => [p.name, p.count, formatIDR(p.revenue)]);
+      await exportToPDF("Laporan_Produk_Terlaris", "Laporan Produk Terlaris", headers, data);
+    });
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,55,112,0.08)] overflow-hidden relative w-full">
@@ -213,6 +221,7 @@ export default function ReportsClient({ transactions, details, products, isOwner
           <ExportDropdown
             onExportCSV={handleExportCSV}
             onExportPDF={handleExportPDF}
+            isLoading={isExporting}
             className="flex-1 md:flex-none"
           />
         </div>

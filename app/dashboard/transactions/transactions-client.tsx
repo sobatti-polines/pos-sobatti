@@ -7,7 +7,8 @@ import { useTable } from "@/hooks/use-table";
 import DataTable, { type Column, type FilterDef } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { NavLinkPending } from "@/components/nav-link-pending";
 import { voidTransaction, getTransactionDetails, updatePaymentMethod } from "./actions";
 import { exportToCSV, exportToPDF, exportToExcel } from "@/lib/export-utils";
 import { ExportDropdown } from "@/components/export-dropdown";
@@ -68,7 +69,6 @@ export default function TransactionsClient({
   role?: string;
   userName?: string;
 }) {
-  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [paymentFilter, setPaymentFilter] = useState("all");
@@ -589,13 +589,16 @@ export default function TransactionsClient({
             </div>
 
             <div className="shrink-0 px-6 py-5 border-t border-border bg-muted/10 flex gap-3">
-              <Button 
-                variant="default" 
-                className="w-full rounded-full shadow-sm" 
-                onClick={() => router.push(`/pos/invoice/${detailModal.transaction?.id}`)}
+              <Button
+                asChild
+                variant="default"
+                className="w-full rounded-full shadow-sm"
               >
-                <Printer className="w-4 h-4 mr-2" />
-                Cetak Struk / Invoice
+                <Link href={`/pos/invoice/${detailModal.transaction?.id}`}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  Cetak Struk / Invoice
+                  <NavLinkPending />
+                </Link>
               </Button>
             </div>
           </div>
